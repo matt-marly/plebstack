@@ -100,7 +100,8 @@ test('every documented route has a shell path', () => {
   }
 });
 
-test('stub rejects rather than manufacturing a funded quote', async () => {
+test('nothing manufactures a funded quote: bad keys are refused and payout calls are not connected', async () => {
   await assert.rejects(protocol.createQuote({ mint: TEST_MINT, amountSat: 21, ownerPubkey: 'public-key' }),
-    /not connected/);
+    /not a valid compressed public key/);
+  await assert.rejects(protocol.recover({} as never), /not connected/);
 });
