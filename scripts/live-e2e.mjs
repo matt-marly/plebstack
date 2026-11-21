@@ -88,13 +88,18 @@ async function shoot(name) {
   console.log(`shot ${name}`);
 }
 
-async function createCampaign(title) {
+const campaigns = {
+  main: { title: 'Fix DST drift in pocket-ical recurring events', url: 'https://codeberg.org/ngozi/pocket-ical/issues/412' },
+  unmet: { title: 'Add Nostr login to a self-hosted invoice app', url: 'https://codeberg.org/ngozi/ledgerline/issues/57' },
+};
+
+async function createCampaign({ title, url }) {
   await page.goto(`${base}/?live=1`);
   await viewAs('ngozi');
   await page.getByRole('link', { name: 'Start a campaign' }).first().click();
   const key = await page.getByLabel('Maintainer’s public key').inputValue();
   await page.getByLabel('Title').fill(title);
-  await page.getByLabel('Public link').fill('https://git.example.org/ngozi/pocket-ical/issues/412');
+  await page.getByLabel('Public link').fill(url);
   await page.getByLabel(/checked this key/).check();
   await page.getByRole('button', { name: 'Create campaign' }).click();
   await page.waitForURL(/\/campaigns\/(?!new)[^/]+$/);
@@ -116,13 +121,32 @@ const summary = { mint: MINT, base, started };
 
 try {
   if (shots) mkdirSync(shotsDir, { recursive: true });
-  const created = await createCampaign(`Live check ${started.slice(0, 19)}`);
+  const created = await createCampaign(campaigns.main);
   const key = created.key;
   check('1: maintainer key made in this browser, only the pubkey shown', /^0[23][0-9a-f]{64}$/.test(key), key);
   campaignId = created.id;
   summary.campaignId = campaignId;
   summary.maintainerPubkey = key;
-  check('2: campaign created', campaignId.startsWith('live-check'), campaignId);
+  check('2: campaign created', campaignId.startsWith('fix-dst-drift'), campaignId);
+
+  // With every storage write refused, joining stops before any request to the mint and says so.
+  await openCampaign(campaignId, 'ishaan');
+  await page.getByRole('link', { name: 'Join with 21 sats' }).click();
+  const mintRequests = [];
+  const onRequest = request => { if (request.url().startsWith(MINT)) mintRequests.push(request.url()); };
+  page.on('request', onRequest);
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Quota exceeded', 'QuotaExceededError'); }; });
+  await page.getByRole('button', { name: 'Create deposit invoice' }).click();
+  const refused = page.getByRole('alert').filter({ hasText: 'Couldn’t save on this device. Nothing was sent to the mint.' });
+  await refused.waitFor({ timeout: 10_000 });
+  page.off('request', onRequest);
+  check('2b: a refused save shows plain copy and sends nothing to the mint', mintRequests.length === 0, `${mintRequests.length} mint requests`);
+
+  // Viewing as survives a reload.
+  await page.goto(`${base}/?live=1`);
+  await viewAs('maren');
+  await page.reload();
+  check('2c: Viewing as persists across a reload', await page.getByLabel('Viewing as').inputValue() === 'maren');
 
   const quotes = {};
   for (const person of ['ishaan', 'tobi', 'maren']) {
@@ -217,7 +241,7 @@ try {
   check('12: no private key written to evidence', leaked.length === 0, leaked.join(', ') || `${secrets.length} keys searched`);
 
   if (shots) {
-    const unmet = await createCampaign(`Live unmet ${started.slice(0, 19)}`);
+    const unmet = await createCampaign(campaigns.unmet);
     summary.unmetCampaignId = unmet.id;
     for (const person of ['ishaan', 'tobi']) await joinWith(unmet.id, person);
     await openCampaign(unmet.id, 'ngozi');
