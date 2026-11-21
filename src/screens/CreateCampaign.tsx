@@ -1,8 +1,9 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { DEPOSIT_SAT, createCampaign, sats } from '../demo/world';
 import { TEST_MINT } from '../domain/models';
+import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { isCompressedPubkey, isHttpUrl } from '../ui/format';
 import { PageHead, Section, useTitle } from '../ui/parts';
@@ -14,15 +15,24 @@ const order: FieldName[] = ['title', 'work', 'pubkey', 'confirmed'];
 
 export function CreateCampaign() {
   useTitle('Start a campaign');
-  const { viewer, apply } = useStore();
+  const { viewer, apply, live, refresh } = useStore();
   const navigate = useNavigate();
   const form = useRef<HTMLFormElement>(null);
 
   const [title, setTitle] = useState('');
   const [work, setWork] = useState('');
-  // The key follows whoever is viewing until someone types their own.
+  // The key follows whoever is viewing until someone types their own. Live, it is made and kept in
+  // the viewer's own storage, and only the pubkey goes into the campaign.
+  const liveKey = useMemo(() => {
+    if (!live) return undefined;
+    try {
+      return liveActions.maintainerKey(viewer.id);
+    } catch {
+      return '';
+    }
+  }, [live, viewer.id]);
   const [typedKey, setTypedKey] = useState<string>();
-  const pubkey = typedKey ?? viewer.pubkey;
+  const pubkey = typedKey ?? liveKey ?? viewer.pubkey;
   const [confirmed, setConfirmed] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
@@ -44,9 +54,14 @@ export function CreateCampaign() {
       form.current?.querySelector<HTMLElement>(`[name="${firstInvalid}"]`)?.focus();
       return;
     }
-    const next = apply((world, at) => createCampaign(world, {
-      title, publicWorkUrl: work, contributionSat: DEPOSIT_SAT, beneficiaryPubkey: pubkey,
-    }, at));
+    const draft = { title, publicWorkUrl: work, contributionSat: DEPOSIT_SAT, beneficiaryPubkey: pubkey };
+    if (live) {
+      const id = liveActions.createCampaign(viewer.id, draft);
+      refresh('Campaign created. Nothing stacked yet.');
+      navigate(paths.campaign(id));
+      return;
+    }
+    const next = apply((world, at) => createCampaign(world, draft, at));
     navigate(paths.campaign(next.campaigns[next.campaigns.length - 1].campaign.id));
   }
 

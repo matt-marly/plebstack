@@ -39,19 +39,20 @@ const demoTerms = { maintainer: people.ngozi, amountSat: DEPOSIT_SAT };
 
 export function Home() {
   useTitle('Campaigns');
-  const { world } = useStore();
+  const { world, live } = useStore();
 
   return (
     <>
       <PageHead eyebrow="Stay humble, stack together." title="Three plebs pay one maintainer together, or not at all.">
         <p>Each deposit waits at the mint, locked to its owner’s key. The organizer never holds one.</p>
         <div className="actions head-actions">
-          <Link className="button" data-variant="primary" to={paths.campaign(MAIN_CAMPAIGN)}>Open the example campaign</Link>
-          <Link className="button" to={paths.create()}>Start a campaign</Link>
+          {!live && <Link className="button" data-variant="primary" to={paths.campaign(MAIN_CAMPAIGN)}>Open the example campaign</Link>}
+          <Link className="button" data-variant={live ? 'primary' : undefined} to={paths.create()}>Start a campaign</Link>
         </div>
       </PageHead>
 
       <Section label="Campaigns">
+        {world.campaigns.length === 0 && <p>No campaigns yet. Start one as the maintainer who’ll be paid.</p>}
         <ul className="index" role="list">
           {world.campaigns.map(record => {
             const head = headline(record);

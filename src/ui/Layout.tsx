@@ -58,7 +58,7 @@ export function Layout() {
         <div className="wrap">
           <p className="strip-note">
             {live
-              ? 'Live: joining makes a real locked quote at a test mint. Fake sats.'
+              ? 'Live: every deposit, signature, payout and reclaim goes to a test mint. Fake sats.'
               : 'Prototype with stub data. Nothing here moves sats.'}
           </p>
           <label className="viewing">

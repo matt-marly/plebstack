@@ -43,6 +43,8 @@ export interface SavedOperation {
   savedAt: string;
   status: 'dispatched' | 'unresolved' | 'confirmed' | 'rejected';
   settledAt?: string;
+  // Live payouts only: the keyset the mint signed with, for the receipt.
+  keysetId?: string;
 }
 
 export interface LogEntry {
@@ -308,7 +310,7 @@ function operationId(record: CampaignRecord, kind: string): string {
   return `op-${stream(`${record.campaign.id}/${kind}/${record.operations.length}`, HEX, 8)}`;
 }
 
-function slugify(text: string): string {
+export function slugify(text: string): string {
   return text.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'campaign';
 }
 

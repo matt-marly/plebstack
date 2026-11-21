@@ -1,20 +1,25 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   canApprove, findCampaign, people, releaseApproval, sats, stateSentence, statusOf, stopApproval, tally,
 } from '../demo/world';
 import { confirmedStates, signalStates, stateCopy } from '../domain/states';
+import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { listNames, shortKey } from '../ui/format';
 import { Icon } from '../ui/Icon';
 import { NextStep } from '../ui/NextStep';
 import { ConfirmDialog, Fact, Facts, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
-import { Missing, NotYours, useRecord } from './shared';
+import { LiveChecks } from './LiveChecks';
+import { Failure, Missing, NotYours, useAction, useRecord } from './shared';
 
 export function Approve() {
-  const { viewer, apply, record, slot } = useRecord();
+  const { viewer, apply, record, slot, live, refresh } = useRecord();
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
+  const [checked, setChecked] = useState<boolean>();
+  const onChecked = useCallback((passed: boolean) => setChecked(passed), []);
+  const action = useAction();
   const found = record !== undefined && slot?.deposit !== undefined;
   useTitle(found ? 'Sign the payout' : 'Not found');
   if (!record) return <Missing what="campaign" />;
@@ -63,10 +68,38 @@ export function Approve() {
 
   function release() {
     setConfirming(false);
+    if (live) {
+      void action.run(async () => {
+        const { notice, complete } = await liveActions.sign(viewer.id, campaign.id);
+        refresh(notice);
+        if (!complete) return focusHeading();
+        // The third signature hands the batch to the coordinator, which sends it at once.
+        const sending = liveActions.payout(viewer.id, campaign.id);
+        refresh('Signed. Sent to the mint. Waiting for the mint to confirm.');
+        navigate(paths.payout(campaign.id));
+        refresh(await sending.catch(failureCopy));
+      });
+      return;
+    }
     const next = apply((world, at) => releaseApproval(world, campaign.id, deposit.id, at));
     const after = findCampaign(next, campaign.id);
     if (after && statusOf(after) === 'paying out') navigate(paths.payout(campaign.id));
     else focusHeading();
+  }
+
+  // Live, nothing can be signed until this browser's own checks pass.
+  const blocked = action.busy || (live && checked !== true);
+
+  function stop() {
+    if (!live) {
+      apply((world, at) => stopApproval(world, campaign.id, deposit.id, at));
+      focusHeading();
+      return;
+    }
+    void action.run(async () => {
+      refresh(await liveActions.stopSigning(viewer.id, campaign.id));
+      focusHeading();
+    });
   }
 
   return (
@@ -101,7 +134,9 @@ export function Approve() {
       </Section>
 
       <Section label="Checked on this device">
-        <div className="stack">
+        {live ? (
+          <LiveChecks campaignId={campaign.id} personId={viewer.id} maintainer={creator.short} others={others} onChecked={onChecked} />
+        ) : <div className="stack">
           <p>Outputs checked on this device: {total}, locked to {creator.short}’s key, no other way to spend them.</p>
           <ul className="checks" role="list">
             <li><Icon name="check" size={18} /><span>All three quotes are paid at the mint and issued to nobody.</span></li>
@@ -110,7 +145,7 @@ export function Approve() {
             <li><Icon name="check" size={18} /><span>{listNames(others)} are asked to sign this same set of outputs.</span></li>
           </ul>
           <p className="muted small">Recomputed in this browser. The organizer supplies public data only, never a key.</p>
-        </div>
+        </div>}
       </Section>
 
       <Section label="Your signature">
@@ -121,14 +156,13 @@ export function Approve() {
               there first. Stopping now releases nothing.
             </p>
           </Note>
+          {action.failure && <Failure title="Nothing was released." text={action.failure} />}
           <div className="actions">
-            <button type="button" className="button" data-variant="primary" onClick={() => setConfirming(true)}>
-              Release signature…
+            <button type="button" className="button" data-variant="primary" aria-disabled={blocked || undefined}
+              onClick={() => { if (!blocked) setConfirming(true); }}>
+              {action.busy ? 'Signing…' : 'Release signature…'}
             </button>
-            <button type="button" className="button" onClick={() => {
-              apply((world, at) => stopApproval(world, campaign.id, deposit.id, at));
-              focusHeading();
-            }}>
+            <button type="button" className="button" aria-disabled={action.busy || undefined} onClick={stop}>
               Stop signing
             </button>
           </div>

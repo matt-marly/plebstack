@@ -1,17 +1,19 @@
 import { Link } from 'react-router-dom';
 import {
   SWAP_FEE_SAT, checkMint, headline, isPending, latestOperation, people, progressLine, recordSpend, sats, slotStatus,
-  stateSentence, tally,
+  stateSentence, statusOf, tally,
 } from '../demo/world';
 import { confirmedStates, signalStates, stateCopy } from '../domain/states';
 import type { MoneyState } from '../domain/models';
+import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { formatWhen, shortKey } from '../ui/format';
 import { CopyButton, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
-import { Missing, useRecord } from './shared';
+import { Failure, Missing, useAction, useRecord } from './shared';
 
 export function Payout() {
-  const { viewer, apply, record } = useRecord();
+  const { viewer, apply, record, live, refresh } = useRecord();
+  const action = useAction();
   useTitle(record ? 'Payout' : 'Not found');
   if (!record) return <Missing what="campaign" />;
 
@@ -22,6 +24,19 @@ export function Payout() {
   const batch = latestOperation(record, 'payout');
   const back = { to: paths.campaign(campaign.id), label: 'Campaign' };
   const reclaimer = record.slots.find(slot => slotStatus(slot) === 'reclaiming');
+  const failed = action.failure && <Failure title="Nothing changed." text={action.failure} />;
+
+  function checkAgain(operationId: string) {
+    if (!live) {
+      apply((world, at) => checkMint(world, campaign.id, at));
+      focusHeading();
+      return;
+    }
+    void action.run(async () => {
+      refresh(await liveActions.checkPayout(viewer.id, campaign.id, operationId));
+      focusHeading();
+    });
+  }
 
   if (!batch || batch.status === 'rejected') {
     const head = headline(record);
@@ -47,6 +62,22 @@ export function Payout() {
                 Nothing has been sent to the mint. The payout goes as one {sats(totalSat)} batch once all three plebs
                 sign.
               </p>
+            )}
+            {live && isCreator && statusOf(record) === 'approved' && (
+              <>
+                {failed}
+                <div className="actions">
+                  <button type="button" className="button" data-variant="primary" aria-disabled={action.busy || undefined}
+                    onClick={() => void action.run(async () => {
+                      const sending = liveActions.payout(viewer.id, campaign.id);
+                      refresh('Sent to the mint. Waiting for the mint to confirm.');
+                      refresh(await sending);
+                      focusHeading();
+                    })}>
+                    {action.busy ? 'Sending…' : 'Send the payout'}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </Section>
@@ -77,12 +108,11 @@ export function Payout() {
                 <p>Their signature was already released, so a reclaim can race the payout. Whichever the mint issues first wins.</p>
               </Note>
             )}
+            {failed}
             <div className="actions">
-              <button type="button" className="button" data-variant="primary" onClick={() => {
-                apply((world, at) => checkMint(world, campaign.id, at));
-                focusHeading();
-              }}>
-                Check again
+              <button type="button" className="button" data-variant="primary" aria-disabled={action.busy || undefined}
+                onClick={() => checkAgain(batch.id)}>
+                {action.busy ? 'Asking the mint…' : 'Check again'}
               </button>
             </div>
             <p className="small">
@@ -151,6 +181,7 @@ export function Payout() {
           <p className="receipt-foot">
             Mint {campaign.mint}<br />
             {record.slots.map(slot => <span key={slot.id}>Quote {slot.quote!.id} ({people[slot.backerId!].short})<br /></span>)}
+            {batch.keysetId && <>Keyset {batch.keysetId}<br /></>}
             Locked to {shortKey(campaign.beneficiaryPubkey)}<br />
             Confirmed {confirmedAt}<br />
             Request {batch.id}<br />
@@ -166,7 +197,7 @@ export function Payout() {
             {isCreator ? 'You' : creator.short} spent it on {formatWhen(record.spend.at)}. Swap fee at the mint,
             {' '}{sats(SWAP_FEE_SAT)}. Received, {sats(receivedSat)}.
           </p>
-        ) : isCreator ? (
+        ) : isCreator && !live ? (
           <div className="stack">
             <p>
               The {sats(totalSat)} are ecash at the mint, locked to your key. Spending them costs a {sats(SWAP_FEE_SAT)}
@@ -179,6 +210,11 @@ export function Payout() {
               </button>
             </div>
           </div>
+        ) : isCreator ? (
+          <p>
+            The {sats(totalSat)} are ecash at the mint, locked to your key. Spending them costs a {sats(SWAP_FEE_SAT)}
+            {' '}swap fee at this mint, so you’ll receive {sats(receivedSat)}.
+          </p>
         ) : (
           <p>
             The {sats(totalSat)} are locked to {creator.short}’s key. When {creator.short} spends them, the mint keeps

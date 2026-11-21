@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { findCampaign, findSlot, people, setViewer, type Slot } from '../demo/world';
+import { failureCopy } from '../live/actions';
 import { paths } from '../routes';
 import { Note, PageHead, useTitle } from '../ui/parts';
 
@@ -46,4 +48,27 @@ export function NotYours({ slot }: { slot: Slot }) {
       </p>
     </Note>
   );
+}
+
+// A live action in flight: one at a time, and its failure in words.
+export function useAction() {
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string>();
+  async function run(task: () => Promise<void>) {
+    if (busy) return;
+    setBusy(true);
+    setFailure(undefined);
+    try {
+      await task();
+    } catch (error) {
+      setFailure(failureCopy(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { busy, failure, run };
+}
+
+export function Failure({ title, text }: { title: string; text: string }) {
+  return <div role="alert"><Note title={title}><p>{text}</p></Note></div>;
 }

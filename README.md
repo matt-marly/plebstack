@@ -2,7 +2,7 @@
 
 Crowdfunding on Cashu ecash. Three plebs each deposit 21 sats at one mint, locked to their own key. The maintainer is paid all 63 in one payment once all three sign, or not at all, and keeps 62 after a 1-sat fee. Until then every backer can take their own deposit back. The organizer never holds a key.
 
-This is a clickable prototype of that flow, formerly called All Together. By default it runs on stub data in the browser. With `?live=1` the join screen makes a real NUT-20 locked quote at the test mint for the viewing backer and waits for the mint to report it paid. Signing, payout and reclaim are still stubbed; `src/protocol/README.md` says exactly what is real.
+This is a clickable prototype of that flow, formerly called All Together. By default it runs on stub data in the browser. With `?live=1` the whole flow runs against the test mint; `src/protocol/README.md` says exactly what is real.
 
 ## Run it
 
@@ -17,7 +17,17 @@ Open the address Vite prints (usually `http://localhost:5173`). The demo campaig
 
 The night theme is the default. Paper is used when the system asks for light, and the button in the header overrides both.
 
-Add `?live=1` to use the test mint for real deposits. The key for each deposit is made and kept in this browser's local storage; clearing it loses the key.
+### Live mode
+
+Add `?live=1` to run everything against `https://testnut.cashudevkit.org`. Live mode starts with no campaigns and keeps the mode until the page is reloaded without it.
+
+1. As Ngozi, start a campaign. The maintainer key is made in Ngozi's storage; only the pubkey goes into the campaign.
+2. As each backer, join. The quote is locked to a key made for that backer and campaign; the page waits until the mint reports it paid.
+3. As each backer, Check and sign. The page fetches the package, the keyset and all three quote states itself and shows what it checked before a signature can be released. Stop signing records a local stop.
+4. The third signature hands the batch to the coordinator, which sends it. The page reads Paying out until the mint answers, and Paid only after the proofs verify and are saved. A rejected batch puts still-paid deposits back to Deposited. No answer leaves Check again, which asks about the same saved request.
+5. Take mine back is a real reclaim. If you signed, the payout may win: a reclaim after the payout is rejected and says so; a reclaim before it puts the other deposits back to Deposited.
+
+The “Viewing as” menu stands in for separate browsers, but each person, and the coordinator, has their own namespace in local storage, so one person's code never reads another's key. Campaigns, quotes, the package, released signatures and results sit in a shared public namespace standing in for a relay. Reloading with `?live=1` rebuilds every campaign from storage. Clearing storage loses the keys. Spending the payout is not wired in live mode.
 
 ## Demo control
 
@@ -51,14 +61,16 @@ Routes live in `src/routes.ts` and match `docs/ia-userflows.md`. Stills of every
 - `src/demo/world.ts` — the stub mint and campaigns as plain functions. A deposit only becomes paid or reclaimed when the stub mint is asked and answers; no button sets it directly.
 - `src/demo/beats.ts` — the recording script.
 - `src/screens/`, `src/ui/` — pages and shared parts. Styles are plain CSS in `src/styles/`, built on the tokens in `docs/design-system.md`.
-- `src/protocol/README.md` — the signing helper and what real integration has to preserve.
+- `src/live/` — live mode: one namespaced client per person, the shared public board, and the campaign view rebuilt from it.
+- `src/protocol/README.md` — what is real at the mint and what each call guarantees.
 
 ## Checks
 
 ```sh
 npm test
 npm run build
-PLEB_LIVE=1 npm run test:live   # against testnut.cashudevkit.org; writes .evidence/live-deposit-<time>/
+PLEB_LIVE=1 npm run test:live   # against testnut.cashudevkit.org; writes .evidence/live-{deposit,payout,reclaim}-<time>/
+node scripts/live-e2e.mjs       # the live UI in headless Chromium against testnut; writes .evidence/live-e2e-<time>/
 ```
 
 To retake the stills, keep `npm run dev` running and, in another terminal:

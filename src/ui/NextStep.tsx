@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { people, sats, statusOf, stopCollecting, tally, viewerStep, type CampaignRecord } from '../demo/world';
+import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { listNames, plural } from './format';
 import { Note } from './parts';
@@ -13,7 +14,7 @@ function ButtonLink({ to, primary, children }: { to: string; primary?: boolean; 
 // What the person looking can do now. One filled button at most; taking a deposit back
 // stays available, as a quieter button, for as long as the state machine allows it.
 export function NextStep({ record }: { record: CampaignRecord }) {
-  const { world, apply } = useStore();
+  const { world, apply, live, refresh } = useStore();
   const step = viewerStep(world, record);
   const id = record.campaign.id;
   const each = sats(record.campaign.contributionSat);
@@ -25,6 +26,7 @@ export function NextStep({ record }: { record: CampaignRecord }) {
   switch (step.kind) {
     case 'organize': {
       const collecting = statusOf(record) === 'collecting';
+      const stop = () => (live ? refresh(liveActions.stopCollecting(world.viewerId, id)) : apply((current, at) => stopCollecting(current, id, at)));
       return (
         <div className="stack">
           <p>
@@ -32,9 +34,12 @@ export function NextStep({ record }: { record: CampaignRecord }) {
               ? 'You organize this campaign. You can share it and stop collecting, but you can’t move anyone’s sats.'
               : 'You organize this campaign. Each pleb decides what happens to their own deposit.'}
           </p>
+          {statusOf(record) === 'approved' && (
+            <div className="actions"><ButtonLink to={paths.payout(id)} primary>View payout</ButtonLink></div>
+          )}
           {collecting && (
             <div className="actions">
-              <button type="button" className="button" onClick={() => apply((current, at) => stopCollecting(current, id, at))}>
+              <button type="button" className="button" onClick={stop}>
                 Stop collecting
               </button>
             </div>

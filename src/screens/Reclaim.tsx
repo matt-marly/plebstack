@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { checkMint, latestOperation, pendingOperation, people, requestReclaim, sats, stateSentence, statusOf, tally } from '../demo/world';
 import { stateCopy } from '../domain/states';
+import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { formatWhen, shortKey } from '../ui/format';
 import { ConfirmDialog, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
-import { Missing, NotYours, useRecord } from './shared';
+import { Failure, Missing, NotYours, useAction, useRecord } from './shared';
 
 export function Reclaim() {
-  const { viewer, apply, record, slot } = useRecord();
+  const { viewer, apply, record, slot, live, refresh } = useRecord();
   const [confirming, setConfirming] = useState(false);
+  const action = useAction();
   const found = record !== undefined && slot?.deposit !== undefined;
   useTitle(found ? 'Take mine back' : 'Not found');
   if (!record) return <Missing what="campaign" />;
@@ -23,6 +25,34 @@ export function Reclaim() {
   const back = { to: paths.deposit(campaign.id, slot.id), label: 'Your deposit' };
   const request = latestOperation(record, 'reclaim', slot.id);
   const batchInFlight = pendingOperation(record, 'payout') !== undefined;
+  const failed = action.failure && <Failure title="Not reclaimed." text={action.failure} />;
+
+  function takeBack() {
+    setConfirming(false);
+    if (!live) {
+      apply((world, at) => requestReclaim(world, campaign.id, slot!.id, at));
+      focusHeading();
+      return;
+    }
+    void action.run(async () => {
+      const sending = liveActions.reclaim(viewer.id, campaign.id);
+      refresh('Unstacking. Waiting for the mint.');
+      refresh(await sending);
+      focusHeading();
+    });
+  }
+
+  function checkAgain(operationId: string) {
+    if (!live) {
+      apply((world, at) => checkMint(world, campaign.id, at));
+      focusHeading();
+      return;
+    }
+    void action.run(async () => {
+      refresh(await liveActions.checkReclaim(viewer.id, campaign.id, operationId));
+      focusHeading();
+    });
+  }
 
   if (slot.backerId !== viewer.id) {
     return (
@@ -124,12 +154,11 @@ export function Reclaim() {
                 </p>
               </Note>
             )}
+            {failed}
             <div className="actions">
-              <button type="button" className="button" data-variant="primary" onClick={() => {
-                apply((world, at) => checkMint(world, campaign.id, at));
-                focusHeading();
-              }}>
-                Check again
+              <button type="button" className="button" data-variant="primary" aria-disabled={action.busy || undefined}
+                onClick={() => { if (request) checkAgain(request.id); }}>
+                {action.busy ? 'Asking the mint…' : 'Check again'}
               </button>
             </div>
             <p className="small">
@@ -173,20 +202,26 @@ export function Reclaim() {
               </p>
             </Note>
           )}
+          {request?.status === 'rejected' && !failed && (
+            <Note title="The mint rejected your last reclaim.">
+              <p>
+                Nothing was minted to you.{batchInFlight && <> If the payout got there first, your {each} went
+                to {creator.short}. <Link to={paths.payout(campaign.id)}>Check the payout</Link>.</>}
+              </p>
+            </Note>
+          )}
+          {failed}
           <div className="actions">
-            <button type="button" className="button" data-variant="primary" onClick={() => setConfirming(true)}>
-              Take mine back…
+            <button type="button" className="button" data-variant="primary" aria-disabled={action.busy || undefined}
+              onClick={() => { if (!action.busy) setConfirming(true); }}>
+              {action.busy ? 'Asking the mint…' : 'Take mine back…'}
             </button>
           </div>
         </div>
       </Section>
 
       <ConfirmDialog open={confirming} title={`Mint your ${each} into your own outputs at this mint?`} confirmLabel="Take mine back"
-        onConfirm={() => {
-          setConfirming(false);
-          apply((world, at) => requestReclaim(world, campaign.id, slot.id, at));
-          focusHeading();
-        }}
+        onConfirm={takeBack}
         onCancel={() => setConfirming(false)}>
         <p>
           You get {each} as ecash at this mint, saved in this browser

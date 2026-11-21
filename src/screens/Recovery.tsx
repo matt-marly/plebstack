@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { checkMint, isPending, people, sats, stateSentence, type CampaignRecord, type SavedOperation, type World } from '../demo/world';
 import { stateCopy } from '../domain/states';
+import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { formatWhen } from '../ui/format';
 import { Icon } from '../ui/Icon';
 import { PageHead, Section, useTitle } from '../ui/parts';
+import { Failure, useAction } from './shared';
 
 interface Entry {
   record: CampaignRecord;
@@ -40,8 +42,23 @@ function outcome(record: CampaignRecord, operation: SavedOperation): { icon?: st
 
 export function Recovery() {
   useTitle('Recovery');
-  const { world, apply } = useStore();
+  const { world, apply, live, refresh } = useStore();
+  const action = useAction();
   const entries = entriesFor(world);
+
+  // Live, a reclaim's outputs are only in its owner's storage, so only the owner can ask about it.
+  const canCheck = (operation: SavedOperation) => !live || operation.kind === 'payout' || operation.savedBy === world.viewerId;
+  function checkAgain(record: CampaignRecord, operation: SavedOperation) {
+    if (!live) {
+      apply((current, at) => checkMint(current, record.campaign.id, at));
+      return;
+    }
+    void action.run(async () => {
+      refresh(await (operation.kind === 'payout'
+        ? liveActions.checkPayout(world.viewerId, record.campaign.id, operation.id)
+        : liveActions.checkReclaim(world.viewerId, record.campaign.id, operation.id)));
+    });
+  }
   const waiting = entries.filter(entry => isPending(entry.operation));
   const settled = entries.filter(entry => !isPending(entry.operation));
 
@@ -55,6 +72,7 @@ export function Recovery() {
       </PageHead>
 
       <Section label="Waiting on the mint">
+        {action.failure && <Failure title="Nothing changed." text={action.failure} />}
         {waiting.length === 0 ? (
           <p>Nothing is waiting on the mint.</p>
         ) : (
@@ -73,15 +91,17 @@ export function Recovery() {
                     {operation.status === 'unresolved'
                       ? 'Still waiting for the mint. Nothing is paid until the mint confirms. '
                       : 'No answer yet. '}
-                    {mine ? 'Saved on this device.' : `Saved on ${people[operation.savedBy].short}’s device. You can still ask the mint.`}
+                    {mine ? 'Saved on this device.' : `Saved on ${people[operation.savedBy].short}’s device.${canCheck(operation) ? ' You can still ask the mint.' : ''}`}
                   </p>
                   <p className="small muted mono">{operation.id}</p>
-                  <div className="actions">
-                    <button type="button" className="button" data-variant={waiting.length === 1 ? 'primary' : undefined}
-                      onClick={() => apply((current, at) => checkMint(current, record.campaign.id, at))}>
-                      Check again
-                    </button>
-                  </div>
+                  {canCheck(operation) && (
+                    <div className="actions">
+                      <button type="button" className="button" data-variant={waiting.length === 1 ? 'primary' : undefined}
+                        aria-disabled={action.busy || undefined} onClick={() => checkAgain(record, operation)}>
+                        Check again
+                      </button>
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -123,7 +143,11 @@ export function Recovery() {
           <li>Keys and saved requests live only on the device that made them. Clear its storage and a deposit that hasn’t been paid out can’t be recovered.</li>
           <li>A timed-out request is never assumed to have failed. It stays open until the mint has been asked.</li>
           <li>If the mint says a quote is issued but the outputs don’t match, it isn’t marked paid or reclaimed.</li>
-          <li>This prototype makes no backup and doesn’t survive a reload.</li>
+          <li>
+            {live
+              ? 'After a reload, campaigns are rebuilt from this browser’s storage. Nothing is backed up anywhere else.'
+              : 'This prototype makes no backup and doesn’t survive a reload.'}
+          </li>
         </ul>
       </Section>
     </>

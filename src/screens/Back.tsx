@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createLiveQuote, failureCopy, isLiveQuote, waitForLiveDeposit } from '../demo/live';
 import { useStore } from '../demo/store';
-import { confirmDeposit, people, requestQuote, sats, setViewer, slotOf, slotStatus, statusOf } from '../demo/world';
+import { confirmDeposit, people, requestQuote, sats, slotOf, slotStatus, statusOf } from '../demo/world';
 import type { LockedQuote } from '../domain/models';
+import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { CopyButton, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
-import { Missing, useRecord } from './shared';
-
-function Failure({ text }: { text: string }) {
-  return <div role="alert"><Note title="Nothing stacked"><p>{text}</p></Note></div>;
-}
+import { Failure, Missing, useRecord } from './shared';
 
 // Asks the test mint until it reports the quote paid and unissued, then records the deposit.
-function LiveStatus({ campaignId, slotId, quote }: { campaignId: string; slotId: string; quote: LockedQuote }) {
-  const { apply } = useStore();
+function LiveStatus({ campaignId, slotId, ownerId, quote }: { campaignId: string; slotId: string; ownerId: string; quote: LockedQuote }) {
+  const { refresh } = useStore();
   const navigate = useNavigate();
   const [checkedAt, setCheckedAt] = useState<Date>();
   const [failure, setFailure] = useState<string>();
@@ -23,14 +19,16 @@ function LiveStatus({ campaignId, slotId, quote }: { campaignId: string; slotId:
   useEffect(() => {
     const controller = new AbortController();
     setFailure(undefined);
-    waitForLiveDeposit(quote.id, { signal: controller.signal, onCheck: (_check, at) => setCheckedAt(at) }).then(paid => {
-      apply((world, at) => confirmDeposit(world, campaignId, slotId, at, paid));
+    liveActions.waitForDeposit(ownerId, campaignId, quote.id, {
+      signal: controller.signal, onCheck: (_check, at) => setCheckedAt(at),
+    }).then(notice => {
+      refresh(notice);
       navigate(paths.deposit(campaignId, slotId));
     }).catch(error => {
       if (!controller.signal.aborted) setFailure(failureCopy(error));
     });
     return () => controller.abort();
-  }, [quote.id, attempt, campaignId, slotId, apply, navigate]);
+  }, [quote.id, attempt, campaignId, slotId, ownerId, refresh, navigate]);
 
   return (
     <div className="stack" data-gap="large">
@@ -41,7 +39,7 @@ function LiveStatus({ campaignId, slotId, quote }: { campaignId: string; slotId:
       </StateBlock>
       {failure && (
         <>
-          <Failure text={failure} />
+          <Failure title="Nothing stacked" text={failure} />
           <div className="actions">
             <button type="button" className="button" onClick={() => setAttempt(count => count + 1)}>Check again</button>
           </div>
@@ -53,7 +51,7 @@ function LiveStatus({ campaignId, slotId, quote }: { campaignId: string; slotId:
 
 export function Back() {
   const { viewer, apply, record } = useRecord();
-  const { live } = useStore();
+  const { live, refresh } = useStore();
   const navigate = useNavigate();
   const [asking, setAsking] = useState(false);
   const [failure, setFailure] = useState<string>();
@@ -78,7 +76,7 @@ export function Back() {
 
   if (awaiting && slot.quote) {
     const quote = slot.quote;
-    const real = live && isLiveQuote(quote.id);
+    const real = live;
     return (
       <>
         <PageHead back={back} eyebrow={campaign.title} title="Pay the invoice">
@@ -86,7 +84,7 @@ export function Back() {
         </PageHead>
 
         <Section label="Status">
-          {real ? <LiveStatus campaignId={campaign.id} slotId={slot.id} quote={quote} /> : (
+          {real ? <LiveStatus campaignId={campaign.id} slotId={slot.id} ownerId={viewer.id} quote={quote} /> : (
             <div className="stack" data-gap="large">
               <StateBlock icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid." />
               <div className="actions">
@@ -155,8 +153,8 @@ export function Back() {
     setAsking(true);
     setFailure(undefined);
     try {
-      const quote = await createLiveQuote(campaign, backerId);
-      apply((world, at) => setViewer(requestQuote(setViewer(world, backerId), campaign.id, at, quote), world.viewerId));
+      await liveActions.join(backerId, campaign.id);
+      refresh(`Pay this invoice to stack ${each}. Not stacked until the mint reports it paid.`);
       focusHeading();
     } catch (error) {
       setFailure(failureCopy(error));
@@ -182,7 +180,7 @@ export function Back() {
           <Note>
             <p>Your key stays in this browser and nothing backs it up. Clear its storage before the payout and the deposit can’t be recovered.</p>
           </Note>
-          {failure && <Failure text={failure} />}
+          {failure && <Failure title="Nothing stacked" text={failure} />}
           <div className="actions">
             <button type="button" className="button" data-variant="primary" aria-disabled={asking || undefined}
               onClick={() => { if (!asking) void join(); }}>
