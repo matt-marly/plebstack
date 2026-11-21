@@ -1,3 +1,5 @@
+import type { PublicKeyset } from '../domain/models';
+
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 export type QuoteState = 'UNPAID' | 'PAID' | 'ISSUED';
 
@@ -28,14 +30,19 @@ export class MintError extends Error {
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
-export async function mintRequest(fetch: FetchLike, url: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
+export function mintRequest(fetch: FetchLike, url: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
+  return mintSend(fetch, url, body === undefined ? undefined : JSON.stringify(body), signal);
+}
+
+// Sends a body exactly as given, so a saved request string is byte-for-byte what the mint received.
+export async function mintSend(fetch: FetchLike, url: string, body?: string, signal?: AbortSignal): Promise<unknown> {
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(url, {
       method: body === undefined ? 'GET' : 'POST',
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body,
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
   } catch (error) {
@@ -47,6 +54,31 @@ export async function mintRequest(fetch: FetchLike, url: string, body?: unknown,
   try { parsed = JSON.parse(text); } catch { /* keep the raw text for the error */ }
   if (!response.ok) throw new MintError(`The mint answered HTTP ${response.status}.`, response.status, parsed);
   return parsed;
+}
+
+// A 4xx with a Cashu error body means the mint looked at the request and refused it.
+export function cashuRejection(error: unknown): string | undefined {
+  if (!(error instanceof MintError) || error.status === undefined || error.status < 400 || error.status >= 500) return undefined;
+  const body = error.body as { code?: unknown; detail?: unknown } | undefined;
+  if (typeof body !== 'object' || body === null || typeof body.code !== 'number') return undefined;
+  return `${body.code}: ${typeof body.detail === 'string' ? body.detail : 'no detail'}`;
+}
+
+export async function activeSatKeyset(fetch: FetchLike, mint: string, signal?: AbortSignal): Promise<PublicKeyset> {
+  const list = await mintRequest(fetch, `${mint}/v1/keysets`, undefined, signal) as { keysets?: unknown };
+  const entries = Array.isArray(list?.keysets) ? list.keysets as Record<string, unknown>[] : [];
+  const active = entries.find(entry => entry.active === true && entry.unit === 'sat' && typeof entry.id === 'string');
+  if (!active) throw new MintError('The mint lists no active sat keyset.', 200, list);
+  const id = active.id as string;
+  const answer = await mintRequest(fetch, `${mint}/v1/keys/${encodeURIComponent(id)}`, undefined, signal) as { keysets?: unknown };
+  const found = (Array.isArray(answer?.keysets) ? answer.keysets as Record<string, unknown>[] : []).find(entry => entry.id === id);
+  const keys = found?.keys as Record<string, unknown> | undefined;
+  if (!keys || typeof keys !== 'object' || !Object.values(keys).every(key => typeof key === 'string')) {
+    throw new MintError('The mint sent keys in a shape this app doesn’t understand.', 200, answer);
+  }
+  const fee = active.input_fee_ppk ?? 0;
+  if (typeof fee !== 'number' || !Number.isSafeInteger(fee) || fee < 0) throw new MintError('The mint sent an invalid input fee.', 200, list);
+  return { id, unit: 'sat', inputFeePpk: fee, keys: keys as Record<string, string> };
 }
 
 export function parseQuote(body: unknown): MintQuoteResponse {

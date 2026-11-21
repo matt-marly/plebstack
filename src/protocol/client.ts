@@ -1,10 +1,17 @@
 import type {
-  Authorization, BatchPlan, BlindedOutput, LockedQuote, MintUrl,
+  Authorization, BatchPlan, BlindedOutput, Campaign, IssuedProof, LockedQuote, MintUrl,
   OutputConstruction, RecoveryOperation, Settlement,
 } from '../domain/models';
+import { findRelease, saveRelease, storedStops, type ReleaseRecord } from './approvals';
+import {
+  PackageError, authorizationProblem, messages, outputsDigest, payoutOutputs, payoutProofs, planTerms,
+  signLockedProof, verifyPackage,
+} from './batch';
 import { findDeposit, listDeposits, saveDeposit, type DepositRecord, type SavedQuote } from './deposits';
 import { enrollMaintainer, ensureKey, hasKey, isValidPubkey, secretKeyFor } from './keys';
-import { MintError, mintRequest, parseQuote, type FetchLike, type MintQuoteResponse } from './mint';
+import {
+  MintError, activeSatKeyset, cashuRejection, mintRequest, mintSend, parseQuote, type FetchLike, type MintQuoteResponse,
+} from './mint';
 import { createRecoveryStore } from './recovery';
 import { createQuoteSigner } from './signer';
 import { StorageError, createRecordStore, type StorageLike } from './storage';
@@ -38,6 +45,8 @@ export interface DepositCheck {
   paid: boolean;
 }
 
+export type CampaignTerms = Pick<Campaign, 'id' | 'mint' | 'beneficiaryPubkey' | 'backerCount' | 'contributionSat'>;
+
 export interface ProtocolClient {
   enrollKey(owner: string): string;
   enrollMaintainer(owner: string): string;
@@ -48,14 +57,18 @@ export interface ProtocolClient {
   waitForDeposit(quoteId: string, options?: WaitOptions): Promise<LockedQuote>;
   findDeposit(quoteId: string): DepositRecord | undefined;
   abandonUnanswered(): number;
-  authorizeBatch(plan: BatchPlan, quote: LockedQuote, signer: QuoteSigner): Promise<Authorization>;
-  payout(plan: BatchPlan, authorizations: [Authorization, Authorization, Authorization], operation: RecoveryOperation): Promise<Settlement>;
+  preparePayout(campaign: CampaignTerms, quotes: LockedQuote[]): Promise<BatchPlan>;
+  authorizeBatch(campaign: CampaignTerms, plan: BatchPlan, quote: LockedQuote, signer: QuoteSigner): Promise<Authorization>;
+  findRelease(quoteId: string): ReleaseRecord | undefined;
+  payout(plan: BatchPlan, authorizations: Authorization[], operationId: string): Promise<Settlement>;
+  signLockedProofs(pubkey: string, proofs: IssuedProof[]): IssuedProof[];
   reclaim(quote: LockedQuote, outputs: OutputConstruction[], signer: QuoteSigner, operation: RecoveryOperation): Promise<Settlement>;
   recover(operation: RecoveryOperation): Promise<Settlement>;
 }
 
 export type ProtocolFailure =
-  | 'storage' | 'invalid-key' | 'unknown-quote' | 'mint' | 'not-locked' | 'issued-early' | 'timeout' | 'aborted';
+  | 'storage' | 'invalid-key' | 'unknown-quote' | 'mint' | 'not-locked' | 'issued-early' | 'not-paid' | 'timeout' | 'aborted'
+  | 'authorization';
 
 export class ProtocolError extends Error {
   constructor(readonly kind: ProtocolFailure, message: string, options?: ErrorOptions) {
@@ -140,6 +153,14 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
     }
   }
 
+  async function mintQuote(mint: MintUrl, quoteId: string): Promise<MintQuoteResponse> {
+    const response = parseQuote(await mintRequest(fetch, `${mint}/v1/mint/quote/bolt11/${encodeURIComponent(quoteId)}`));
+    if (response.quote !== quoteId) throw new ProtocolError('not-locked', 'The mint answered about a different quote.');
+    return response;
+  }
+
+  const recovery = createRecoveryStore(store);
+
   const client: ProtocolClient = {
     enrollKey(owner) {
       try {
@@ -161,10 +182,10 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
     signerFor(pubkey) {
       const secretKey = secretKeyFor(store, pubkey);
       if (!secretKey) throw new ProtocolError('invalid-key', 'This browser holds no key for that pubkey.');
-      return createQuoteSigner(secretKey, pubkey, quoteId => findDeposit(store, quoteId)?.ownerPubkey === pubkey);
+      return createQuoteSigner(secretKey, pubkey, quoteId => findDeposit(store, quoteId)?.ownerPubkey === pubkey, storedStops(store, now));
     },
 
-    recovery: createRecoveryStore(store),
+    recovery,
 
     async createQuote({ mint, amountSat, ownerPubkey }, signal) {
       if (!isValidPubkey(ownerPubkey)) throw new ProtocolError('invalid-key', 'That is not a valid compressed public key.');
@@ -252,8 +273,157 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
       return open.length;
     },
 
-    authorizeBatch: async () => unavailable(),
-    payout: async () => unavailable(),
+    async preparePayout(campaign, quotes) {
+      const ids = quotes.map(quote => quote.id);
+      if (quotes.length !== campaign.backerCount || new Set(ids).size !== quotes.length) {
+        throw new ProtocolError('unknown-quote', `A payout needs ${campaign.backerCount} different deposits.`);
+      }
+      const saved = store.read<BatchPlan>(`plan:${campaign.id}`);
+      if (saved && saved.quoteIds.join() === ids.join()) return saved;
+
+      let keyset;
+      try {
+        for (const quote of quotes) {
+          const answer = await mintQuote(campaign.mint, quote.id);
+          if (answer.pubkey !== quote.ownerPubkey) throw new ProtocolError('not-locked', 'A deposit is not locked to the key its backer enrolled.');
+          if (answer.state === 'ISSUED' || answer.amount_issued > 0) throw new ProtocolError('issued-early', 'A deposit was already issued.');
+          if (answer.state !== 'PAID' || answer.amount_paid !== campaign.contributionSat || answer.amount !== campaign.contributionSat) {
+            throw new ProtocolError('not-paid', 'A deposit is not paid in full yet.');
+          }
+        }
+        keyset = await activeSatKeyset(fetch, campaign.mint);
+      } catch (error) {
+        throw asProtocolError(error);
+      }
+
+      const totalSat = campaign.contributionSat * campaign.backerCount;
+      const plan: BatchPlan = {
+        campaignId: campaign.id, mint: campaign.mint, beneficiaryPubkey: campaign.beneficiaryPubkey,
+        quoteIds: ids as BatchPlan['quoteIds'], ownerPubkeys: quotes.map(quote => quote.ownerPubkey) as BatchPlan['ownerPubkeys'],
+        keyset, outputs: payoutOutputs(campaign.beneficiaryPubkey, totalSat, keyset), totalSat,
+      };
+      try {
+        store.write(`plan:${campaign.id}`, plan);
+      } catch (error) {
+        throw new ProtocolError('storage', 'Couldn’t save the payout package on this device.', { cause: error });
+      }
+      return plan;
+    },
+
+    async authorizeBatch(campaign, plan, quote, signer) {
+      const record = findDeposit(store, quote.id);
+      if (!record || record.status !== 'paid' || record.ownerPubkey !== signer.pubkey || quote.ownerPubkey !== signer.pubkey
+        || !hasKey(store, signer.pubkey)) {
+        throw new PackageError('not-owner', 'This browser does not hold the key for that deposit.');
+      }
+      if (signer.approvalsStopped(quote.id)) throw new PackageError('stopped', 'New approvals for this deposit are stopped on this device.');
+      if (record.mint !== campaign.mint) throw new PackageError('mint', 'This deposit is at a different mint.');
+
+      let keysetId: string;
+      try {
+        keysetId = (await activeSatKeyset(fetch, campaign.mint)).id;
+      } catch (error) {
+        throw asProtocolError(error);
+      }
+      const outputs = verifyPackage(plan, {
+        campaignId: campaign.id, mint: campaign.mint, beneficiaryPubkey: campaign.beneficiaryPubkey,
+        totalSat: campaign.contributionSat * campaign.backerCount, keysetId, quoteId: quote.id, ownerPubkey: signer.pubkey,
+      });
+
+      const digest = outputsDigest(outputs);
+      const released = findRelease(store, quote.id);
+      if (released) {
+        if (released.outputsDigest !== digest) {
+          throw new PackageError('released', 'You already approved a different payout for this deposit.');
+        }
+        return { quoteId: quote.id, signature: released.signature, outputs };
+      }
+
+      const signature = await signer.signQuote(quote.id, outputs);
+      try {
+        saveRelease(store, { quoteId: quote.id, campaignId: campaign.id, signature, outputsDigest: digest, releasedAt: now().toISOString() });
+      } catch (error) {
+        throw new ProtocolError('storage', 'Couldn’t record the approval on this device, so it was not handed over.', { cause: error });
+      }
+      return { quoteId: quote.id, signature, outputs };
+    },
+
+    findRelease: quoteId => findRelease(store, quoteId),
+
+    async payout(plan, authorizations, operationId) {
+      let problem: string | undefined;
+      try {
+        verifyPackage(plan, planTerms(plan));
+        problem = authorizationProblem(plan, authorizations);
+      } catch (error) {
+        problem = (error as Error).message;
+      }
+      if (problem) throw new ProtocolError('authorization', problem);
+
+      const requestBody = JSON.stringify({
+        quotes: plan.quoteIds, outputs: messages(plan.outputs), signatures: authorizations.map(authorization => authorization.signature),
+      });
+      let operation: RecoveryOperation = {
+        version: 1, id: operationId, kind: 'payout', mint: plan.mint, quoteIds: [...plan.quoteIds], outputs: plan.outputs,
+        keysetId: plan.keyset.id, requestBody, createdAt: now().toISOString(), status: 'prepared',
+      };
+      try {
+        await recovery.saveBeforeDispatch(operation);
+        operation = { ...operation, status: 'dispatched', dispatchedAt: now().toISOString() };
+        await recovery.saveResult(operation);
+      } catch (error) {
+        throw new ProtocolError('storage', 'Couldn’t save the payout before sending it. Nothing was sent to the mint.', { cause: error });
+      }
+
+      // A failed save here leaves the operation dispatched, which recovery treats as unresolved.
+      const settle = async (change: Partial<RecoveryOperation>) => {
+        const next = { ...operation, ...change, settledAt: now().toISOString() };
+        await recovery.saveResult(next);
+        operation = next;
+      };
+      const pending = async (change: Partial<RecoveryOperation>): Promise<Settlement> => {
+        await settle({ status: 'unresolved', ...change }).catch(() => {});
+        return { kind: 'pending', operationId };
+      };
+
+      let answer: unknown;
+      try {
+        answer = await mintSend(fetch, `${plan.mint}/v1/mint/bolt11/batch`, requestBody);
+      } catch (error) {
+        const reason = cashuRejection(error);
+        if (reason === undefined) return pending({ reason: (error as Error).message });
+        await settle({ status: 'rejected', reason }).catch(() => {});
+        return { kind: 'rejected', operationId, reason };
+      }
+
+      const response = JSON.stringify(answer);
+      let proofs: IssuedProof[];
+      try {
+        proofs = payoutProofs(plan, answer);
+      } catch (error) {
+        return pending({ reason: (error as Error).message, response });
+      }
+      try {
+        const states = [];
+        for (const id of plan.quoteIds) states.push((await mintQuote(plan.mint, id)).state);
+        if (states.some(state => state !== 'ISSUED')) throw new Error(`The mint reports ${states.join(', ')} after the payout.`);
+      } catch (error) {
+        return pending({ reason: (error as Error).message, response, proofs });
+      }
+      try {
+        await settle({ status: 'confirmed', response, proofs });
+      } catch {
+        return pending({ response, proofs });
+      }
+      return { kind: 'confirmed', operationId, destination: 'creator', proofs };
+    },
+
+    signLockedProofs(pubkey, proofs) {
+      const secretKey = secretKeyFor(store, pubkey);
+      if (!secretKey) throw new ProtocolError('invalid-key', 'This browser holds no key for that pubkey.');
+      return proofs.map(proof => signLockedProof(proof, secretKey));
+    },
+
     reclaim: async () => unavailable(),
     recover: async () => unavailable(),
   };

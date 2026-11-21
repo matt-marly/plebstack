@@ -16,7 +16,7 @@ export function createRecoveryStore(store: RecordStore): RecoveryStore {
       return store.read<RecoveryOperation>(PREFIX + operationId);
     },
     async listUnresolved() {
-      return all().filter(operation => operation.status !== 'confirmed');
+      return all().filter(operation => operation.status !== 'confirmed' && operation.status !== 'rejected');
     },
     async saveResult(operation) {
       if (!store.read(PREFIX + operation.id)) throw new Error(`Operation ${operation.id} was never saved before dispatch.`);
