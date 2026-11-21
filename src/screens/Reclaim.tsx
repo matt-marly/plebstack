@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { checkMint, latestOperation, pendingOperation, people, requestReclaim, sats, stateSentence, statusOf, tally } from '../demo/world';
+import { checkMint, findCampaign, latestOperation, pendingOperation, people, requestReclaim, sats, stateSentence, statusOf, tally } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { liveActions } from '../live/actions';
 import { paths } from '../routes';
@@ -36,7 +36,7 @@ export function Reclaim() {
     }
     void action.run(async () => {
       const sending = liveActions.reclaim(viewer.id, campaign.id);
-      refresh('Unstacking. Waiting for the mint.');
+      if (pendingOperation(findCampaign(refresh(), campaign.id)!, 'reclaim', slot!.id)) refresh('Unstacking. Waiting for the mint.');
       refresh(await sending);
       focusHeading();
     });

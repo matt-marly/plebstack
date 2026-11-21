@@ -32,6 +32,7 @@ export interface RecoveryStore {
   get(operationId: string): Promise<RecoveryOperation | undefined>;
   listUnresolved(): Promise<RecoveryOperation[]>;
   saveResult(operation: RecoveryOperation): Promise<void>;
+  discard(operationId: string): Promise<void>;
 }
 
 export interface WaitOptions {
@@ -83,6 +84,8 @@ export interface ProtocolClient {
 export type ProtocolFailure =
   | 'storage' | 'invalid-key' | 'unknown-quote' | 'mint' | 'not-locked' | 'issued-early' | 'not-paid' | 'timeout' | 'aborted'
   | 'authorization' | 'not-owner' | 'pending' | 'unknown-operation';
+
+export const NOT_SAVED = 'Couldn’t save on this device. Nothing was sent to the mint.';
 
 export class ProtocolError extends Error {
   constructor(readonly kind: ProtocolFailure, message: string, options?: ErrorOptions) {
@@ -214,12 +217,18 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
   async function dispatching(operation: RecoveryOperation): Promise<Run> {
     try {
       await recovery.saveBeforeDispatch(operation);
-      const sent: RecoveryOperation = { ...operation, status: 'dispatched', dispatchedAt: now().toISOString() };
-      await recovery.saveResult(sent);
-      return tracker(sent);
     } catch (error) {
-      throw new ProtocolError('storage', `Couldn’t save the ${operation.kind} before sending it. Nothing was sent to the mint.`, { cause: error });
+      throw new ProtocolError('storage', NOT_SAVED, { cause: error });
     }
+    const sent: RecoveryOperation = { ...operation, status: 'dispatched', dispatchedAt: now().toISOString() };
+    try {
+      await recovery.saveResult(sent);
+    } catch (error) {
+      // Never sent, so it mustn't linger as a request waiting on the mint.
+      await recovery.discard(operation.id).catch(() => {});
+      throw new ProtocolError('storage', NOT_SAVED, { cause: error });
+    }
+    return tracker(sent);
   }
 
   async function answered(run: Run, handling: Handling, answer: unknown): Promise<Settlement> {
@@ -319,7 +328,7 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
       try {
         return ensureKey(store, owner, now());
       } catch (error) {
-        throw new ProtocolError('storage', 'Couldn’t save a key on this device. Nothing was sent to the mint.', { cause: error });
+        throw new ProtocolError('storage', NOT_SAVED, { cause: error });
       }
     },
 
@@ -328,7 +337,7 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
         return enrollMaintainer(store, owner, now());
       } catch (error) {
         throw new ProtocolError(error instanceof StorageError ? 'storage' : 'invalid-key',
-          error instanceof StorageError ? 'Couldn’t save a key on this device.' : (error as Error).message, { cause: error });
+          error instanceof StorageError ? NOT_SAVED : (error as Error).message, { cause: error });
       }
     },
 
@@ -352,7 +361,7 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
         saveDeposit(store, record);
       } catch (error) {
         if (error instanceof ProtocolError) throw error;
-        throw new ProtocolError('storage', 'Couldn’t save the request on this device. Nothing was sent to the mint.', { cause: error });
+        throw new ProtocolError('storage', NOT_SAVED, { cause: error });
       }
 
       // If the page closes before the answer, the mint may hold a quote we never saw. Nothing was
@@ -548,7 +557,7 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
       try {
         await signer.stopNewApprovals(quoteId);
       } catch (error) {
-        throw new ProtocolError('storage', 'Couldn’t save on this device. Nothing was sent to the mint.', { cause: error });
+        throw new ProtocolError('storage', NOT_SAVED, { cause: error });
       }
 
       let keyset: PublicKeyset;

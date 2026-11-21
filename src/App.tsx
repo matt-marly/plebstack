@@ -1,17 +1,19 @@
+import { lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { WorldProvider } from './demo/store';
 import { routes } from './routes';
-import { Approve } from './screens/Approve';
-import { Back } from './screens/Back';
-import { CampaignPage } from './screens/CampaignPage';
-import { CreateCampaign } from './screens/CreateCampaign';
-import { DepositDetail } from './screens/DepositDetail';
-import { Home } from './screens/Home';
-import { Payout } from './screens/Payout';
-import { Reclaim } from './screens/Reclaim';
-import { Recovery } from './screens/Recovery';
 import { NotFound } from './screens/shared';
 import { Layout } from './ui/Layout';
+
+const Approve = lazy(() => import('./screens/Approve').then(module => ({ default: module.Approve })));
+const Back = lazy(() => import('./screens/Back').then(module => ({ default: module.Back })));
+const CampaignPage = lazy(() => import('./screens/CampaignPage').then(module => ({ default: module.CampaignPage })));
+const CreateCampaign = lazy(() => import('./screens/CreateCampaign').then(module => ({ default: module.CreateCampaign })));
+const DepositDetail = lazy(() => import('./screens/DepositDetail').then(module => ({ default: module.DepositDetail })));
+const Home = lazy(() => import('./screens/Home').then(module => ({ default: module.Home })));
+const Payout = lazy(() => import('./screens/Payout').then(module => ({ default: module.Payout })));
+const Reclaim = lazy(() => import('./screens/Reclaim').then(module => ({ default: module.Reclaim })));
+const Recovery = lazy(() => import('./screens/Recovery').then(module => ({ default: module.Recovery })));
 
 export function App() {
   return (

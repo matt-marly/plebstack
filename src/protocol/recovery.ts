@@ -22,5 +22,9 @@ export function createRecoveryStore(store: RecordStore): RecoveryStore {
       if (!store.read(PREFIX + operation.id)) throw new Error(`Operation ${operation.id} was never saved before dispatch.`);
       store.write(PREFIX + operation.id, operation);
     },
+    async discard(operationId) {
+      const saved = store.read<RecoveryOperation>(PREFIX + operationId);
+      if (saved?.status === 'prepared') store.remove(PREFIX + operationId);
+    },
   };
 }

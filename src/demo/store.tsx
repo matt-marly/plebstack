@@ -2,9 +2,21 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useLocation, useNavigate } from 'react-router-dom';
 import { liveActions } from '../live/actions';
 import { beats, findBeat } from './beats';
-import { DEFAULT_VIEWER, initialWorld, people, type Person, type World } from './world';
+import { DEFAULT_VIEWER, initialWorld, people, setViewer, type Person, type World } from './world';
 
 type Change = (world: World, at: string) => World;
+
+const VIEWER_KEY = 'viewer';
+
+function savedViewer(): string {
+  try {
+    const id = localStorage.getItem(VIEWER_KEY);
+    if (id && people[id]) return id;
+  } catch {
+    // No storage: start as the default viewer.
+  }
+  return DEFAULT_VIEWER;
+}
 
 interface Store {
   world: World;
@@ -17,6 +29,8 @@ interface Store {
   live: boolean;
   // Live mode: rebuild the world from storage after a real action, announcing the notice.
   refresh: (notice?: string) => World;
+  // Switches who is viewing and remembers the choice for the next visit.
+  viewAs: (personId: string) => void;
   beatId: string | undefined;
   showBeat: (id: string) => void;
 }
@@ -33,7 +47,9 @@ export function WorldProvider({ children }: { children: ReactNode }) {
   const [demo, setDemo] = useState(() => params.get('demo') === '1');
   const [live, setLive] = useState(() => params.get('live') === '1');
   const [beatId, setBeatId] = useState(() => (live ? undefined : findBeat(beatParam)?.id));
-  const [world, setWorld] = useState(() => (live ? liveActions.world(DEFAULT_VIEWER) : findBeat(beatParam)?.world() ?? initialWorld()));
+  // A beat brings its own viewer; otherwise the last person chosen in Viewing as.
+  const [world, setWorld] = useState(() => (live ? liveActions.world(savedViewer())
+    : findBeat(beatParam)?.world() ?? setViewer(initialWorld(), savedViewer())));
   const latest = useRef(world);
 
   const load = useCallback((next: World, id: string | undefined) => {
@@ -68,6 +84,15 @@ export function WorldProvider({ children }: { children: ReactNode }) {
     return next;
   }, []);
 
+  const viewAs = useCallback((personId: string) => {
+    apply(current => setViewer(current, personId));
+    try {
+      localStorage.setItem(VIEWER_KEY, personId);
+    } catch {
+      // Private browsing can refuse storage; the choice then lasts for this page only.
+    }
+  }, [apply]);
+
   const showBeat = useCallback((id: string) => {
     const beat = findBeat(id) ?? beats[0];
     load(beat.world(), beat.id);
@@ -78,8 +103,8 @@ export function WorldProvider({ children }: { children: ReactNode }) {
     if (live) liveActions.abandonUnanswered();
   }, [live]);
 
-  const store = useMemo<Store>(() => ({ world, viewer: people[world.viewerId], apply, demo, live, refresh, beatId, showBeat }),
-    [world, apply, demo, live, refresh, beatId, showBeat]);
+  const store = useMemo<Store>(() => ({ world, viewer: people[world.viewerId], apply, demo, live, refresh, viewAs, beatId, showBeat }),
+    [world, apply, demo, live, refresh, viewAs, beatId, showBeat]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

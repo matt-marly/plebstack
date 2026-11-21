@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DemoPanel } from '../demo/DemoPanel';
 import { useStore } from '../demo/store';
-import { people, setViewer } from '../demo/world';
+import { people } from '../demo/world';
 import { TEST_MINT } from '../domain/models';
 import { paths } from '../routes';
 import { Icon } from './Icon';
@@ -37,7 +37,7 @@ function ThemeToggle() {
 }
 
 export function Layout() {
-  const { world, viewer, apply, demo, live } = useStore();
+  const { world, viewer, viewAs, demo, live } = useStore();
   const { pathname } = useLocation();
   const main = useRef<HTMLElement>(null);
   const shownPath = useRef(pathname);
@@ -63,7 +63,7 @@ export function Layout() {
           </p>
           <label className="viewing">
             Viewing as
-            <select value={viewer.id} onChange={event => apply(current => setViewer(current, event.target.value))}>
+            <select value={viewer.id} onChange={event => viewAs(event.target.value)}>
               {sessions.map(session => (
                 <option key={session.id} value={session.id}>{people[session.id].name}, {session.role}</option>
               ))}
@@ -87,7 +87,7 @@ export function Layout() {
       </header>
 
       <main id="main" className="page" tabIndex={-1} ref={main}>
-        <div className="wrap"><Outlet /></div>
+        <div className="wrap"><Suspense fallback={null}><Outlet /></Suspense></div>
       </main>
 
       <footer className="site-foot">

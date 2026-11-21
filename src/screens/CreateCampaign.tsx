@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { DEPOSIT_SAT, createCampaign, sats } from '../demo/world';
 import { TEST_MINT } from '../domain/models';
-import { liveActions } from '../live/actions';
+import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { isCompressedPubkey, isHttpUrl } from '../ui/format';
 import { PageHead, Section, useTitle } from '../ui/parts';
+import { Failure } from './shared';
 
 type FieldName = 'title' | 'work' | 'pubkey' | 'confirmed';
 type Errors = Partial<Record<FieldName, string>>;
@@ -23,16 +24,17 @@ export function CreateCampaign() {
   const [work, setWork] = useState('');
   // The key follows whoever is viewing until someone types their own. Live, it is made and kept in
   // the viewer's own storage, and only the pubkey goes into the campaign.
-  const liveKey = useMemo(() => {
+  const made = useMemo(() => {
     if (!live) return undefined;
     try {
-      return liveActions.maintainerKey(viewer.id);
-    } catch {
-      return '';
+      return { key: liveActions.maintainerKey(viewer.id) };
+    } catch (error) {
+      return { key: '', failure: failureCopy(error) };
     }
   }, [live, viewer.id]);
   const [typedKey, setTypedKey] = useState<string>();
-  const pubkey = typedKey ?? liveKey ?? viewer.pubkey;
+  const pubkey = typedKey ?? made?.key ?? viewer.pubkey;
+  const [failure, setFailure] = useState<string>();
   const [confirmed, setConfirmed] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
@@ -56,7 +58,13 @@ export function CreateCampaign() {
     }
     const draft = { title, publicWorkUrl: work, contributionSat: DEPOSIT_SAT, beneficiaryPubkey: pubkey };
     if (live) {
-      const id = liveActions.createCampaign(viewer.id, draft);
+      let id: string;
+      try {
+        id = liveActions.createCampaign(viewer.id, draft);
+      } catch (error) {
+        setFailure(failureCopy(error));
+        return;
+      }
       refresh('Campaign created. Nothing stacked yet.');
       navigate(paths.campaign(id));
       return;
@@ -135,6 +143,7 @@ export function CreateCampaign() {
             <label htmlFor="confirmed">I’ve checked this key on my own device.</label>
             {fieldError('confirmed')}
           </div>
+          {(failure ?? made?.failure) && <Failure title="No campaign created." text={(failure ?? made?.failure)!} />}
           <div className="actions form-actions">
             <button type="submit" className="button" data-variant="primary">Create campaign</button>
           </div>

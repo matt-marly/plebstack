@@ -1,8 +1,9 @@
 import { findCampaign, isPending, people, sats, slotOf, slugify, statusOf, type CampaignDraft } from '../demo/world';
 import { TEST_MINT, type BatchPlan, type Campaign, type LockedQuote, type Settlement } from '../domain/models';
 import { PackageError } from '../protocol/batch';
-import { ProtocolError, type BatchReview, type CampaignTerms, type WaitOptions } from '../protocol/client';
+import { NOT_SAVED, ProtocolError, type BatchReview, type CampaignTerms, type WaitOptions } from '../protocol/client';
 import type { QuoteState } from '../protocol/mint';
+import { StorageError } from '../protocol/storage';
 import { formatWhen } from '../ui/format';
 import { createActors, type Actors } from './actors';
 import type { BoardCampaign, BoardEvent } from './board';
@@ -15,6 +16,15 @@ export interface LiveReview extends BatchReview {
 function terms(campaign: Campaign): CampaignTerms {
   const { id, mint, beneficiaryPubkey, backerCount, contributionSat } = campaign;
   return { id, mint, beneficiaryPubkey, backerCount, contributionSat };
+}
+
+// A write this browser must make before anything goes to the mint.
+function beforeSending<T>(write: () => T): T {
+  try {
+    return write();
+  } catch (error) {
+    throw new ProtocolError('storage', NOT_SAVED, { cause: error });
+  }
 }
 
 type EventOf<T extends BoardEvent['type']> = Extract<BoardEvent, { type: T }>;
@@ -109,6 +119,13 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       : `The mint rejected your reclaim (${settlement.reason}).`;
   }
 
+  // If even this write fails, the board shows the request as sent until Check again finds it was never saved.
+  function notSent(campaignId: string, operationId: string, error: unknown) {
+    try {
+      settle(campaignId, operationId, 'not-sent', { reason: (error as Error).message });
+    } catch { /* the original failure is the one to report */ }
+  }
+
   // A request this browser never saved was never sent; the board drops it.
   async function recovered(campaignId: string, operationId: string, recover: () => Promise<Settlement>) {
     try {
@@ -128,14 +145,14 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       const base = slugify(draft.title);
       let id = base;
       for (let n = 2; board.get(id); n += 1) id = `${base}-${n}`;
-      board.create({
+      beforeSending(() => board.create({
         campaign: {
           id, title: draft.title.trim(), publicWorkUrl: draft.publicWorkUrl.trim(), mint: TEST_MINT,
           beneficiaryPubkey: draft.beneficiaryPubkey.trim(), backerCount: 3, contributionSat: draft.contributionSat,
           collectionStopped: false, depositIds: ['backer-1', 'backer-2', 'backer-3'],
         },
         creatorId: personId, createdAt: at(), events: [],
-      });
+      }));
       return id;
     },
 
@@ -149,11 +166,7 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       const client = actors.person(personId);
       // Each backer gets a key per campaign, so one key never links a person's deposits across campaigns.
       const ownerPubkey = client.enrollKey(`backer:${campaignId}:${personId}`);
-      try {
-        actors.notes(personId).write(`terms:${campaignId}`, terms(campaign));
-      } catch (error) {
-        throw new ProtocolError('storage', 'Couldn’t save the request on this device. Nothing was sent to the mint.', { cause: error });
-      }
+      beforeSending(() => actors.notes(personId).write(`terms:${campaignId}`, terms(campaign)));
       const quote = await client.createQuote({ mint: campaign.mint, amountSat: campaign.contributionSat, ownerPubkey });
       board.append(campaignId, { type: 'joined', at: at(), personId, quote });
       return quote;
@@ -194,12 +207,12 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       return { notice: 'Signed. You can’t take it back.', complete: statusOf(record(campaignId, personId)) === 'approved' };
     },
 
-    stopSigning(personId: string, campaignId: string): Promise<string> {
+    async stopSigning(personId: string, campaignId: string): Promise<string> {
       const quote = ownQuote(entry(campaignId), personId);
-      return actors.person(personId).signerFor(quote.ownerPubkey).stopNewApprovals(quote.id).then(() => {
-        board.append(campaignId, { type: 'stopped', at: at(), personId });
-        return 'You stopped signing on this device. A signature you already released still counts.';
-      });
+      const signer = actors.person(personId).signerFor(quote.ownerPubkey);
+      await signer.stopNewApprovals(quote.id).catch(error => beforeSending(() => { throw error; }));
+      beforeSending(() => board.append(campaignId, { type: 'stopped', at: at(), personId }));
+      return 'You stopped signing on this device. A signature you already released still counts.';
     },
 
     // Everything before the first await runs at once, so the board reads Paying out while the mint is asked.
@@ -211,12 +224,14 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
         throw new ProtocolError('authorization', 'Not every deposit is signed yet.');
       }
       const operationId = `op-${crypto.randomUUID()}`;
-      board.append(campaignId, { type: 'sent', at: at(), kind: 'payout', operationId, personId: current.creatorId, keysetId: plan.keyset.id });
+      beforeSending(() => board.append(campaignId, {
+        type: 'sent', at: at(), kind: 'payout', operationId, personId: current.creatorId, keysetId: plan.keyset.id,
+      }));
       let settlement: Settlement;
       try {
         settlement = await coordinator.payout(plan, authorizations as NonNullable<(typeof authorizations)[number]>[], operationId);
       } catch (error) {
-        settle(campaignId, operationId, 'not-sent', { reason: (error as Error).message });
+        notSent(campaignId, operationId, error);
         throw error;
       }
       return settlePayout(campaignId, personId, settlement);
@@ -231,12 +246,12 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       const client = actors.person(personId);
       if (!client.findDeposit(quote.id)) throw new ProtocolError('not-owner', 'This browser holds no key for that deposit.');
       const operationId = `op-${crypto.randomUUID()}`;
-      board.append(campaignId, { type: 'sent', at: at(), kind: 'reclaim', operationId, personId });
+      beforeSending(() => board.append(campaignId, { type: 'sent', at: at(), kind: 'reclaim', operationId, personId }));
       let settlement: Settlement;
       try {
         settlement = await client.reclaim(quote.id, operationId);
       } catch (error) {
-        settle(campaignId, operationId, 'not-sent', { reason: (error as Error).message });
+        notSent(campaignId, operationId, error);
         throw error;
       }
       return settleReclaim(campaignId, settlement);
@@ -248,7 +263,7 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
 
     stopCollecting(personId: string, campaignId: string): string {
       if (entry(campaignId).creatorId !== personId) throw new Error('Only the organizer can stop collecting.');
-      board.append(campaignId, { type: 'collection-stopped', at: at() });
+      beforeSending(() => board.append(campaignId, { type: 'collection-stopped', at: at() }));
       return 'Collecting stopped. Signatures already released still count.';
     },
 
@@ -269,6 +284,7 @@ export type LiveActions = ReturnType<typeof createLiveActions>;
 export const liveActions = createLiveActions(createActors({ storage: () => globalThis.localStorage }));
 
 export function failureCopy(error: unknown): string {
+  if (error instanceof StorageError) return 'Couldn’t save on this device.';
   if (error instanceof PackageError) return `These outputs don’t match the campaign. Don’t sign. ${error.message}`;
   if (!(error instanceof ProtocolError)) return error instanceof Error ? error.message : 'Something went wrong in this browser.';
   switch (error.kind) {

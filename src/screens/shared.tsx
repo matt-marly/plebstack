@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../demo/store';
-import { findCampaign, findSlot, people, setViewer, type Slot } from '../demo/world';
+import { findCampaign, findSlot, people, type Slot } from '../demo/world';
 import { failureCopy } from '../live/actions';
 import { paths } from '../routes';
 import { Note, PageHead, useTitle } from '../ui/parts';
@@ -36,13 +36,13 @@ export function NotFound() {
 // Each backer's key lives in their own browser. In the prototype one browser plays all
 // four people, so a page about someone else's deposit offers a way to step into their seat.
 export function NotYours({ slot }: { slot: Slot }) {
-  const { apply } = useStore();
+  const { viewAs } = useStore();
   const owner = people[slot.backerId!];
   return (
     <Note title={`This is ${owner.short}’s deposit.`}>
       <p>Only {owner.short} can sign it or take it back. The key is in {owner.short}’s browser, not this one.</p>
       <p>
-        <button type="button" className="button" data-size="small" onClick={() => apply(world => setViewer(world, owner.id))}>
+        <button type="button" className="button" data-size="small" onClick={() => viewAs(owner.id)}>
           View as {owner.short}
         </button>
       </p>

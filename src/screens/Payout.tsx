@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
-  SWAP_FEE_SAT, checkMint, headline, isPending, latestOperation, people, progressLine, recordSpend, sats, slotStatus,
-  stateSentence, statusOf, tally,
+  SWAP_FEE_SAT, checkMint, findCampaign, headline, isPending, latestOperation, pendingOperation, people, progressLine, recordSpend,
+  sats, slotStatus, stateSentence, statusOf, tally,
 } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { liveActions } from '../live/actions';
@@ -68,7 +68,10 @@ export function Payout() {
                   <button type="button" className="button" data-variant="primary" aria-disabled={action.busy || undefined}
                     onClick={() => void action.run(async () => {
                       const sending = liveActions.payout(viewer.id, campaign.id);
-                      refresh('Sent to the mint. Waiting for the mint to confirm.');
+                      // Announced only once the request is saved and on its way; a failed save sends nothing.
+                      if (pendingOperation(findCampaign(refresh(), campaign.id)!, 'payout')) {
+                        refresh('Sent to the mint. Waiting for the mint to confirm.');
+                      }
                       refresh(await sending);
                       focusHeading();
                     })}>
