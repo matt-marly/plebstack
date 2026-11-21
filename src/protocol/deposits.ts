@@ -12,7 +12,8 @@ export interface SavedQuote {
 }
 
 // requested: saved, request maybe sent, no answer seen. abandoned: the page closed before an answer.
-export type DepositStatus = 'requested' | 'quoted' | 'paid' | 'abandoned' | 'failed';
+// reclaimed: minted to this browser's own outputs. issued: the mint issued it, not to outputs from here.
+export type DepositStatus = 'requested' | 'quoted' | 'paid' | 'abandoned' | 'failed' | 'reclaimed' | 'issued';
 
 export interface DepositRecord {
   id: string;

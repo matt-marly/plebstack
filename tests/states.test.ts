@@ -4,7 +4,8 @@ import test from 'node:test';
 import { generatePath, matchPath } from 'react-router-dom';
 import { TEST_MINT, type Campaign, type Deposit } from '../src/domain/models';
 import { campaignState, confirmedStates, signalStates, stateCopy, transitionDeposit } from '../src/domain/states';
-import { protocol } from '../src/protocol/client';
+import { ProtocolError, createProtocolClient, protocol } from '../src/protocol/client';
+import { memoryStorage } from '../src/protocol/storage';
 import { routes } from '../src/routes';
 
 function deposit(id = '1'): Deposit {
@@ -107,8 +108,11 @@ test('every documented route has a shell path', () => {
   }
 });
 
-test('nothing manufactures a funded quote: bad keys are refused and payout calls are not connected', async () => {
+test('nothing manufactures a funded quote: bad keys, unknown quotes and unknown requests are refused unsent', async () => {
   await assert.rejects(protocol.createQuote({ mint: TEST_MINT, amountSat: 21, ownerPubkey: 'public-key' }),
     /not a valid compressed public key/);
-  await assert.rejects(protocol.recover({} as never), /not connected/);
+  const fetch = async () => { throw new Error('nothing should be sent'); };
+  const client = createProtocolClient({ storage: memoryStorage(), fetch });
+  await assert.rejects(client.recover('op-missing'), (error: ProtocolError) => error.kind === 'unknown-operation');
+  await assert.rejects(client.reclaim('quote-missing', 'op-1'), (error: ProtocolError) => error.kind === 'not-owner');
 });

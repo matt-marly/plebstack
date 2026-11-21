@@ -49,6 +49,11 @@ export function createQuoteSigner(secretKey: Uint8Array, pubkey: string, owns: (
       if (stops.has(quoteId)) throw new Error('New approvals for this deposit are stopped on this device.');
       return schnorrSignDigest(mintQuoteDigest(quoteId, outputs), secretKey);
     },
+    // Minting a quote into the owner's own outputs is not an approval, so a stop does not block it.
+    async signOwnMint(quoteId, outputs) {
+      if (!owns(quoteId)) throw new Error('This key does not own that quote.');
+      return schnorrSignDigest(mintQuoteDigest(quoteId, outputs), secretKey);
+    },
     async stopNewApprovals(quoteId) {
       stops.add(quoteId);
     },

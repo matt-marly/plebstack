@@ -14,7 +14,7 @@ export class StorageError extends Error {
 }
 
 export const RECORD_VERSION = 1;
-const PREFIX = 'plebstack:';
+const ROOT = 'plebstack:';
 
 interface Envelope<T> {
   version: number;
@@ -28,7 +28,9 @@ export interface RecordStore {
   keys(prefix: string): string[];
 }
 
-export function createRecordStore(storage: StorageLike | (() => StorageLike)): RecordStore {
+// A namespace gives each person in one browser their own records; no store reads outside its own.
+export function createRecordStore(storage: StorageLike | (() => StorageLike), namespace?: string): RecordStore {
+  const PREFIX = namespace ? `${ROOT}${namespace}/` : ROOT;
   const backing = (): StorageLike => {
     try {
       return typeof storage === 'function' ? storage() : storage;

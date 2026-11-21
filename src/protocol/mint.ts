@@ -69,16 +69,19 @@ export async function activeSatKeyset(fetch: FetchLike, mint: string, signal?: A
   const entries = Array.isArray(list?.keysets) ? list.keysets as Record<string, unknown>[] : [];
   const active = entries.find(entry => entry.active === true && entry.unit === 'sat' && typeof entry.id === 'string');
   if (!active) throw new MintError('The mint lists no active sat keyset.', 200, list);
-  const id = active.id as string;
+  const fee = active.input_fee_ppk ?? 0;
+  if (typeof fee !== 'number' || !Number.isSafeInteger(fee) || fee < 0) throw new MintError('The mint sent an invalid input fee.', 200, list);
+  return keysetById(fetch, mint, active.id as string, fee, signal);
+}
+
+export async function keysetById(fetch: FetchLike, mint: string, id: string, inputFeePpk = 0, signal?: AbortSignal): Promise<PublicKeyset> {
   const answer = await mintRequest(fetch, `${mint}/v1/keys/${encodeURIComponent(id)}`, undefined, signal) as { keysets?: unknown };
   const found = (Array.isArray(answer?.keysets) ? answer.keysets as Record<string, unknown>[] : []).find(entry => entry.id === id);
   const keys = found?.keys as Record<string, unknown> | undefined;
   if (!keys || typeof keys !== 'object' || !Object.values(keys).every(key => typeof key === 'string')) {
     throw new MintError('The mint sent keys in a shape this app doesn’t understand.', 200, answer);
   }
-  const fee = active.input_fee_ppk ?? 0;
-  if (typeof fee !== 'number' || !Number.isSafeInteger(fee) || fee < 0) throw new MintError('The mint sent an invalid input fee.', 200, list);
-  return { id, unit: 'sat', inputFeePpk: fee, keys: keys as Record<string, string> };
+  return { id, unit: 'sat', inputFeePpk, keys: keys as Record<string, string> };
 }
 
 export function parseQuote(body: unknown): MintQuoteResponse {

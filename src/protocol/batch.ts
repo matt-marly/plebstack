@@ -156,16 +156,16 @@ function issued(proof: Proof): IssuedProof {
   };
 }
 
-// Throws unless every signature unblinds to a proof for the planned output, locked to the beneficiary.
-export function payoutProofs(plan: BatchPlan, answer: unknown): IssuedProof[] {
+// Unblinds each signature for its output in order, checking amount, keyset and DLEQ when present.
+export function issuedProofs(outputs: OutputConstruction[], keyset: PublicKeyset, answer: unknown): IssuedProof[] {
   const signatures = (answer as { signatures?: unknown } | null)?.signatures;
-  if (!Array.isArray(signatures) || signatures.length !== plan.outputs.length) {
-    throw new Error(`The mint returned ${Array.isArray(signatures) ? signatures.length : 'no'} signatures for ${plan.outputs.length} outputs.`);
+  if (!Array.isArray(signatures) || signatures.length !== outputs.length) {
+    throw new Error(`The mint returned ${Array.isArray(signatures) ? signatures.length : 'no'} signatures for ${outputs.length} outputs.`);
   }
-  const proofs = plan.outputs.map((output, i) => {
+  return outputs.map((output, i) => {
     const n = i + 1;
     const signature = signatures[i] as { amount?: unknown; id?: unknown; C_?: unknown; dleq?: { e: string; s: string } };
-    if (signature?.amount !== output.message.amount || signature.id !== plan.keyset.id || typeof signature.C_ !== 'string') {
+    if (signature?.amount !== output.message.amount || signature.id !== keyset.id || typeof signature.C_ !== 'string') {
       throw new Error(`Signature ${n} does not match output ${n}.`);
     }
     const data = new OutputData(
@@ -174,15 +174,28 @@ export function payoutProofs(plan: BatchPlan, answer: unknown): IssuedProof[] {
     );
     const proof = data.toProof({
       id: signature.id, amount: Amount.from(signature.amount), C_: signature.C_, ...(signature.dleq ? { dleq: signature.dleq } : {}),
-    }, plan.keyset);
-    if (signature.dleq && !hasValidDleq(proof, plan.keyset)) throw new Error(`Signature ${n} carries an invalid DLEQ proof.`);
-    const problem = lockProblem(proof.secret, plan.beneficiaryPubkey, n);
-    if (problem) throw problem;
+    }, keyset);
+    if (signature.dleq && !hasValidDleq(proof, keyset)) throw new Error(`Signature ${n} carries an invalid DLEQ proof.`);
     return issued(proof);
   });
+}
+
+// Throws unless every signature unblinds to a proof for the planned output, locked to the beneficiary.
+export function payoutProofs(plan: Pick<BatchPlan, 'outputs' | 'keyset' | 'beneficiaryPubkey' | 'totalSat'>, answer: unknown): IssuedProof[] {
+  const proofs = issuedProofs(plan.outputs, plan.keyset, answer);
+  for (const [i, proof] of proofs.entries()) {
+    const problem = lockProblem(proof.secret, plan.beneficiaryPubkey, i + 1);
+    if (problem) throw problem;
+  }
   const total = proofs.reduce((sum, proof) => sum + proof.amount, 0);
   if (total !== plan.totalSat) throw new Error(`The proofs add up to ${total} sats, not ${plan.totalSat}.`);
   return proofs;
+}
+
+// The pubkey a saved payout locks to, read back from its first output.
+export function lockedTo(outputs: OutputConstruction[]): string | undefined {
+  const data = outputs[0] && p2pkLock(secretText(outputs[0].secretHex))?.data;
+  return typeof data === 'string' ? data : undefined;
 }
 
 export function inputFee(count: number, inputFeePpk: number): number {
