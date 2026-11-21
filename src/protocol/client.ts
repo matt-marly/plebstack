@@ -8,6 +8,7 @@ export interface QuoteSigner {
   readonly pubkey: string;
   signQuote(quoteId: string, outputs: BlindedOutput[]): Promise<string>;
   stopNewApprovals(quoteId: string): Promise<void>;
+  approvalsStopped(quoteId: string): boolean;
 }
 
 export interface RecoveryStore {
