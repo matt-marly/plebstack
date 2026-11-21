@@ -3,18 +3,24 @@
 //
 //   node scripts/live-e2e.mjs                 (starts its own dev server)
 //   node scripts/live-e2e.mjs http://localhost:5173
+//   node scripts/live-e2e.mjs --shots         (also screenshots each step into docs/screens-live/)
 //
 // Writes .evidence/live-e2e-<time>/summary.json and a screenshot of the receipt. Browser storage
-// is read only to check that no key reached the coordinator, the shared board or the evidence.
+// is read only to check that no key reached the coordinator, the shared board, the evidence or a screenshot.
+// With --shots, a second campaign is collected, stopped and reclaimed for the unmet screens, and the
+// payout batch is held back in the browser until the paying-out screens are taken.
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { optimisePng } from './png.mjs';
 
 const MINT = 'https://testnut.cashudevkit.org';
 const root = fileURLToPath(new URL('..', import.meta.url));
+const shots = process.argv.includes('--shots');
+const shotsDir = join(root, 'docs', 'screens-live');
 const started = new Date().toISOString();
 const dir = join(root, '.evidence', `live-e2e-${started.replace(/[:.]/g, '-')}`);
 mkdirSync(dir, { recursive: true });
@@ -27,7 +33,7 @@ function check(name, pass, detail) {
 }
 
 let server;
-let base = process.argv[2]?.replace(/\/$/, '');
+let base = process.argv.slice(2).find(arg => !arg.startsWith('--'))?.replace(/\/$/, '');
 if (!base) {
   server = await createServer({ root, logLevel: 'error', server: { port: 5199 } });
   await server.listen();
@@ -54,38 +60,87 @@ async function openCampaign(id, person) {
   await viewAs(person);
 }
 
-let campaignId;
-const summary = { mint: MINT, base, started };
+const secretKeys = () => page.evaluate(() => Object.keys(localStorage)
+  .filter(key => /^plebstack:person:[^/]+\/key:/.test(key))
+  .map(key => JSON.parse(localStorage.getItem(key)).value.secretKey));
 
-try {
+// Every step in night and paper, desktop and phone. The page is checked for any private key first.
+const sizes = { desktop: { width: 1280, height: 900 }, phone: { width: 390, height: 844 } };
+const themes = { night: 'dark', paper: 'light' };
+const shotFiles = [];
+const shotLeaks = [];
+async function shoot(name) {
+  if (!shots) return;
+  const html = await page.content();
+  if ((await secretKeys()).some(secret => html.includes(secret))) shotLeaks.push(name);
+  const theme = await page.evaluate(() => document.documentElement.dataset.theme);
+  for (const [themeName, value] of Object.entries(themes)) {
+    for (const [device, size] of Object.entries(sizes)) {
+      await page.setViewportSize(size);
+      await page.evaluate(next => { document.documentElement.dataset.theme = next; }, value);
+      const file = `${name}-${themeName}-${device}.png`;
+      writeFileSync(join(shotsDir, file), optimisePng(await page.screenshot({ fullPage: true, animations: 'disabled' })));
+      shotFiles.push(file);
+    }
+  }
+  await page.setViewportSize(sizes.desktop);
+  await page.evaluate(previous => { document.documentElement.dataset.theme = previous; }, theme);
+  console.log(`shot ${name}`);
+}
+
+async function createCampaign(title) {
   await page.goto(`${base}/?live=1`);
   await viewAs('ngozi');
   await page.getByRole('link', { name: 'Start a campaign' }).first().click();
   const key = await page.getByLabel('Maintainer’s public key').inputValue();
-  check('1: maintainer key made in this browser, only the pubkey shown', /^0[23][0-9a-f]{64}$/.test(key), key);
-  await page.getByLabel('Title').fill(`Live check ${started.slice(0, 19)}`);
+  await page.getByLabel('Title').fill(title);
   await page.getByLabel('Public link').fill('https://git.example.org/ngozi/pocket-ical/issues/412');
   await page.getByLabel(/checked this key/).check();
   await page.getByRole('button', { name: 'Create campaign' }).click();
   await page.waitForURL(/\/campaigns\/(?!new)[^/]+$/);
-  campaignId = decodeURIComponent(new URL(page.url()).pathname.split('/').pop());
+  return { key, id: decodeURIComponent(new URL(page.url()).pathname.split('/').pop()) };
+}
+
+async function joinWith(id, person) {
+  await openCampaign(id, person);
+  await page.getByRole('link', { name: 'Join with 21 sats' }).click();
+  await page.getByRole('button', { name: 'Create deposit invoice' }).click();
+  await page.getByRole('heading', { name: 'Pay the invoice' }).waitFor({ timeout: 30_000 });
+  await page.waitForURL(/\/deposits\/backer-\d$/, { timeout: 180_000 });
+  return (await page.locator('.fact').filter({ has: page.locator('dt', { hasText: 'Quote ID' }) }).locator('dd').innerText()).trim();
+}
+
+let campaignId;
+let releaseBatch;
+const summary = { mint: MINT, base, started };
+
+try {
+  if (shots) mkdirSync(shotsDir, { recursive: true });
+  const created = await createCampaign(`Live check ${started.slice(0, 19)}`);
+  const key = created.key;
+  check('1: maintainer key made in this browser, only the pubkey shown', /^0[23][0-9a-f]{64}$/.test(key), key);
+  campaignId = created.id;
   summary.campaignId = campaignId;
   summary.maintainerPubkey = key;
   check('2: campaign created', campaignId.startsWith('live-check'), campaignId);
 
   const quotes = {};
   for (const person of ['ishaan', 'tobi', 'maren']) {
-    await openCampaign(campaignId, person);
-    await page.getByRole('link', { name: 'Join with 21 sats' }).click();
-    await page.getByRole('button', { name: 'Create deposit invoice' }).click();
-    await page.getByRole('heading', { name: 'Pay the invoice' }).waitFor({ timeout: 30_000 });
-    await page.waitForURL(/\/deposits\/backer-\d$/, { timeout: 180_000 });
-    const quoteId = (await page.locator('.fact').filter({ has: page.locator('dt', { hasText: 'Quote ID' }) }).locator('dd').innerText()).trim();
+    const quoteId = await joinWith(campaignId, person);
     quotes[person] = quoteId;
     check(`3: ${person} deposit PAID at the mint`,
       /^[0-9a-f-]{36}$/.test(quoteId) && await page.getByText(/^Paid and unissued\./).isVisible(), quoteId);
+    if (person === 'tobi' && shots) {
+      await openCampaign(campaignId, 'tobi');
+      await shoot('campaign-collecting');
+    }
   }
   summary.quotes = quotes;
+  if (shots) {
+    await openCampaign(campaignId, 'ishaan');
+    await page.locator('.goal[data-phase="at-line"]').waitFor();
+    await shoot('campaign-ready');
+  }
 
   for (const [i, person] of ['ishaan', 'tobi', 'maren'].entries()) {
     await openCampaign(campaignId, person);
@@ -95,9 +150,15 @@ try {
     const checked = (await page.locator('.checks').innerText()).split('\n').filter(Boolean);
     const line = (await passed.innerText()).replace(/\s+/g, ' ');
     summary[`${person}Checks`] = [line, ...checked];
+    if (i === 0) await shoot('approve-check');
     check(`4: ${person} checked the outputs on their own device`,
       /63 sats, keyset [0-9a-f]+, locked to Ngozi’s key/.test(line) && checked.some(text => /add up to 63 sats/.test(text))
       && checked.some(text => /PAID, PAID, PAID/.test(text)), line);
+    if (i === 2 && shots) {
+      // Hold the batch in the browser so the paying-out screens can be taken; it's sent unchanged after.
+      const held = new Promise(resolve => { releaseBatch = resolve; });
+      await page.route('**/v1/mint/bolt11/batch', async route => { await held; await route.continue(); });
+    }
     await page.getByRole('button', { name: 'Release signature…' }).click();
     await page.locator('dialog[open]').getByRole('button', { name: 'Release signature' }).click();
     if (i < 2) {
@@ -107,6 +168,11 @@ try {
   }
 
   await page.waitForURL(/\/payout$/, { timeout: 30_000 });
+  if (releaseBatch) {
+    await page.locator('.state[data-state="paying out"]').waitFor({ timeout: 30_000 });
+    await shoot('payout-paying-out');
+    releaseBatch();
+  }
   const paidMeta = () => page.locator('.state-meta', { hasText: 'paid · confirmed by the mint' });
   await paidMeta().waitFor({ timeout: 90_000 });
   check('5: maren signed; the third signature sent the batch', true);
@@ -117,12 +183,18 @@ try {
   summary.receipt = receipt.split('\n');
   check('7: receipt names the mint, all three quotes, the keyset and the confirmed time',
     receipt.includes(`Mint ${MINT}`) && Object.values(quotes).every(id => receipt.includes(id))
-    && /Keyset [0-9a-f]{16}/.test(receipt) && /Confirmed \d+ \w+, \d\d:\d\d UTC/.test(receipt), summary.receipt.join(' | '));
+    && /Keyset [0-9a-f]{16}/.test(receipt) && /Confirmed \d+ \w+, \d\d:\d\d [A-Z]+[+-]?[\d:]*/.test(receipt), summary.receipt.join(' | '));
   await page.screenshot({ path: join(dir, 'payout-paid.png'), fullPage: true });
+  await shoot('receipt');
 
   await page.goto(`${base}/campaigns/${campaignId}/payout?live=1`);
   await paidMeta().waitFor({ timeout: 10_000 });
   check('8: still Paid after a reload, rebuilt from storage', true);
+  if (shots) {
+    await openCampaign(campaignId, 'ishaan');
+    await page.locator('.goal[data-phase="paid"]').waitFor();
+    await shoot('campaign-paid');
+  }
 
   const storage = await page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])));
   const secrets = Object.entries(storage)
@@ -143,6 +215,30 @@ try {
     return secrets.some(secret => text.includes(secret));
   });
   check('12: no private key written to evidence', leaked.length === 0, leaked.join(', ') || `${secrets.length} keys searched`);
+
+  if (shots) {
+    const unmet = await createCampaign(`Live unmet ${started.slice(0, 19)}`);
+    summary.unmetCampaignId = unmet.id;
+    for (const person of ['ishaan', 'tobi']) await joinWith(unmet.id, person);
+    await openCampaign(unmet.id, 'ngozi');
+    await page.getByRole('button', { name: 'Stop collecting' }).click();
+    await openCampaign(unmet.id, 'ishaan');
+    await page.getByRole('link', { name: 'Take mine back' }).click();
+    await page.getByRole('button', { name: 'Take mine back…' }).click();
+    await page.locator('dialog[open]').getByRole('button', { name: 'Take mine back' }).click();
+    await page.locator('.state[data-state="reclaimed"]').waitFor({ timeout: 60_000 });
+    check('13: unmet campaign, deposit reclaimed at the mint', true, unmet.id);
+    await shoot('reclaim-reclaimed');
+    await openCampaign(unmet.id, 'ishaan');
+    await page.locator('.goal[data-phase="unmet"]').waitFor();
+    await shoot('campaign-unmet');
+    await page.goto(`${base}/?live=1`);
+    await viewAs('ishaan');
+    await shoot('home');
+    summary.shots = shotFiles;
+    check('14: no private key on any screenshotted page', shotLeaks.length === 0, shotLeaks.join(', ') || `${shotFiles.length} files`);
+    check('15: no page errors while taking screenshots', errors.length === 0, errors.join(' | '));
+  }
   summary.pass = true;
 } catch (error) {
   summary.pass = false;
