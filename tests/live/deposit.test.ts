@@ -1,61 +1,25 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import test from 'node:test';
 import { Amount, OutputData, schnorrSignDigest, type MintKeys } from '@cashu/cashu-ts';
 import { TEST_MINT, type BlindedOutput } from '../../src/domain/models';
 import { createProtocolClient, type ProtocolClient } from '../../src/protocol/client';
 import { secretKeyFor } from '../../src/protocol/keys';
-import type { FetchLike } from '../../src/protocol/mint';
 import { mintQuoteDigest } from '../../src/protocol/signer';
 import { createRecordStore, memoryStorage } from '../../src/protocol/storage';
+import { checker, evidence, type Checks } from './evidence';
 
 const live = process.env.PLEB_LIVE === '1';
 const CHECK_COUNT = 11;
 const started = new Date().toISOString();
-const evidence = join(import.meta.dirname, '../../.evidence', `live-deposit-${started.replace(/[:.]/g, '-')}`);
-let sequence = 0;
-
-function save(name: string, value: unknown) {
-  mkdirSync(evidence, { recursive: true });
-  writeFileSync(join(evidence, `${name}.json`), JSON.stringify(value, null, 2) + '\n');
-}
-
-// Every mint call is written out as sent and as answered. Requests carry pubkeys and signatures, never keys.
-function recording(role: string): FetchLike {
-  return async (url, init) => {
-    const sentAt = new Date().toISOString();
-    const response = await fetch(url, init);
-    const raw = await response.text();
-    let body: unknown = raw;
-    try { body = JSON.parse(raw); } catch { /* keep raw */ }
-    const label = new URL(url).pathname.replace(/^\/v1\//, '').replace(/[^a-z0-9]+/gi, '-').slice(0, 60);
-    save(`${String(++sequence).padStart(3, '0')}-${role}-${label}`, {
-      role, sentAt, receivedAt: new Date().toISOString(),
-      request: { method: init?.method ?? 'GET', url, body: init?.body ? JSON.parse(String(init.body)) : undefined },
-      response: { status: response.status, raw, body },
-    });
-    return new Response(raw, { status: response.status });
-  };
-}
-
-async function call(role: string, path: string, body?: unknown) {
-  const response = await recording(role)(TEST_MINT + path, body === undefined ? undefined : {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  return { status: response.status, body: await response.json() as Record<string, unknown> };
-}
+const { save, recording, call } = evidence('live-deposit', started);
 
 function wire(data: OutputData[]): BlindedOutput[] {
   return data.map(output => ({ ...output.blindedMessage, amount: Number(output.blindedMessage.amount.toBigInt()) }));
 }
 
 test('three locked deposits at testnut, and only the owner can mint one', { skip: !live && 'set PLEB_LIVE=1 to run against testnut' }, async () => {
-  const checks: Record<string, { pass: boolean; detail?: string }> = {};
-  const check = (name: string, pass: boolean, detail?: string) => {
-    checks[name] = { pass, ...(detail ? { detail } : {}) };
-    return pass;
-  };
+  const checks: Checks = {};
+  const check = checker(checks);
 
   try {
     const backers = ['backer-1', 'backer-2', 'backer-3'].map(role => {
