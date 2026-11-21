@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { DEPOSIT_SAT, MAIN_CAMPAIGN, headline, people, progressLine, roleLine, sats, tally } from '../demo/world';
-import { confirmedStates, signalStates, stateCopy } from '../domain/states';
+import { stateCopy } from '../domain/states';
 import type { MoneyState } from '../domain/models';
 import { paths } from '../routes';
 import { Icon } from '../ui/Icon';
-import { PageHead, Section, useTitle } from '../ui/parts';
+import { GoalLine } from '../ui/GoalLine';
+import { PageHead, Section, tone, useTitle } from '../ui/parts';
 
 const steps = [
   {
@@ -36,6 +37,7 @@ const limits = [
 
 const words = Object.entries(stateCopy) as [MoneyState, (typeof stateCopy)[MoneyState]][];
 const demoTerms = { maintainer: people.ngozi, amountSat: DEPOSIT_SAT };
+const heroSlabs = [{ kind: 'filled' as const }, { kind: 'filled' as const }, { kind: 'filled' as const }];
 
 export function Home() {
   useTitle('Campaigns');
@@ -45,6 +47,9 @@ export function Home() {
     <>
       <PageHead eyebrow="Stay humble, stack together." title="Three plebs pay one maintainer together, or not at all.">
         <p>Each deposit waits at the mint, locked to its owner’s key. The organizer never holds one.</p>
+        <div className="hero-goal">
+          <GoalLine slabs={heroSlabs} phase="at-line" label="at the line · 63 of 63 sats" text="" />
+        </div>
         <div className="actions head-actions">
           {!live && <Link className="button" data-variant="primary" to={paths.campaign(MAIN_CAMPAIGN)}>Open the example campaign</Link>}
           <Link className="button" data-variant={live ? 'primary' : undefined} to={paths.create()}>Start a campaign</Link>
@@ -57,13 +62,11 @@ export function Home() {
           {world.campaigns.map(record => {
             const head = headline(record);
             const { heldSat, targetSat } = tally(record);
-            const confirmed = confirmedStates.includes(head.state as MoneyState);
             return (
               <li key={record.campaign.id}>
                 <p className="index-title"><Link to={paths.campaign(record.campaign.id)}>{record.campaign.title}</Link></p>
                 <p className="index-sum">{head.state === 'paid' ? sats(targetSat) : `${heldSat} of ${sats(targetSat)}`}</p>
-                <p className="index-state" data-confirmed={confirmed || undefined}
-                  data-signal={signalStates.includes(head.state as MoneyState) || undefined}>
+                <p className="index-state" {...tone(head.state)}>
                   <Icon name={head.icon} size={18} />
                   <strong>{head.word}</strong>
                   <span>{progressLine(record)}</span>
@@ -96,8 +99,7 @@ export function Home() {
           </p>
           <ul className="words" role="list">
             {words.map(([state, copy]) => (
-              <li key={state} data-confirmed={confirmedStates.includes(state) || undefined}
-                data-signal={signalStates.includes(state) || undefined}>
+              <li key={state} {...tone(state)}>
                 <Icon name={copy.icon} size={22} />
                 <strong>{copy.word}</strong>
                 <span className="words-sentence"><span className="words-phrase">{copy.phrase}</span>{copy.sentence(demoTerms)}</span>

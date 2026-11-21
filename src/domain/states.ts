@@ -16,19 +16,19 @@ export interface StateCopy {
 const sats = (amount: number) => `${amount.toLocaleString('en')} ${amount === 1 ? 'sat' : 'sats'}`;
 
 export const stateCopy: Record<MoneyState, StateCopy> = {
-  deposited: { word: 'Deposited', phrase: 'Stacked', icon: 'tray-down',
+  deposited: { word: 'Deposited', phrase: 'Stacked', icon: 'slab-under-line',
     sentence: t => `${sats(t.amountSat)} at the mint, locked to your key. Not paid to ${t.maintainer.short}.` },
-  ready: { word: 'Ready', phrase: 'At the line', icon: 'three-line-bracket',
+  ready: { word: 'Ready', phrase: 'At the line', icon: 'pile-at-line',
     sentence: () => 'All three deposits are in. Each pleb checks the outputs and signs.' },
-  approved: { word: 'Approved', phrase: 'Signed', icon: 'pen-nib',
+  approved: { word: 'Approved', phrase: 'Signed', icon: 'nib-on-slab',
     sentence: () => 'You signed. You can’t take it back. A reclaim can still race the payout.' },
-  'paying out': { word: 'Paying out', phrase: 'Sending', icon: 'clock',
+  'paying out': { word: 'Paying out', phrase: 'Sending', icon: 'pile-sending',
     sentence: () => 'Sent to the mint as one batch. Not paid until the mint confirms.' },
-  paid: { word: 'Paid', phrase: 'Stacked. Paid.', icon: 'circle-check',
+  paid: { word: 'Paid', phrase: 'Stacked. Paid.', icon: 'pile-lit',
     sentence: t => `Paid to ${t.maintainer.name}. Confirmed by the mint.` },
-  reclaiming: { word: 'Reclaiming', phrase: 'Unstacking', icon: 'counterclockwise-arrow',
+  reclaiming: { word: 'Reclaiming', phrase: 'Unstacking', icon: 'slab-dropping',
     sentence: t => `Asking the mint for your own ${sats(t.amountSat)}. If you signed, the payout may still win.` },
-  reclaimed: { word: 'Reclaimed', phrase: 'Back to you', icon: 'tray-left',
+  reclaimed: { word: 'Reclaimed', phrase: 'Back to you', icon: 'slab-on-shelf',
     sentence: t => `${sats(t.amountSat)} minted to your own outputs, as ecash at this mint. Confirmed by the mint.` },
 };
 
@@ -37,6 +37,28 @@ export const confirmedStates: readonly MoneyState[] = ['paid', 'reclaimed'];
 
 // Signal lime has one meaning: the mint confirmed the payout.
 export const signalStates: readonly MoneyState[] = ['paid'];
+
+// Every state a chip, row or block can show: the seven, the campaign-level ones, and quote setup.
+export type ToneState = MoneyState | CampaignState | 'awaiting' | 'open';
+
+// Each state's colour, always paired with its glyph and word. Only signalStates take the signal colour.
+export const stateColour: Record<ToneState, string> = {
+  deposited: 'var(--color-state-deposited)',
+  ready: 'var(--color-state-ready)',
+  approved: 'var(--color-state-approved)',
+  'paying out': 'var(--color-state-paying-out)',
+  paid: 'var(--color-signal)',
+  reclaiming: 'var(--color-state-reclaiming)',
+  reclaimed: 'var(--color-state-reclaimed)',
+  collecting: 'var(--color-state-deposited)',
+  unmet: 'var(--color-state-reclaimed)',
+  awaiting: 'var(--color-muted)',
+  open: 'var(--color-muted)',
+};
+
+export function isSignal(state: ToneState): boolean {
+  return (signalStates as readonly string[]).includes(state);
+}
 
 export type DepositEvent =
   | { type: 'release-authorization' }

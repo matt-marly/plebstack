@@ -34,6 +34,11 @@
   --radius-control: 4px;
   --radius-panel: 6px;
   --target-size: 44px;
+  --ease-settle: cubic-bezier(.3, .8, .2, 1);
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-reveal: 280ms;
   --measure: 40rem;
   --margin-column: 10rem;
   --gutter: 1.25rem;

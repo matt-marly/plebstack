@@ -3,11 +3,11 @@ import {
   SWAP_FEE_SAT, checkMint, headline, isPending, latestOperation, people, progressLine, recordSpend, sats, slotStatus,
   stateSentence, statusOf, tally,
 } from '../demo/world';
-import { confirmedStates, signalStates, stateCopy } from '../domain/states';
-import type { MoneyState } from '../domain/models';
+import { stateCopy } from '../domain/states';
 import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { formatWhen, shortKey } from '../ui/format';
+import { GoalLine, campaignGoal } from '../ui/GoalLine';
 import { CopyButton, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
 import { Failure, Missing, useAction, useRecord } from './shared';
 
@@ -45,9 +45,7 @@ export function Payout() {
         <PageHead back={back} eyebrow={campaign.title} title="Payout" />
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={head.icon} word={head.word} phrase={head.phrase} sentence={head.sentence}
-              confirmed={confirmedStates.includes(head.state as MoneyState)}
-              signal={signalStates.includes(head.state as MoneyState)}>
+            <StateBlock state={head.state} icon={head.icon} word={head.word} phrase={head.phrase} sentence={head.sentence}>
               <p className="state-meta">{progressLine(record)}</p>
             </StateBlock>
             {batch ? (
@@ -95,7 +93,7 @@ export function Payout() {
 
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paying out')}>
+            <StateBlock state="paying out" icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paying out')}>
               <p className="state-meta">
                 Sending · waiting for the mint. Sent {formatWhen(batch.savedAt)}.{' '}
                 {batch.status === 'unresolved'
@@ -103,6 +101,7 @@ export function Payout() {
                   : 'No answer yet.'}
               </p>
             </StateBlock>
+            <GoalLine {...campaignGoal(record, viewer.id)} />
             {reclaimer && (
               <Note title={`${people[reclaimer.backerId!].short} is taking their ${sats(campaign.contributionSat)} back.`}>
                 <p>Their signature was already released, so a reclaim can race the payout. Whichever the mint issues first wins.</p>
@@ -144,6 +143,7 @@ export function Payout() {
   const copy = stateCopy.paid;
   const receivedSat = totalSat - SWAP_FEE_SAT;
   const confirmedAt = formatWhen(batch.settledAt ?? batch.savedAt);
+  const confirmedUtc = formatWhen(batch.settledAt ?? batch.savedAt, 'UTC');
   const share = `We stacked ${sats(totalSat)} for ${creator.name}. Three plebs, one batch, confirmed by the mint. Test mint, fake sats.`;
   return (
     <>
@@ -152,9 +152,12 @@ export function Payout() {
       </PageHead>
 
       <Section label="Status">
-        <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paid')} confirmed signal>
-          <p className="state-meta">paid · confirmed by the mint {confirmedAt}</p>
-        </StateBlock>
+        <div className="stack" data-gap="large">
+          <StateBlock state="paid" icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paid')}>
+            <p className="state-meta">paid · confirmed by the mint {confirmedAt}</p>
+          </StateBlock>
+          <GoalLine {...campaignGoal(record, viewer.id)} />
+        </div>
       </Section>
 
       <Section label="Receipt">
@@ -183,7 +186,7 @@ export function Payout() {
             {record.slots.map(slot => <span key={slot.id}>Quote {slot.quote!.id} ({people[slot.backerId!].short})<br /></span>)}
             {batch.keysetId && <>Keyset {batch.keysetId}<br /></>}
             Locked to {shortKey(campaign.beneficiaryPubkey)}<br />
-            Confirmed {confirmedAt}<br />
+            Confirmed {confirmedAt}{confirmedUtc !== confirmedAt && ` · ${confirmedUtc}`}<br />
             Request {batch.id}<br />
             Test mint, fake sats.
           </p>

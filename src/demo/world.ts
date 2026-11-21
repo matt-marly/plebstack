@@ -175,7 +175,7 @@ export function headline(record: CampaignRecord): Headline {
   }
   if (state === 'unmet') {
     return {
-      state, word: 'Unmet', icon: 'bracket-open',
+      state, word: 'Unmet', icon: 'line-open',
       sentence: record.campaign.collectionStopped
         ? `Collecting stopped. No payout. Each pleb can take their own ${each} back.`
         : `A deposit was taken back, so there’s no payout. Each pleb can take their own ${each} back.`,

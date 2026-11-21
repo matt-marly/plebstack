@@ -6,7 +6,7 @@ import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { formatWhen } from '../ui/format';
 import { Icon } from '../ui/Icon';
-import { PageHead, Section, useTitle } from '../ui/parts';
+import { PageHead, Section, tone, useTitle } from '../ui/parts';
 import { Failure, useAction } from './shared';
 
 interface Entry {
@@ -28,10 +28,10 @@ function name(operation: SavedOperation): string {
   return `${operation.kind === 'payout' ? 'Payout' : 'Reclaim'} of ${sats(operation.amountSat)}`;
 }
 
-function outcome(record: CampaignRecord, operation: SavedOperation): { icon?: string; text: string } {
+function outcome(record: CampaignRecord, operation: SavedOperation): { state?: 'paid' | 'reclaimed'; text: string } {
   if (operation.status === 'confirmed') {
     const state = operation.kind === 'payout' ? 'paid' : 'reclaimed';
-    return { icon: stateCopy[state].icon, text: stateSentence(record, state) };
+    return { state, text: stateSentence(record, state) };
   }
   return {
     text: operation.kind === 'payout'
@@ -85,7 +85,7 @@ export function Recovery() {
                   <p className="small link-alone">
                     <Link to={paths.campaign(record.campaign.id)}>{record.campaign.title}</Link>
                   </p>
-                  <p className="operation-state"><Icon name={stateCopy[state].icon} size={18} /><span>{stateSentence(record, state)}</span></p>
+                  <p className="operation-state" {...tone(state)}><Icon name={stateCopy[state].icon} size={18} /><span>{stateSentence(record, state)}</span></p>
                   <p className="small muted">
                     Sent {formatWhen(operation.savedAt)}.{' '}
                     {operation.status === 'unresolved'
@@ -117,14 +117,13 @@ export function Recovery() {
             {settled.map(({ record, operation }) => {
               const result = outcome(record, operation);
               return (
-                <li key={operation.id} className="operation" data-confirmed={result.icon ? true : undefined}
-                  data-signal={(result.icon && operation.kind === 'payout') || undefined}>
+                <li key={operation.id} className="operation">
                   <h3>{name(operation)}</h3>
                   <p className="small link-alone">
                     <Link to={paths.campaign(record.campaign.id)}>{record.campaign.title}</Link>
                   </p>
-                  <p className="operation-state">
-                    {result.icon && <Icon name={result.icon} size={18} />}
+                  <p className="operation-state" {...(result.state && tone(result.state))}>
+                    {result.state && <Icon name={stateCopy[result.state].icon} size={18} />}
                     <span>{result.text}</span>
                   </p>
                   <p className="small muted">

@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LogEntry } from '../demo/world';
+import { isSignal, stateColour, type ToneState } from '../domain/states';
 import { formatWhen, shortKey } from './format';
 import { Icon } from './Icon';
 
@@ -56,17 +57,21 @@ export function Amount({ value, of, size = 'large' }: { value: number; of?: numb
   );
 }
 
-export function StateBlock({ icon, word, phrase, sentence, confirmed, signal, children }: {
+// Glyph and word take the state's colour; only a signal state is lit.
+export function tone(state: ToneState) {
+  return { 'data-signal': isSignal(state) || undefined, style: { '--state': stateColour[state] } as CSSProperties };
+}
+
+export function StateBlock({ state, icon, word, phrase, sentence, children }: {
+  state: ToneState;
   icon: string;
   word: string;
   phrase?: string;
   sentence: string;
-  confirmed?: boolean;
-  signal?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="state" data-confirmed={confirmed || undefined} data-signal={signal || undefined}>
+    <div className="state" data-state={state} {...tone(state)}>
       <Icon name={icon} size={28} />
       <div className="state-text">
         <p className="state-word">{word}</p>

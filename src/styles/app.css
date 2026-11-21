@@ -104,15 +104,14 @@ h3 { font-size: var(--text-body); font-weight: 650; line-height: 1.4; }
   .section-label { margin: 0; line-height: 1.83; }
 }
 
-/* State: a symbol, one word, one sentence. Colour only once the mint has confirmed. */
+/* State: a glyph, one word, one sentence. Glyph and word take the state colour (--state, set from stateColour). */
 
 .state { display: flex; gap: var(--space-3); }
 .state > .icon { margin-block-start: .05rem; }
 .state-word { font-size: var(--text-heading); font-weight: 650; line-height: 1.3; }
 .state-phrase { font-family: var(--font-mono); font-size: var(--text-small); color: var(--color-muted); }
 .state-sentence { margin-block-start: var(--space-1); }
-.state[data-confirmed] > .icon, .state[data-confirmed] .state-word { color: var(--color-state-reclaimed); }
-.state[data-signal] > .icon, .state[data-signal] .state-word { color: var(--color-signal); }
+.state > .icon, .state-word { color: var(--state, var(--color-ink)); }
 .state-text > * + .state-meta { margin-block-start: var(--space-2); }
 .state-meta { font-size: var(--text-small); line-height: 1.5; color: var(--color-muted); }
 
@@ -189,55 +188,67 @@ h3 { font-size: var(--text-body); font-weight: 650; line-height: 1.4; }
 .plain-list li + li { margin-block-start: var(--space-2); }
 .plain-list li::before { content: "–"; position: absolute; inset-inline-start: 0; color: var(--color-muted); }
 
-/* Contributions: three rows feeding one bracket, and the total beside it. */
+/* Contributions: three rows, and the goal line they stack under. */
 
 .group { container-type: inline-size; }
-.group-layout { display: grid; }
-.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 1.25rem; }
+.group-layout { display: grid; row-gap: var(--space-4); }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
 .row > * { padding-block: var(--space-3); }
-.row + .row > :not(.row-lead) { border-block-start: 1px solid var(--color-rule); }
-.row-icon { padding-inline-end: var(--space-3); padding-block-start: calc(var(--space-3) + .1rem); }
+.row + .row > * { border-block-start: 1px solid var(--color-rule); }
+.row-icon { padding-inline-end: var(--space-3); padding-block-start: calc(var(--space-3) + .1rem); color: var(--state, var(--color-ink)); }
 .row-who { font-weight: 600; line-height: 1.4; }
 .row[data-status="open"] .row-who { font-weight: 400; color: var(--color-muted); }
 .you { margin-inline-start: var(--space-2); font-size: var(--text-small); font-weight: 400; color: var(--color-muted); }
 .row-state { font-size: var(--text-small); line-height: 1.5; color: var(--color-muted); }
-.row-word { color: var(--color-ink); font-weight: 600; }
+.row-word { color: var(--state, var(--color-ink)); font-weight: 600; }
 .row-word[data-apart]::after { content: " · "; font-weight: 400; color: var(--color-muted); }
-.row[data-confirmed] .row-icon, .row[data-confirmed] .row-word { color: var(--color-state-reclaimed); }
-.row[data-status="paid"] .row-icon, .row[data-status="paid"] .row-word { color: var(--color-signal); }
-.row[data-status="open"] .row-icon, .row[data-status="awaiting"] .row-icon { color: var(--color-muted); }
 .row-link { font-size: var(--text-small); line-height: 1.5; }
 .row-link a { display: inline-block; padding-block: var(--space-1); }
-.row-amount { padding-inline: var(--space-3); text-align: end; }
+.row-amount { padding-inline-start: var(--space-3); text-align: end; }
 .row[data-status="open"] .amount-figure, .row[data-status="awaiting"] .amount-figure { color: var(--color-muted); font-weight: 400; }
 
-.row-lead { position: relative; padding: 0; }
-.row-lead::before, .row-lead::after { content: ""; position: absolute; }
-.row-lead::before { inset-inline: 0; inset-block-start: 50%; border-block-start: 1.5px dotted var(--color-border); }
-.row-lead::after { inset-inline-end: 0; inset-block: 0; border-inline-end: 1.5px dashed var(--color-border); }
-.row:first-child .row-lead::after { inset-block-start: 50%; }
-.row[data-held] .row-lead::before { border-block-start-style: solid; border-color: var(--color-ink); }
-.row[data-held] .row-lead::after { border-inline-end-style: solid; border-color: var(--color-ink); }
-.row[data-status="reclaimed"] .row-lead::before { display: none; }
-
-.group-total { position: relative; padding-block: var(--space-4) 0; padding-inline-end: var(--space-5); text-align: end; }
-.group-total::before, .group-total::after { content: ""; position: absolute; inset-inline-end: 0; }
-.group-total::before { inset-block: 0 calc(100% - var(--space-4) - 1.25rem); border-inline-end: 1.5px dashed var(--color-border); }
-.group-total::after { inset-block-start: calc(var(--space-4) + 1.25rem); inline-size: var(--space-3); border-block-start: 1.5px dashed var(--color-border); }
-.group[data-complete] .group-total::before { border-inline-end-style: solid; border-color: var(--color-ink); }
-.group[data-complete] .group-total::after { border-block-start-style: solid; border-color: var(--color-ink); }
-.group-sum { line-height: 1.25; }
-.group-caption { margin-block-start: var(--space-1); font-size: var(--text-small); line-height: 1.45; color: var(--color-muted); }
+.group-caption { margin-block-start: var(--space-3); font-size: var(--text-small); line-height: 1.45; color: var(--color-muted); }
 
 @container (min-width: 34rem) {
-  .group-layout { grid-template-columns: minmax(0, 1fr) 10.5rem; }
-  .row { grid-template-columns: auto minmax(0, 1fr) auto 1.75rem; }
-  .group-total { display: flex; flex-direction: column; justify-content: center; padding: 0; padding-inline-start: var(--space-5); text-align: start; }
-  .group-total::before { display: none; }
-  .row:last-child .row-lead::after { inset-block-end: calc(50% - 1.5px); }
-  .group-total::after { inset-inline: 0 auto; inset-block-start: 50%; inline-size: var(--space-4); }
+  .group-layout { grid-template-columns: minmax(0, 1fr) 12rem; column-gap: var(--space-5); }
+  .group-total { grid-column: 2; grid-row: 1; padding-block-start: var(--space-3); }
+  .group-rows { grid-column: 1; grid-row: 1; }
   .group-caption { text-wrap: balance; }
 }
+
+/* Goal line: three equal slabs, one per deposit, under one line. Dashed while collecting, solid ink at the
+   line, signal only once the mint has confirmed the payout. */
+
+@property --slab-gap { syntax: "<length>"; inherits: true; initial-value: 6px; }
+/* Paid settles to 4px, not 2px, so your slab's outline (2px off, 1.5px wide) never touches a neighbour. */
+.goal { --slab-gap: 6px; inline-size: 11.5rem; max-inline-size: 100%; color: var(--color-ink); }
+.goal-label { margin-block-end: 6px; font-family: var(--font-mono); font-size: 11px; line-height: 1.4; color: var(--color-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.goal-line { border-block-start: 2px dashed var(--color-muted); }
+.goal-piles { display: grid; padding: var(--slab-gap) 3px 3px; }
+.goal-pile { grid-area: 1 / 1; display: flex; flex-direction: column-reverse; align-items: flex-start; gap: var(--slab-gap); }
+.goal-slab { display: block; inline-size: 7rem; block-size: 13px; border-radius: 3px; background: currentColor; }
+.goal-slab[data-kind="open"] { background: none; border: 1.5px dashed var(--color-border); }
+.goal-slab[data-kind="reclaimed"] { background: none; border: 1.5px solid var(--color-border); }
+.goal-slab[data-own] { outline: 1.5px solid currentColor; outline-offset: 2px; }
+.goal:is([data-phase="at-line"], [data-phase="sending"]) .goal-line { border-block-start-style: solid; border-color: var(--color-ink); }
+.goal:is([data-phase="at-line"], [data-phase="sending"]) .goal-label { color: var(--color-ink); }
+.goal[data-phase="sending"] .goal-piles { transform: translateX(8px); }
+.goal[data-phase="paid"] { --slab-gap: 4px; }
+.goal[data-phase="paid"] .goal-line { border-block-start-style: solid; border-color: var(--color-signal); }
+.goal[data-phase="paid"] .goal-label { color: var(--color-signal); }
+.goal-pile[data-lit] .goal-slab { background: var(--color-signal); outline: none; }
+.goal-pile[data-lit] .goal-slab:not([data-kind="filled"]) { visibility: hidden; }
+
+/* Words first, then the drawing: settle, line, one fill bottom to top. Only when Paid arrives on screen. */
+@keyframes goal-fill { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .goal { transition: --slab-gap var(--dur-base) var(--ease-settle); }
+  .goal-piles { transition: transform var(--dur-base) var(--ease-settle); }
+  .goal-line { transition: border-color var(--dur-fast) 160ms var(--ease-out); }
+  .goal[data-moment] .goal-pile[data-lit] { animation: goal-fill 240ms 240ms var(--ease-out) both; }
+}
+
+.hero-goal { margin-block-start: var(--space-5); }
 
 /* Panels: the white surface is kept for things you fill in, check, or keep. */
 
@@ -295,9 +306,7 @@ h3 { font-size: var(--text-body); font-weight: 650; line-height: 1.4; }
 .index-sum { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .index-state { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-2); font-size: var(--text-small); line-height: 1.5; color: var(--color-muted); }
 .index-state strong { font-weight: 600; color: var(--color-ink); }
-.index-state[data-confirmed] :is(.icon, strong) { color: var(--color-state-reclaimed); }
-.index-state[data-signal] :is(.icon, strong) { color: var(--color-signal); }
-.index-state .icon { color: var(--color-ink); }
+.index-state :is(.icon, strong) { color: var(--state, var(--color-ink)); }
 .index-role { grid-column: 1 / -1; font-size: var(--text-small); line-height: 1.5; color: var(--color-muted); }
 
 .steps { counter-reset: step; }
@@ -314,8 +323,7 @@ h3 { font-size: var(--text-body); font-weight: 650; line-height: 1.4; }
 .words-phrase { display: block; font-family: var(--font-mono); font-size: var(--text-small); color: var(--color-muted); }
 .words .icon { margin-block-start: .15rem; }
 .words strong { font-weight: 650; }
-.words li[data-confirmed] :is(.icon, strong) { color: var(--color-state-reclaimed); }
-.words li[data-signal] :is(.icon, strong) { color: var(--color-signal); }
+.words li :is(.icon, strong) { color: var(--state, var(--color-ink)); }
 @container (min-width: 30rem) {
   .words li { grid-template-columns: auto 7.5rem minmax(0, 1fr); }
   .words-sentence { grid-column: auto; }
@@ -327,9 +335,7 @@ h3 { font-size: var(--text-body); font-weight: 650; line-height: 1.4; }
 .operation > * + * { margin-block-start: var(--space-1); }
 .operation > .actions { margin-block-start: var(--space-4); }
 .operation-state { display: flex; align-items: flex-start; gap: var(--space-2); margin-block-start: var(--space-2); }
-.operation-state .icon { margin-block-start: .2rem; }
-.operation[data-confirmed] .operation-state { color: var(--color-state-reclaimed); }
-.operation[data-signal] .operation-state { color: var(--color-signal); }
+.operation-state .icon { margin-block-start: .2rem; color: var(--state, currentColor); }
 
 /* Dialog */
 

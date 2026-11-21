@@ -5,6 +5,7 @@ import { confirmDeposit, people, requestQuote, sats, slotOf, slotStatus, statusO
 import type { LockedQuote } from '../domain/models';
 import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
+import { formatClock } from '../ui/format';
 import { CopyButton, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
 import { Failure, Missing, useRecord } from './shared';
 
@@ -32,9 +33,9 @@ function LiveStatus({ campaignId, slotId, ownerId, quote }: { campaignId: string
 
   return (
     <div className="stack" data-gap="large">
-      <StateBlock icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid.">
+      <StateBlock state="awaiting" icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid.">
         <p className="state-meta">
-          {checkedAt ? `Last checked ${checkedAt.toISOString().slice(11, 19)} UTC.` : 'Asking the mint.'}
+          {checkedAt ? `Last checked ${formatClock(checkedAt)}.` : 'Asking the mint.'}
         </p>
       </StateBlock>
       {failure && (
@@ -86,7 +87,7 @@ export function Back() {
         <Section label="Status">
           {real ? <LiveStatus campaignId={campaign.id} slotId={slot.id} ownerId={viewer.id} quote={quote} /> : (
             <div className="stack" data-gap="large">
-              <StateBlock icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid." />
+              <StateBlock state="awaiting" icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid." />
               <div className="actions">
                 <button type="button" className="button" data-variant="primary" onClick={() => {
                   apply((world, at) => confirmDeposit(world, campaign.id, slot.id, at));

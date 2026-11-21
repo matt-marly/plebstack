@@ -72,7 +72,7 @@ export function Reclaim() {
           <p>Back to you. {each} minted to your own outputs, saved in this browser.</p>
         </PageHead>
         <Section label="Status">
-          <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'reclaimed')} confirmed>
+          <StateBlock state="reclaimed" icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'reclaimed')}>
             {request?.settledAt && <p className="state-meta">Confirmed by the mint {formatWhen(request.settledAt)}.</p>}
           </StateBlock>
         </Section>
@@ -114,7 +114,7 @@ export function Reclaim() {
         <PageHead back={back} eyebrow={campaign.title} title="Take mine back" />
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paid')} confirmed />
+            <StateBlock state="paid" icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paid')} />
             {request?.status === 'rejected' ? (
               <Note title="Your reclaim was rejected.">
                 <p>
@@ -143,7 +143,7 @@ export function Reclaim() {
         </PageHead>
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'reclaiming')}>
+            <StateBlock state="reclaiming" icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'reclaiming')}>
               {request && <p className="state-meta">Sent {formatWhen(request.savedAt)}. No answer yet.</p>}
             </StateBlock>
             {batchInFlight && (
