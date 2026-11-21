@@ -340,24 +340,27 @@ export function createCampaign(world: World, draft: CampaignDraft, at: string): 
   return { ...world, campaigns: [...world.campaigns, record], notice: 'Campaign created. No deposits yet.' };
 }
 
-export function requestQuote(world: World, campaignId: string, at: string): World {
+// A live quote comes from the mint, already locked to a key made in this browser.
+export function requestQuote(world: World, campaignId: string, at: string, liveQuote?: LockedQuote): World {
   const backer = people[world.viewerId];
   return update(world, campaignId, 'Awaiting deposit.', record => {
     if (statusOf(record) !== 'collecting') throw new Error('This campaign is not collecting deposits.');
     if (slotOf(record, backer.id)) throw new Error('This backer already holds a slot.');
     const open = record.slots.find(slot => !slot.backerId);
     if (!open) throw new Error('All three slots are taken.');
-    const slot: Slot = { ...open, backerId: backer.id, quote: stubQuote(record.campaign, open.id, backer) };
+    const slot: Slot = { ...open, backerId: backer.id, quote: liveQuote ?? stubQuote(record.campaign, open.id, backer) };
     return logged(withSlot(record, slot), at, `${backer.short} created a deposit invoice. Awaiting deposit.`);
   });
 }
 
 // The test mint credits its own invoices, so "checking" an unpaid quote always finds it paid.
-export function confirmDeposit(world: World, campaignId: string, slotId: string, at: string): World {
+// A live check passes the mint's own answer, which must be for this slot's quote and paid.
+export function confirmDeposit(world: World, campaignId: string, slotId: string, at: string, paidQuote?: LockedQuote): World {
   return update(world, campaignId, stateCopy.deposited.sentence, record => {
     const slot = findSlot(record, slotId);
     if (!slot?.quote || !slot.backerId || slot.deposit) throw new Error('No unpaid quote to check.');
-    const quote: LockedQuote = { ...slot.quote, mintState: 'PAID' };
+    if (paidQuote && (paidQuote.id !== slot.quote.id || paidQuote.mintState !== 'PAID')) throw new Error('That is not this slot’s paid quote.');
+    const quote: LockedQuote = paidQuote ?? { ...slot.quote, mintState: 'PAID' };
     const deposit: Deposit = {
       id: slot.id, campaignId, quote, state: 'deposited', authorizationReleased: false, newApprovalsStopped: false,
     };

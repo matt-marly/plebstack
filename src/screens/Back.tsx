@@ -1,12 +1,62 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { confirmDeposit, people, requestQuote, sats, slotOf, slotStatus, statusOf } from '../demo/world';
+import { createLiveQuote, failureCopy, isLiveQuote, waitForLiveDeposit } from '../demo/live';
+import { useStore } from '../demo/store';
+import { confirmDeposit, people, requestQuote, sats, setViewer, slotOf, slotStatus, statusOf } from '../demo/world';
+import type { LockedQuote } from '../domain/models';
 import { paths } from '../routes';
 import { CopyButton, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, focusHeading, useTitle } from '../ui/parts';
 import { Missing, useRecord } from './shared';
 
+function Failure({ text }: { text: string }) {
+  return <div role="alert"><Note title="Nothing deposited"><p>{text}</p></Note></div>;
+}
+
+// Asks the test mint until it reports the quote paid and unissued, then records the deposit.
+function LiveStatus({ campaignId, slotId, quote }: { campaignId: string; slotId: string; quote: LockedQuote }) {
+  const { apply } = useStore();
+  const navigate = useNavigate();
+  const [checkedAt, setCheckedAt] = useState<Date>();
+  const [failure, setFailure] = useState<string>();
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setFailure(undefined);
+    waitForLiveDeposit(quote.id, { signal: controller.signal, onCheck: (_check, at) => setCheckedAt(at) }).then(paid => {
+      apply((world, at) => confirmDeposit(world, campaignId, slotId, at, paid));
+      navigate(paths.deposit(campaignId, slotId));
+    }).catch(error => {
+      if (!controller.signal.aborted) setFailure(failureCopy(error));
+    });
+    return () => controller.abort();
+  }, [quote.id, attempt, campaignId, slotId, apply, navigate]);
+
+  return (
+    <div className="stack" data-gap="large">
+      <StateBlock icon="awaiting" word="Awaiting deposit" sentence="The mint hasn’t reported this invoice paid yet.">
+        <p className="state-meta">
+          {checkedAt ? `Last checked ${checkedAt.toISOString().slice(11, 19)} UTC.` : 'Asking the mint.'}
+        </p>
+      </StateBlock>
+      {failure && (
+        <>
+          <Failure text={failure} />
+          <div className="actions">
+            <button type="button" className="button" onClick={() => setAttempt(count => count + 1)}>Check again</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function Back() {
   const { viewer, apply, record } = useRecord();
+  const { live } = useStore();
   const navigate = useNavigate();
+  const [asking, setAsking] = useState(false);
+  const [failure, setFailure] = useState<string>();
   const slot = record && slotOf(record, viewer.id);
   const awaiting = slot !== undefined && slotStatus(slot) === 'awaiting';
   const each = record ? sats(record.campaign.contributionSat) : '';
@@ -28,6 +78,7 @@ export function Back() {
 
   if (awaiting && slot.quote) {
     const quote = slot.quote;
+    const real = live && isLiveQuote(quote.id);
     return (
       <>
         <PageHead back={back} eyebrow={campaign.title} title="Pay the invoice">
@@ -35,17 +86,19 @@ export function Back() {
         </PageHead>
 
         <Section label="Status">
-          <div className="stack" data-gap="large">
-            <StateBlock icon="awaiting" word="Awaiting deposit" sentence="The mint hasn’t seen a payment for this invoice yet." />
-            <div className="actions">
-              <button type="button" className="button" data-variant="primary" onClick={() => {
-                apply((world, at) => confirmDeposit(world, campaign.id, slot.id, at));
-                navigate(paths.deposit(campaign.id, slot.id));
-              }}>
-                Check for deposit
-              </button>
+          {real ? <LiveStatus campaignId={campaign.id} slotId={slot.id} quote={quote} /> : (
+            <div className="stack" data-gap="large">
+              <StateBlock icon="awaiting" word="Awaiting deposit" sentence="The mint hasn’t seen a payment for this invoice yet." />
+              <div className="actions">
+                <button type="button" className="button" data-variant="primary" onClick={() => {
+                  apply((world, at) => confirmDeposit(world, campaign.id, slot.id, at));
+                  navigate(paths.deposit(campaign.id, slot.id));
+                }}>
+                  Check for deposit
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </Section>
 
         <Section label="Invoice">
@@ -55,7 +108,9 @@ export function Back() {
             <CopyButton text={quote.invoice} label="Copy invoice" />
           </div>
           <p className="muted small after-panel">
-            This test mint credits its own invoices, so there’s nothing to pay. Check for the deposit when you’re ready.
+            {real
+              ? 'This test mint credits its own invoices within seconds, so there’s nothing to pay. This page keeps asking the mint until it reports the invoice paid.'
+              : 'This test mint credits its own invoices, so there’s nothing to pay. Check for the deposit when you’re ready.'}
           </p>
         </Section>
 
@@ -89,6 +144,27 @@ export function Back() {
     );
   }
 
+  async function join() {
+    if (!record) return;
+    if (!live) {
+      apply((world, at) => requestQuote(world, campaign.id, at));
+      focusHeading();
+      return;
+    }
+    const backerId = viewer.id;
+    setAsking(true);
+    setFailure(undefined);
+    try {
+      const quote = await createLiveQuote(campaign, backerId);
+      apply((world, at) => setViewer(requestQuote(setViewer(world, backerId), campaign.id, at, quote), world.viewerId));
+      focusHeading();
+    } catch (error) {
+      setFailure(failureCopy(error));
+    } finally {
+      setAsking(false);
+    }
+  }
+
   return (
     <>
       <PageHead back={back} eyebrow={campaign.title} title={`Join with ${each}`}>
@@ -105,12 +181,11 @@ export function Back() {
           <Note>
             <p>Keys stay in this browser and nothing backs them up. Clear its storage before the payout and the deposit can’t be recovered.</p>
           </Note>
+          {failure && <Failure text={failure} />}
           <div className="actions">
-            <button type="button" className="button" data-variant="primary" onClick={() => {
-              apply((world, at) => requestQuote(world, campaign.id, at));
-              focusHeading();
-            }}>
-              Create deposit invoice
+            <button type="button" className="button" data-variant="primary" aria-disabled={asking || undefined}
+              onClick={() => { if (!asking) void join(); }}>
+              {asking ? 'Asking the mint…' : 'Create deposit invoice'}
             </button>
           </div>
         </div>
