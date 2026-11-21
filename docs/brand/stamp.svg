@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 96" width="372" height="96" role="img" aria-label="Paid to Ngozi Eze, 63 sats. Mint confirmed 13 Nov 14:07 UTC. op-541d70ed.">
+  <title>Paid to Ngozi Eze, 63 sats. Mint confirmed 13 Nov 14:07 UTC. op-541d70ed.</title>
+  <rect x="0.75" y="0.75" width="370.5" height="94.5" rx="4" fill="none" stroke="#17643c" stroke-width="1.5"/>
+  <g transform="translate(18 28) scale(1.25)"><path d="M4 16H28M4 8C10.5 8 12.5 16 19 16M4 24C10.5 24 12.5 16 19 16" fill="none" stroke="#17643c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <path d="M72 18V78" stroke="#17643c" stroke-width="1" stroke-dasharray="0 3.5" stroke-linecap="round"/>
+  <text x="88" y="38" fill="#17643c" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif" font-size="17" font-weight="650">Paid to Ngozi Eze, 63 sats</text>
+  <text x="88" y="60" fill="#17643c" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12.5">Mint confirmed 13 Nov 14:07 UTC</text>
+  <text x="88" y="78" fill="#17643c" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12.5">op-541d70ed</text>
+</svg>

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+coverage/
+.env
+.env.*
+!.env.example
+*.local
+npm-debug.log*
+.DS_Store
+
+# live test output
+.evidence/
