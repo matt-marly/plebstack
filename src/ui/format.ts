@@ -1,11 +1,38 @@
-const dayAndTime = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC',
-});
+let zoneOverride: string | undefined;
 
-// Mint events are shown in UTC so three backers in three places read the same record.
-export function formatWhen(iso: string): string {
-  const parts = Object.fromEntries(dayAndTime.formatToParts(new Date(iso)).map(part => [part.type, part.value]));
-  return `${parts.day} ${parts.month}, ${parts.hour}:${parts.minute} UTC`;
+// Tests pin the zone; the app always uses the viewer's own.
+export function setTimeZone(zone: string | undefined) {
+  zoneOverride = zone;
+}
+
+export function viewerTimeZone(): string {
+  return zoneOverride ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
+}
+
+const formats = new Map<string, Intl.DateTimeFormat>();
+
+function partsOf(date: Date, timeZone: string, seconds: boolean) {
+  const key = `${timeZone}/${seconds}`;
+  let format = formats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: seconds ? '2-digit' : undefined,
+      hourCycle: 'h23', timeZone, timeZoneName: 'short',
+    });
+    formats.set(key, format);
+  }
+  return Object.fromEntries(format.formatToParts(date).map(part => [part.type, part.value]));
+}
+
+// Data stays ISO; screens show the viewer's local time with its zone, so nobody converts in their head.
+export function formatWhen(iso: string, timeZone = viewerTimeZone()): string {
+  const parts = partsOf(new Date(iso), timeZone, false);
+  return `${parts.day} ${parts.month}, ${parts.hour}:${parts.minute} ${parts.timeZoneName}`;
+}
+
+export function formatClock(when: string | Date, timeZone = viewerTimeZone()): string {
+  const parts = partsOf(new Date(when), timeZone, true);
+  return `${parts.hour}:${parts.minute}:${parts.second} ${parts.timeZoneName}`;
 }
 
 export function shortKey(key: string, lead = 8, tail = 6): string {
