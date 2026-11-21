@@ -1,8 +1,8 @@
-# All Together
+# Plebstack
 
-Three backers each deposit 21 sats. The creator is paid all 63 in one payment once all three approve, or not at all, and keeps 62 after a 1-sat fee. Until then every backer can take their own deposit back.
+Crowdfunding on Cashu ecash. Three plebs each deposit 21 sats at one mint, locked to their own key. The maintainer is paid all 63 in one payment once all three sign, or not at all, and keeps 62 after a 1-sat fee. Until then every backer can take their own deposit back. The organizer never holds a key.
 
-This is a clickable prototype of that flow. It runs on stub data in the browser: no quote is created, nothing is signed, and no request reaches a mint. The protocol boundary in `src/protocol/` still throws, on purpose.
+This is a clickable prototype of that flow, formerly called All Together. By default it runs on stub data in the browser. With `?live=1` the join screen makes a real NUT-20 locked quote at the test mint for the viewing backer and waits for the mint to report it paid. Signing, payout and reclaim are still stubbed; `src/protocol/README.md` says exactly what is real.
 
 ## Run it
 
@@ -15,7 +15,9 @@ npm run dev
 
 Open the address Vite prints (usually `http://localhost:5173`). The demo campaign funds a fix in an open-source calendar library; two of its three deposits are already in. The strip at the top has a “Viewing as” menu, which stands in for the four separate browsers: three backers, and the maintainer who is both creator and organizer. Switch person to see the same campaign from each seat. Reloading starts the story again; only the light or dark choice is remembered.
 
-Light and dark follow the system setting, and the button in the header overrides it.
+The night theme is the default. Paper is used when the system asks for light, and the button in the header overrides both.
+
+Add `?live=1` to use the test mint for real deposits. The key for each deposit is made and kept in this browser's local storage; clearing it loses the key.
 
 ## Demo control
 
@@ -56,6 +58,7 @@ Routes live in `src/routes.ts` and match `docs/ia-userflows.md`. Stills of every
 ```sh
 npm test
 npm run build
+PLEB_LIVE=1 npm run test:live   # against testnut.cashudevkit.org; writes .evidence/live-deposit-<time>/
 ```
 
 To retake the stills, keep `npm run dev` running and, in another terminal:

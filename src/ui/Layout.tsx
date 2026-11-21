@@ -6,6 +6,7 @@ import { people, setViewer } from '../demo/world';
 import { TEST_MINT } from '../domain/models';
 import { paths } from '../routes';
 import { Icon } from './Icon';
+import { Mark } from './Mark';
 
 const sessions = [
   { id: 'ishaan', role: 'backer' },
@@ -15,7 +16,7 @@ const sessions = [
 ];
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? 'light');
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? 'dark');
   const next = theme === 'dark' ? 'light' : 'dark';
 
   function toggle() {
@@ -36,7 +37,7 @@ function ThemeToggle() {
 }
 
 export function Layout() {
-  const { world, viewer, apply, demo } = useStore();
+  const { world, viewer, apply, demo, live } = useStore();
   const { pathname } = useLocation();
   const main = useRef<HTMLElement>(null);
   const shownPath = useRef(pathname);
@@ -55,7 +56,11 @@ export function Layout() {
 
       <div className="strip">
         <div className="wrap">
-          <p className="strip-note">Prototype with stub data. Nothing here moves money.</p>
+          <p className="strip-note">
+            {live
+              ? 'Live: joining makes a real locked quote at a test mint. Fake sats.'
+              : 'Prototype with stub data. Nothing here moves money.'}
+          </p>
           <label className="viewing">
             Viewing as
             <select value={viewer.id} onChange={event => apply(current => setViewer(current, event.target.value))}>
@@ -69,7 +74,10 @@ export function Layout() {
 
       <header className="masthead">
         <div className="wrap">
-          <Link className="wordmark" to={paths.home()}>All Together</Link>
+          <Link className="lockup" to={paths.home()} aria-label="Plebstack">
+            <Mark className="lockup-mark" />
+            <span className="lockup-word" aria-hidden="true">plebstack</span>
+          </Link>
           <nav className="masthead-nav" aria-label="Main">
             <NavLink to={paths.home()} end>Campaigns</NavLink>
             <NavLink to={paths.recovery()}>Recovery</NavLink>

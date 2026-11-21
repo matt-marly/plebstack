@@ -3,15 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Three backers deposit at one mint and pay a creator in one payment, or not at all." />
-    <title>All Together</title>
+    <meta name="description" content="Plebstack: three plebs each deposit at one Cashu mint and pay a maintainer in one payment, or not at all. The organizer never holds your key." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Plebstack</title>
     <script>
-      // Set the theme before first paint: a saved choice wins, then the system setting.
+      // Set the theme before first paint: a saved choice wins, then a system request for light; night otherwise.
       (function () {
         var saved = null;
         try { saved = localStorage.getItem('theme'); } catch (error) {}
-        var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        var light = saved ? saved === 'light' : matchMedia('(prefers-color-scheme: light)').matches;
+        document.documentElement.dataset.theme = light ? 'light' : 'dark';
       })();
     </script>
   </head>
