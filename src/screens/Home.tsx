@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../demo/store';
-import { MAIN_CAMPAIGN, headline, progressLine, roleLine, sats, tally } from '../demo/world';
+import { DEPOSIT_SAT, MAIN_CAMPAIGN, headline, people, progressLine, roleLine, sats, tally } from '../demo/world';
 import { confirmedStates, signalStates, stateCopy } from '../domain/states';
 import type { MoneyState } from '../domain/models';
 import { paths } from '../routes';
@@ -9,32 +9,33 @@ import { PageHead, Section, useTitle } from '../ui/parts';
 
 const steps = [
   {
-    title: 'Deposit',
-    text: 'You pay a 21-sat invoice. The mint holds the sats, locked to a key that never leaves your browser. The organizer can’t move them, and the creator hasn’t been paid.',
+    title: 'Stack',
+    text: 'You pay a 21-sat invoice. The sats wait at the mint, locked to a key made in your browser. Nobody holds your keys but you. Not us, not the organizer. Nothing is paid to the maintainer yet.',
   },
   {
-    title: 'Approve',
-    text: 'Once all three deposits are in, each backer checks the same payout (amount, creator key, mint) and signs it. A released signature can’t be taken back.',
+    title: 'Sign',
+    text: 'When all three deposits are in, each pleb checks the same 63-sat outputs (amount, maintainer key, mint) and signs. All three have to sign. A signature can’t be taken back.',
   },
   {
     title: 'Pay out',
-    text: 'The third signature sends one batch to the mint. It issues all 63 sats to the creator’s key at once, or nothing.',
+    text: 'The third signature sends one batch to the mint. The mint issues all 63 sats as ecash locked to the maintainer’s key, or nothing. Paid only when the mint confirms.',
   },
   {
     title: 'Or take yours back',
-    text: 'Until the mint pays out, you can claim your own deposit as ecash in your own wallet. If you already approved, the payout may get there first.',
+    text: 'Until the payout is issued, you can mint your own 21 sats back into your own outputs. If you already signed, the payout may get there first.',
   },
 ];
 
 const limits = [
-  'Taking a deposit back is not a Lightning refund. You get ecash at the same mint.',
-  'Deposits sit at the mint. If the mint fails, they’re lost.',
-  'Nothing enforces a deadline. A campaign is unmet when its organizer stops collecting or a backer takes a deposit back.',
-  'Nobody checks that the work gets done. The public link is all a campaign claims.',
-  'This prototype uses fake sats on a test mint and keeps no backup of keys.',
+  'Taking your sats back gives you ecash at the same mint, not sats over Lightning.',
+  'Deposits sit at the mint, locked to each backer’s key. The mint holds them: if it fails, they’re lost.',
+  'No deadline. Nothing expires a signature, and nothing releases a reclaim on a timer. A campaign is unmet when its organizer stops collecting or a pleb takes their sats back.',
+  'Paid means the maintainer received ecash, not that the work was done. The public link is all a campaign claims.',
+  'Test mint, fake sats. Keys live in this browser and nothing backs them up.',
 ];
 
 const words = Object.entries(stateCopy) as [MoneyState, (typeof stateCopy)[MoneyState]][];
+const demoTerms = { maintainer: people.ngozi, amountSat: DEPOSIT_SAT };
 
 export function Home() {
   useTitle('Campaigns');
@@ -42,11 +43,8 @@ export function Home() {
 
   return (
     <>
-      <PageHead title="Three backers pay one maintainer together, or not at all.">
-        <p>
-          Each backer puts 21 sats at a mint, locked to their own key. The maintainer is paid in one 63-sat payment,
-          and only after all three approve it. Until then, any backer can take their own deposit back.
-        </p>
+      <PageHead eyebrow="Stay humble, stack together." title="Three plebs pay one maintainer together, or not at all.">
+        <p>Each deposit waits at the mint, locked to its owner’s key. The organizer never holds one.</p>
         <div className="actions head-actions">
           <Link className="button" data-variant="primary" to={paths.campaign(MAIN_CAMPAIGN)}>Open the example campaign</Link>
           <Link className="button" to={paths.create()}>Start a campaign</Link>
@@ -91,14 +89,17 @@ export function Home() {
 
       <Section label="Seven words">
         <div className="stack">
-          <p>Money here is always in one of seven states, each with one word and one sentence. Paid and Reclaimed show only once the mint confirms them, and only Paid is lit.</p>
+          <p>
+            Sats here are always in one of seven states: a plain word, a pleb phrase, one sentence. Paid and Reclaimed
+            show only once the mint confirms them, and only Paid is lit.
+          </p>
           <ul className="words" role="list">
             {words.map(([state, copy]) => (
               <li key={state} data-confirmed={confirmedStates.includes(state) || undefined}
                 data-signal={signalStates.includes(state) || undefined}>
                 <Icon name={copy.icon} size={22} />
                 <strong>{copy.word}</strong>
-                <span className="words-sentence">{copy.sentence}</span>
+                <span className="words-sentence"><span className="words-phrase">{copy.phrase}</span>{copy.sentence(demoTerms)}</span>
               </li>
             ))}
           </ul>

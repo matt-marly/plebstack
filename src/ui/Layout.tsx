@@ -12,7 +12,7 @@ const sessions = [
   { id: 'ishaan', role: 'backer' },
   { id: 'tobi', role: 'backer' },
   { id: 'maren', role: 'backer' },
-  { id: 'ngozi', role: 'creator and organizer' },
+  { id: 'ngozi', role: 'maintainer and organizer' },
 ];
 
 function ThemeToggle() {
@@ -59,7 +59,7 @@ export function Layout() {
           <p className="strip-note">
             {live
               ? 'Live: joining makes a real locked quote at a test mint. Fake sats.'
-              : 'Prototype with stub data. Nothing here moves money.'}
+              : 'Prototype with stub data. Nothing here moves sats.'}
           </p>
           <label className="viewing">
             Viewing as
@@ -92,8 +92,14 @@ export function Layout() {
 
       <footer className="site-foot">
         <div className="wrap">
-          <p>Test mint <span className="mono">{TEST_MINT}</span>. Fake sats only.</p>
-          <p>Deposits sit at the mint. A released approval can’t be revoked, and a reclaim can race the payout.</p>
+          <p>Test mint <span className="mono">{TEST_MINT}</span>. Fake sats.</p>
+          <p>
+            Deposits sit at the mint, locked to each backer’s key. Nobody holds your keys but you. Not us, not the organizer.
+          </p>
+          <p>
+            A released signature can’t be taken back, and a reclaim can race the payout. Nothing is Paid or Reclaimed
+            until the mint says so.
+          </p>
         </div>
       </footer>
 

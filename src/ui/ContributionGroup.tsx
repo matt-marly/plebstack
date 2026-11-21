@@ -21,14 +21,15 @@ function rowIcon(status: SlotStatus): string {
 
 function totalCaption(record: CampaignRecord): string {
   const state = statusOf(record);
-  if (state === 'paid') return 'paid to the creator in one payment';
-  if (state === 'paying out') return 'sent to the mint as one payment';
-  if (groupComplete(record)) return 'one payment to the creator, once all three approve';
-  if (state === 'unmet') return 'still at the mint. This group can’t pay out.';
-  return 'deposited. Paid as one payment, or not at all.';
+  const maintainer = people[record.creatorId];
+  if (state === 'paid') return `paid to ${maintainer.name} in one batch. Confirmed by the mint.`;
+  if (state === 'paying out') return 'sent to the mint as one batch. Not paid until the mint confirms.';
+  if (groupComplete(record)) return `at the line. One batch to ${maintainer.short} once all three sign.`;
+  if (state === 'unmet') return 'still at the mint. No payout this time.';
+  return 'stacked. Paid in one batch, or not at all.';
 }
 
-// Every sentence opens with its state word, so the word is set in bold rather than said twice.
+// A sentence that opens with its state word has the word set in bold rather than said twice.
 function RowState({ word, sentence }: { word: string; sentence: string }) {
   const opens = sentence.startsWith(word);
   return (
@@ -54,7 +55,7 @@ function Row({ record, slot, viewerId }: { record: CampaignRecord; slot: Slot; v
         </p>
         {unfilled
           ? <RowState word="Unfilled" sentence="Unfilled. Collection stopped before a third deposit." />
-          : <RowState word={rowWord(status)} sentence={rowSentence(status, own)} />}
+          : <RowState word={rowWord(status)} sentence={rowSentence(record, status, own)} />}
         {own && slot.quote && (
           <p className="row-link"><Link to={paths.deposit(record.campaign.id, slot.id)}>Your deposit</Link></p>
         )}
@@ -83,8 +84,8 @@ export function ContributionGroup({ record, viewerId }: { record: CampaignRecord
           <p className="group-caption">{totalCaption(record)}</p>
           <p className="visually-hidden">
             {complete
-              ? 'All three deposits are joined into one payment.'
-              : `${held} of 3 deposits are in; the group is not complete.`}
+              ? `All three deposits are in, ${heldSat} of ${targetSat} sats.`
+              : `${held} of 3 deposits in, ${heldSat} of ${targetSat} sats.`}
           </p>
         </div>
       </div>

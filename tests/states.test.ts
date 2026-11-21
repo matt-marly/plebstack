@@ -12,6 +12,7 @@ function deposit(id = '1'): Deposit {
     newApprovalsStopped: false, quote: { id: `quote-${id}`, mint: TEST_MINT, ownerPubkey: 'public-key',
       amountSat: 21, invoice: 'invoice', mintState: 'PAID' } };
 }
+const terms = { maintainer: { name: 'Ngozi Eze', short: 'Ngozi' }, amountSat: 21 };
 const campaign: Campaign = { id: 'campaign', title: 'Public episode', publicWorkUrl: 'https://example.org/episode',
   mint: TEST_MINT, beneficiaryPubkey: 'creator-public-key', backerCount: 3, contributionSat: 21,
   collectionStopped: false, depositIds: ['1', '2', '3'] };
@@ -21,7 +22,7 @@ test('stopping new approvals does not revoke a released signature', () => {
   const stopped = transitionDeposit(approved, { type: 'stop-local-approval' });
   assert.equal(stopped.state, 'approved');
   assert.equal(stopped.authorizationReleased, true);
-  assert.match(stateCopy.approved.sentence, /reclaim can still race payout/);
+  assert.match(stateCopy.approved.sentence(terms), /can’t take it back\. A reclaim can still race the payout/);
   const unpaid = transitionDeposit(deposit(), { type: 'stop-local-approval' });
   assert.throws(() => transitionDeposit(unpaid, { type: 'release-authorization' }));
 });
@@ -82,13 +83,18 @@ test('a rejected batch returns approved deposits to deposited and drops the sign
   assert.throws(() => transitionDeposit(transitionDeposit(deposit(), { type: 'request-reclaim' }), { type: 'batch-rejected' }));
 });
 
-test('each of the seven states has a word, an icon and a sentence that opens with the word', () => {
-  const states = Object.keys(stateCopy);
-  assert.equal(states.length, 7);
+test('each of the seven states keeps its plain word, with a pleb phrase and a sentence under it', () => {
+  assert.deepEqual(Object.values(stateCopy).map(copy => copy.word),
+    ['Deposited', 'Ready', 'Approved', 'Paying out', 'Paid', 'Reclaiming', 'Reclaimed']);
+  assert.deepEqual(Object.values(stateCopy).map(copy => copy.phrase),
+    ['Stacked', 'At the line', 'Signed', 'Sending', 'Stacked. Paid.', 'Unstacking', 'Back to you']);
   for (const copy of Object.values(stateCopy)) {
-    assert.ok(copy.word && copy.icon);
-    assert.ok(copy.sentence.startsWith(copy.word), copy.sentence);
+    assert.ok(copy.icon);
+    assert.match(copy.sentence(terms), /^[A-Z0-9].*\.$/);
   }
+  assert.equal(stateCopy.deposited.sentence(terms), '21 sats at the mint, locked to your key. Not paid to Ngozi.');
+  assert.equal(stateCopy.paid.sentence(terms), 'Paid to Ngozi Eze. Confirmed by the mint.');
+  assert.match(stateCopy['paying out'].sentence(terms), /Not paid until the mint confirms/);
   assert.deepEqual([...confirmedStates], ['paid', 'reclaimed']);
   assert.deepEqual([...signalStates], ['paid']);
 });

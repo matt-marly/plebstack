@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../demo/store';
-import { checkMint, isPending, people, sats, type CampaignRecord, type SavedOperation, type World } from '../demo/world';
+import { checkMint, isPending, people, sats, stateSentence, type CampaignRecord, type SavedOperation, type World } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { paths } from '../routes';
 import { formatWhen } from '../ui/format';
@@ -26,15 +26,15 @@ function name(operation: SavedOperation): string {
   return `${operation.kind === 'payout' ? 'Payout' : 'Reclaim'} of ${sats(operation.amountSat)}`;
 }
 
-function outcome(operation: SavedOperation): { icon?: string; text: string } {
+function outcome(record: CampaignRecord, operation: SavedOperation): { icon?: string; text: string } {
   if (operation.status === 'confirmed') {
-    const copy = operation.kind === 'payout' ? stateCopy.paid : stateCopy.reclaimed;
-    return { icon: copy.icon, text: copy.sentence };
+    const state = operation.kind === 'payout' ? 'paid' : 'reclaimed';
+    return { icon: stateCopy[state].icon, text: stateSentence(record, state) };
   }
   return {
     text: operation.kind === 'payout'
-      ? 'Rejected by the mint; a deposit was reclaimed first. Nothing was paid.'
-      : 'Rejected by the mint; the payout settled first.',
+      ? 'Rejected by the mint. A deposit was taken back first. Nothing was paid.'
+      : 'Rejected by the mint. The payout got there first.',
   };
 }
 
@@ -49,8 +49,8 @@ export function Recovery() {
     <>
       <PageHead title="Recovery">
         <p>
-          Every payout and reclaim is saved before it’s sent, so a dropped connection never decides where the money
-          went. Ask the mint, and the saved request shows which outcome is real.
+          The request is saved on this device before it’s sent. Check again asks the mint about the same request, so
+          a dropped connection never decides where the sats went.
         </p>
       </PageHead>
 
@@ -60,24 +60,26 @@ export function Recovery() {
         ) : (
           <ul className="operations" role="list">
             {waiting.map(({ record, operation, mine }) => {
-              const copy = operation.kind === 'payout' ? stateCopy['paying out'] : stateCopy.reclaiming;
+              const state = operation.kind === 'payout' ? 'paying out' : 'reclaiming';
               return (
                 <li key={operation.id} className="operation">
                   <h3>{name(operation)}</h3>
                   <p className="small link-alone">
                     <Link to={paths.campaign(record.campaign.id)}>{record.campaign.title}</Link>
                   </p>
-                  <p className="operation-state"><Icon name={copy.icon} size={18} /><span>{copy.sentence}</span></p>
+                  <p className="operation-state"><Icon name={stateCopy[state].icon} size={18} /><span>{stateSentence(record, state)}</span></p>
                   <p className="small muted">
                     Sent {formatWhen(operation.savedAt)}.{' '}
-                    {operation.status === 'unresolved' ? 'The request timed out, so the result is unknown. ' : 'No result yet. '}
-                    {mine ? 'Saved in this browser.' : `Saved in ${people[operation.savedBy].short}’s browser; you can still ask the mint.`}
+                    {operation.status === 'unresolved'
+                      ? 'Still waiting for the mint. Nothing is paid until the mint confirms. '
+                      : 'No answer yet. '}
+                    {mine ? 'Saved on this device.' : `Saved on ${people[operation.savedBy].short}’s device. You can still ask the mint.`}
                   </p>
                   <p className="small muted mono">{operation.id}</p>
                   <div className="actions">
                     <button type="button" className="button" data-variant={waiting.length === 1 ? 'primary' : undefined}
                       onClick={() => apply((current, at) => checkMint(current, record.campaign.id, at))}>
-                      Check mint result
+                      Check again
                     </button>
                   </div>
                 </li>
@@ -93,7 +95,7 @@ export function Recovery() {
         ) : (
           <ul className="operations" role="list">
             {settled.map(({ record, operation }) => {
-              const result = outcome(operation);
+              const result = outcome(record, operation);
               return (
                 <li key={operation.id} className="operation" data-confirmed={result.icon ? true : undefined}
                   data-signal={(result.icon && operation.kind === 'payout') || undefined}>
@@ -118,8 +120,9 @@ export function Recovery() {
 
       <Section label="Not covered">
         <ul className="plain-list" role="list">
-          <li>Keys and saved requests live only in the browser that made them. Clear its storage and an unpaid deposit can’t be recovered.</li>
+          <li>Keys and saved requests live only on the device that made them. Clear its storage and a deposit that hasn’t been paid out can’t be recovered.</li>
           <li>A timed-out request is never assumed to have failed. It stays open until the mint has been asked.</li>
+          <li>If the mint says a quote is issued but the outputs don’t match, it isn’t marked paid or reclaimed.</li>
           <li>This prototype makes no backup and doesn’t survive a reload.</li>
         </ul>
       </Section>

@@ -9,7 +9,7 @@ import { CopyButton, Fact, Facts, KeyText, Note, PageHead, Section, StateBlock, 
 import { Missing, useRecord } from './shared';
 
 function Failure({ text }: { text: string }) {
-  return <div role="alert"><Note title="Nothing deposited"><p>{text}</p></Note></div>;
+  return <div role="alert"><Note title="Nothing stacked"><p>{text}</p></Note></div>;
 }
 
 // Asks the test mint until it reports the quote paid and unissued, then records the deposit.
@@ -34,7 +34,7 @@ function LiveStatus({ campaignId, slotId, quote }: { campaignId: string; slotId:
 
   return (
     <div className="stack" data-gap="large">
-      <StateBlock icon="awaiting" word="Awaiting deposit" sentence="The mint hasn’t reported this invoice paid yet.">
+      <StateBlock icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid.">
         <p className="state-meta">
           {checkedAt ? `Last checked ${checkedAt.toISOString().slice(11, 19)} UTC.` : 'Asking the mint.'}
         </p>
@@ -70,7 +70,7 @@ export function Back() {
   if (slot?.deposit) {
     return (
       <PageHead back={back} eyebrow={campaign.title} title="You’ve already joined">
-        <p>Your deposit of {each} is in this campaign. Each backer makes one.</p>
+        <p>You stacked {each} in this campaign. Each pleb stacks once.</p>
         <p className="link-alone"><Link to={paths.deposit(campaign.id, slot.id)}>Go to your deposit</Link></p>
       </PageHead>
     );
@@ -82,13 +82,13 @@ export function Back() {
     return (
       <>
         <PageHead back={back} eyebrow={campaign.title} title="Pay the invoice">
-          <p>Paying this invoice puts {each} at the mint under your key. It doesn’t pay {creator.short}.</p>
+          <p>Pay this invoice to stack {each}. Not stacked until the mint reports it paid. It doesn’t pay {creator.short}.</p>
         </PageHead>
 
         <Section label="Status">
           {real ? <LiveStatus campaignId={campaign.id} slotId={slot.id} quote={quote} /> : (
             <div className="stack" data-gap="large">
-              <StateBlock icon="awaiting" word="Awaiting deposit" sentence="The mint hasn’t seen a payment for this invoice yet." />
+              <StateBlock icon="awaiting" word="Awaiting deposit" sentence="Not stacked until the mint reports it paid." />
               <div className="actions">
                 <button type="button" className="button" data-variant="primary" onClick={() => {
                   apply((world, at) => confirmDeposit(world, campaign.id, slot.id, at));
@@ -131,7 +131,7 @@ export function Back() {
   if (viewer.id === record.creatorId) {
     return (
       <PageHead back={back} eyebrow={campaign.title} title="This is your campaign">
-        <p>The payout comes to you, so you can’t also back it. Share the campaign with the three people who will.</p>
+        <p>The payout is locked to your key, so you can’t also back it. Share the campaign with the three plebs who will.</p>
       </PageHead>
     );
   }
@@ -168,18 +168,19 @@ export function Back() {
   return (
     <>
       <PageHead back={back} eyebrow={campaign.title} title={`Join with ${each}`}>
-        <p>You’ll get a Lightning invoice from the mint. Paying it is a deposit, not a payment to {creator.short}.</p>
+        <p>You’ll get a Lightning invoice from the mint. Paying it stacks {each} at the mint. It doesn’t pay {creator.short}.</p>
       </PageHead>
 
       <Section label="Before you deposit">
         <div className="stack" data-gap="large">
           <ul className="plain-list" role="list">
-            <li>Your {each} wait at the mint until all three backers approve one payout.</li>
-            <li>They’re locked to a key made in this browser. The organizer never holds it.</li>
-            <li>Until the payout happens you can take them back, as ecash at this mint. That isn’t a Lightning refund.</li>
+            <li>Your {each} wait at the mint, locked to a key made in this browser.</li>
+            <li>Nobody holds your keys but you. Not us, not the organizer.</li>
+            <li>Nothing is paid to {creator.short} until all three plebs sign one payout.</li>
+            <li>Until the payout is issued you can take them back, as ecash at this mint.</li>
           </ul>
           <Note>
-            <p>Keys stay in this browser and nothing backs them up. Clear its storage before the payout and the deposit can’t be recovered.</p>
+            <p>Your key stays in this browser and nothing backs it up. Clear its storage before the payout and the deposit can’t be recovered.</p>
           </Note>
           {failure && <Failure text={failure} />}
           <div className="actions">

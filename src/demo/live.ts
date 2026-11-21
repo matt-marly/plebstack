@@ -32,12 +32,12 @@ export function waitForLiveDeposit(quoteId: string, options: WaitOptions): Promi
 }
 
 export function failureCopy(error: unknown): string {
-  if (!(error instanceof ProtocolError)) return 'Something went wrong in this browser. Nothing is counted as deposited.';
+  if (!(error instanceof ProtocolError)) return 'Something went wrong in this browser. Nothing is stacked.';
   switch (error.kind) {
-    case 'not-locked': return 'The mint’s answer wasn’t locked to your key, so it was set aside. Don’t pay any invoice from it. Nothing was deposited.';
-    case 'issued-early': return 'The mint says this quote was already issued, but nothing was issued from this browser. It isn’t counted as a deposit.';
-    case 'timeout': return 'The mint hasn’t reported this invoice paid yet. Nothing is counted until it does.';
-    case 'mint': return 'Couldn’t get an answer from the mint. Nothing is counted as deposited.';
+    case 'not-locked': return 'The mint’s answer wasn’t locked to your key, so it was set aside. Don’t pay any invoice from it. Nothing is stacked.';
+    case 'issued-early': return 'The mint says this quote was already issued, but nothing was issued from this browser. It isn’t counted as stacked.';
+    case 'timeout': return 'The mint hasn’t reported this invoice paid yet. Not stacked until it does.';
+    case 'mint': return 'Couldn’t get an answer from the mint. Nothing is stacked.';
     default: return error.message;
   }
 }

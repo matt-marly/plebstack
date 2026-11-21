@@ -1,5 +1,6 @@
 import { TEST_MINT, type Campaign, type CampaignState, type Deposit, type DepositState, type LockedQuote, type MoneyState } from '../domain/models';
-import { campaignState, stateCopy, transitionDeposit, type DepositEvent } from '../domain/states';
+import { campaignState, stateCopy, transitionDeposit, type DepositEvent, type StateTerms } from '../domain/states';
+import { formatWhen, listNames } from '../ui/format';
 
 // Stub world for the clickable prototype. Nothing in here talks to a mint:
 // every "mint result" is a scripted answer applied through the domain transitions,
@@ -21,6 +22,7 @@ export const people: Record<string, Person> = {
 
 export const DEFAULT_VIEWER = 'ishaan';
 export const SWAP_FEE_SAT = 1;
+export const DEPOSIT_SAT = 21;
 
 export interface Slot {
   id: string;
@@ -143,29 +145,48 @@ export function canApprove(record: CampaignRecord, slot: Slot): boolean {
     && record.slots.every(other => other.deposit?.quote.mintState === 'PAID');
 }
 
+export function termsOf(record: CampaignRecord): StateTerms {
+  return { maintainer: people[record.creatorId], amountSat: record.campaign.contributionSat };
+}
+
+export function stateSentence(record: CampaignRecord, state: MoneyState): string {
+  return stateCopy[state].sentence(termsOf(record));
+}
+
 export interface Headline {
   state: CampaignState;
   word: string;
+  phrase?: string;
   icon: string;
   sentence: string;
 }
 
 export function headline(record: CampaignRecord): Headline {
   const state = statusOf(record);
+  const maintainer = people[record.creatorId].short;
+  const each = sats(record.campaign.contributionSat);
   if (state === 'collecting') {
     return tally(record).held > 0
-      ? { state, word: 'Collecting', icon: stateCopy.deposited.icon, sentence: stateCopy.deposited.sentence }
-      : { state, word: 'Collecting', icon: 'slot-open', sentence: 'No deposits yet. Nothing has been paid to the creator.' };
+      ? { state, word: 'Collecting', icon: stateCopy.deposited.icon,
+        sentence: `Each deposit waits at the mint, locked to its owner’s key. Nothing is paid to ${maintainer} yet.` }
+      : { state, word: 'Collecting', icon: 'slot-open', sentence: `Nothing stacked yet. Nothing is paid to ${maintainer}.` };
   }
   if (state === 'unmet') {
     return {
       state, word: 'Unmet', icon: 'bracket-open',
       sentence: record.campaign.collectionStopped
-        ? 'Collection stopped. Each backer can take their own deposit back.'
-        : 'A deposit was taken back, so this payout cannot happen. The other backers can take theirs back.',
+        ? `Collecting stopped. No payout. Each pleb can take their own ${each} back.`
+        : `A deposit was taken back, so there’s no payout. Each pleb can take their own ${each} back.`,
     };
   }
-  return { state, ...stateCopy[state as MoneyState] };
+  const copy = stateCopy[state];
+  if (state === 'approved') return { state, word: copy.word, phrase: copy.phrase, icon: copy.icon, sentence: 'Signed 3 of 3.' };
+  if (state === 'reclaiming') {
+    const names = record.slots.filter(slot => slotStatus(slot) === 'reclaiming').map(slot => people[slot.backerId!].short);
+    return { state, word: copy.word, phrase: copy.phrase, icon: copy.icon,
+      sentence: `${listNames(names)} asked the mint for their own ${each}. If a signature was released, the payout may still win.` };
+  }
+  return { state, word: copy.word, phrase: copy.phrase, icon: copy.icon, sentence: copy.sentence(termsOf(record)) };
 }
 
 // What the person looking at a campaign can do next. Screens render from this
@@ -215,12 +236,12 @@ export function viewerStep(world: World, record: CampaignRecord): ViewerStep {
 
 // One line of counts for lists and summaries.
 export function progressLine(record: CampaignRecord): string {
-  const { held, approvals } = tally(record);
+  const { held, approvals, heldSat, targetSat } = tally(record);
   const state = statusOf(record);
-  if (state === 'paid') return 'All three deposits paid in one payment';
-  const parts = [`${held} of 3 deposited`];
-  if (approvals > 0 || state === 'ready') parts.push(`${approvals} of 3 approved`);
-  if (record.campaign.collectionStopped) parts.push('collection stopped');
+  if (state === 'paid') return `goal reached · ${sats(targetSat)} paid`;
+  const parts = [`${held} of 3 stacked`, `${heldSat} of ${sats(targetSat)}`];
+  if (approvals > 0 || state === 'ready') parts.push(`signed ${approvals} of 3`);
+  if (record.campaign.collectionStopped) parts.push('collecting stopped');
   return parts.join(' · ');
 }
 
@@ -228,17 +249,30 @@ export function roleLine(world: World, record: CampaignRecord): string {
   const slot = slotOf(record, world.viewerId);
   if (slot) {
     const status = slotStatus(slot);
-    return status === 'awaiting' ? 'Your invoice is awaiting a deposit.' : `Your deposit: ${stateCopy[status as DepositState].word.toLowerCase()}.`;
+    return status === 'awaiting'
+      ? 'Your invoice is waiting. Not stacked until the mint reports it paid.'
+      : `Your ${sats(record.campaign.contributionSat)}: ${stateCopy[status as DepositState].word.toLowerCase()}.`;
   }
-  return world.viewerId === record.creatorId ? 'You organize this campaign and receive its payout.' : 'You have no deposit here.';
+  return world.viewerId === record.creatorId ? 'You’re the maintainer. The payout is locked to your key.' : 'You have no deposit here.';
 }
 
-// Row sentences are the documented ones; only the possessive changes for someone else's row.
-export function rowSentence(status: SlotStatus, own: boolean): string {
+// Row sentences are the documented ones; someone else's row speaks of them, not you.
+export function rowSentence(record: CampaignRecord, status: SlotStatus, own: boolean): string {
+  const each = sats(record.campaign.contributionSat);
+  const maintainer = people[record.creatorId].short;
   if (status === 'open') return 'Open. No deposit yet.';
-  if (status === 'awaiting') return 'Awaiting deposit; nothing at the mint yet.';
-  if (status === 'reclaimed' && !own) return 'Reclaimed to their own outputs; confirmed by the mint.';
-  return stateCopy[status].sentence;
+  if (status === 'awaiting') {
+    return own ? `Pay this invoice to stack ${each}. Not stacked until the mint reports it paid.`
+      : 'Invoice made. Not stacked until the mint reports it paid.';
+  }
+  if (own) return stateSentence(record, status);
+  switch (status) {
+    case 'deposited': return `${each} at the mint, locked to their key. Not paid to ${maintainer}.`;
+    case 'approved': return 'Signed. It can’t be taken back. A reclaim can still race the payout.';
+    case 'reclaiming': return `Asking the mint for their own ${each}. If they signed, the payout may still win.`;
+    case 'reclaimed': return `${each} minted to their own outputs. Confirmed by the mint.`;
+    default: return stateSentence(record, status);
+  }
 }
 
 // ---------------------------------------------------------------- stub material
@@ -335,28 +369,30 @@ export function createCampaign(world: World, draft: CampaignDraft, at: string): 
     outputsVerified: false,
     operations: [],
     mintFavours: 'creator',
-    log: [{ at, text: `${creator.short} created the campaign: three deposits of ${sats(draft.contributionSat)}.` }],
+    log: [{ at, text: `${creator.short} created the campaign: three plebs, ${sats(draft.contributionSat)} each.` }],
   };
-  return { ...world, campaigns: [...world.campaigns, record], notice: 'Campaign created. No deposits yet.' };
+  return { ...world, campaigns: [...world.campaigns, record], notice: 'Campaign created. Nothing stacked yet.' };
 }
 
 // A live quote comes from the mint, already locked to a key made in this browser.
 export function requestQuote(world: World, campaignId: string, at: string, liveQuote?: LockedQuote): World {
   const backer = people[world.viewerId];
-  return update(world, campaignId, 'Awaiting deposit.', record => {
+  const each = sats(findCampaign(world, campaignId)?.campaign.contributionSat ?? DEPOSIT_SAT);
+  return update(world, campaignId, `Pay this invoice to stack ${each}. Not stacked until the mint reports it paid.`, record => {
     if (statusOf(record) !== 'collecting') throw new Error('This campaign is not collecting deposits.');
     if (slotOf(record, backer.id)) throw new Error('This backer already holds a slot.');
     const open = record.slots.find(slot => !slot.backerId);
     if (!open) throw new Error('All three slots are taken.');
     const slot: Slot = { ...open, backerId: backer.id, quote: liveQuote ?? stubQuote(record.campaign, open.id, backer) };
-    return logged(withSlot(record, slot), at, `${backer.short} created a deposit invoice. Awaiting deposit.`);
+    return logged(withSlot(record, slot), at, `${backer.short} made a deposit invoice for ${each}.`);
   });
 }
 
 // The test mint credits its own invoices, so "checking" an unpaid quote always finds it paid.
 // A live check passes the mint's own answer, which must be for this slot's quote and paid.
 export function confirmDeposit(world: World, campaignId: string, slotId: string, at: string, paidQuote?: LockedQuote): World {
-  return update(world, campaignId, stateCopy.deposited.sentence, record => {
+  const each = sats(findCampaign(world, campaignId)?.campaign.contributionSat ?? DEPOSIT_SAT);
+  return update(world, campaignId, `Stacked. ${each} at the mint, locked to your key.`, record => {
     const slot = findSlot(record, slotId);
     if (!slot?.quote || !slot.backerId || slot.deposit) throw new Error('No unpaid quote to check.');
     if (paidQuote && (paidQuote.id !== slot.quote.id || paidQuote.mintState !== 'PAID')) throw new Error('That is not this slot’s paid quote.');
@@ -365,31 +401,34 @@ export function confirmDeposit(world: World, campaignId: string, slotId: string,
       id: slot.id, campaignId, quote, state: 'deposited', authorizationReleased: false, newApprovalsStopped: false,
     };
     let next = withSlot(record, { ...slot, quote, deposit });
-    next = logged(next, at, `${people[slot.backerId].short} deposited ${sats(quote.amountSat)} at the mint.`);
+    next = logged(next, at, `${people[slot.backerId].short} stacked ${sats(quote.amountSat)} at the mint.`);
     if (next.slots.every(other => other.deposit?.state === 'deposited')) {
-      next = logged({ ...next, outputsVerified: true }, at, 'All three deposits are at the mint. Ready for each backer to approve.');
+      next = logged({ ...next, outputsVerified: true }, at, 'All three deposits are in. Each pleb checks the outputs and signs.');
     }
     return next;
   });
 }
 
 export function stopApproval(world: World, campaignId: string, slotId: string, at: string): World {
-  return update(world, campaignId, 'Approval stopped on this device. Your deposit is still at the mint.', record => {
+  return update(world, campaignId, 'You stopped signing on this device. A signature you already released still counts.', record => {
     const slot = ownSlot(world, record, slotId);
     return logged(withSlot(record, move(slot, { type: 'stop-local-approval' })), at,
-      `${people[world.viewerId].short} stopped approval on their device.`);
+      `${people[world.viewerId].short} stopped signing on their device.`);
   });
 }
 
 export function releaseApproval(world: World, campaignId: string, slotId: string, at: string): World {
-  return update(world, campaignId, stateCopy.approved.sentence, record => {
+  const before = findCampaign(world, campaignId);
+  const next = update(world, campaignId, 'Signed. You can’t take it back.', record => {
     const slot = ownSlot(world, record, slotId);
     if (!canApprove(record, slot)) throw new Error('This deposit cannot be approved right now.');
     let next = withSlot(record, move(slot, { type: 'release-authorization' }));
-    next = logged(next, at, `${people[world.viewerId].short} approved and released a signature.`);
+    next = logged(next, at, `${people[world.viewerId].short} signed.`);
     const everySignature = next.slots.every(other => other.deposit?.authorizationReleased);
     return everySignature && !pendingOperation(next, 'payout') ? submitPayout(next, at) : next;
   });
+  const sent = !pendingOperation(before!, 'payout') && pendingOperation(findCampaign(next, campaignId)!, 'payout');
+  return sent ? { ...next, notice: 'Signed. Sent to the mint. Waiting for the mint to confirm.' } : next;
 }
 
 function submitPayout(record: CampaignRecord, at: string): CampaignRecord {
@@ -399,11 +438,11 @@ function submitPayout(record: CampaignRecord, at: string): CampaignRecord {
     savedBy: record.creatorId, amountSat: tally(record).targetSat, savedAt: at, status: 'dispatched',
   };
   return logged({ ...record, slots, operations: [...record.operations, operation] }, at,
-    'All three signatures collected. One batch sent to the mint.');
+    'All three signed. One batch sent to the mint.');
 }
 
 export function requestReclaim(world: World, campaignId: string, slotId: string, at: string): World {
-  return update(world, campaignId, stateCopy.reclaiming.sentence, record => {
+  return update(world, campaignId, 'Unstacking. Waiting for the mint.', record => {
     const slot = ownSlot(world, record, slotId);
     const next = withSlot(record, move(slot, { type: 'request-reclaim' }));
     const operation: SavedOperation = {
@@ -411,18 +450,18 @@ export function requestReclaim(world: World, campaignId: string, slotId: string,
       amountSat: record.campaign.contributionSat, savedAt: at, status: 'dispatched',
     };
     return logged({ ...next, operations: [...next.operations, operation] }, at,
-      `${people[world.viewerId].short} asked the mint for their ${sats(operation.amountSat)} back.`);
+      `${people[world.viewerId].short} asked the mint for their own ${sats(operation.amountSat)} back.`);
   });
 }
 
 export function markTimedOut(world: World, campaignId: string, at: string): World {
-  return update(world, campaignId, stateCopy['paying out'].sentence, record => {
+  return update(world, campaignId, 'Still waiting for the mint. The request is saved. Nothing is paid until the mint confirms.', record => {
     const operation = pendingOperation(record, 'payout');
     if (!operation) throw new Error('No payout in flight.');
     return logged({
       ...record,
       operations: record.operations.map(op => (op === operation ? { ...op, status: 'unresolved' } : op)),
-    }, at, 'The payout request timed out. The result is unknown until the mint is checked.');
+    }, at, 'No answer from the mint for the payout. The request is saved; the result is unknown until the mint is asked again.');
   });
 }
 
@@ -437,17 +476,31 @@ export function checkMint(world: World, campaignId: string, at: string, favour?:
   const winner = !payout ? 'owner' : reclaims.length === 0 ? 'creator' : favour ?? record.mintFavours;
   const settle = (op: SavedOperation, status: SavedOperation['status']): SavedOperation => ({ ...op, status, settledAt: at });
 
+  const maintainer = people[record.creatorId];
+  const each = sats(record.campaign.contributionSat);
+  const viewerReclaimed = reclaims.some(op => op.savedBy === world.viewerId);
+
   if (winner === 'creator') {
-    return update(world, campaignId, stateCopy.paid.sentence, current => logged({
+    const notice = viewerReclaimed
+      ? `The payout got there first. Your ${each} went to ${maintainer.short}. Your reclaim was rejected.`
+      : `Stacked. Paid. ${sats(tally(record).targetSat)} from 3 plebs to ${maintainer.name}. Confirmed by the mint at ${formatWhen(at)}.`;
+    return update(world, campaignId, notice, current => logged({
       ...current,
       slots: current.slots.map(slot => move(slot, { type: 'mint-confirmed', destination: 'creator' })),
       operations: current.operations.map(op => (op === payout ? settle(op, 'confirmed') : reclaims.includes(op) ? settle(op, 'rejected') : op)),
     }, at,
-    `The mint confirmed the batch: ${sats(tally(current).targetSat)} issued to the creator’s key.`,
-    ...reclaims.map(op => `${people[op.savedBy].short}’s reclaim was rejected; the payout settled first.`)));
+    `The mint confirmed the batch: ${sats(tally(current).targetSat)} issued to ${maintainer.short}’s key.`,
+    ...reclaims.map(op => `${people[op.savedBy].short}’s reclaim was rejected. The payout got there first.`)));
   }
 
-  return update(world, campaignId, stateCopy.reclaimed.sentence, current => {
+  const reclaimers = listNames(reclaims.map(op => people[op.savedBy].short));
+  const stillHeld = record.slots.some(slot => slot.backerId === world.viewerId && isHeld(slot)
+    && !reclaims.some(op => op.slotIds.includes(slot.id)));
+  let notice = `${reclaimers} took theirs back. Confirmed by the mint.`;
+  if (viewerReclaimed) notice = payout ? 'Your reclaim got there first. The payout was rejected.' : `Back to you. ${each} minted to your own outputs.`;
+  else if (payout) notice = `${reclaimers} took theirs back first. The payout was rejected.${stillHeld ? ` Your ${each} are still at the mint.` : ''}`;
+
+  return update(world, campaignId, notice, current => {
     const reclaimed = new Set(reclaims.flatMap(op => op.slotIds));
     const slots = current.slots.map(slot => {
       if (reclaimed.has(slot.id)) return move(slot, { type: 'mint-confirmed', destination: 'owner' });
@@ -459,24 +512,26 @@ export function checkMint(world: World, campaignId: string, at: string, favour?:
       operations: current.operations.map(op => (reclaims.includes(op) ? settle(op, 'confirmed') : op === payout ? settle(op, 'rejected') : op)),
     };
     return logged(next, at,
-      ...reclaims.map(op => `The mint confirmed ${people[op.savedBy].short}’s reclaim of ${sats(op.amountSat)}.`),
-      ...(payout ? ['The payout batch was rejected: one of its deposits was reclaimed first.'] : []));
+      ...reclaims.map(op => `The mint confirmed ${people[op.savedBy].short}’s reclaim: ${sats(op.amountSat)} minted to their own outputs.`),
+      ...(payout ? ['The payout batch was rejected. A deposit was taken back first.'] : []));
   });
 }
 
 export function recordSpend(world: World, campaignId: string, at: string): World {
-  return update(world, campaignId, 'Payout spent by the creator.', record => {
-    if (world.viewerId !== record.creatorId) throw new Error('Only the creator can spend the payout.');
-    if (statusOf(record) !== 'paid' || record.spend) throw new Error('There is no unspent payout.');
-    const receivedSat = tally(record).targetSat - SWAP_FEE_SAT;
-    return logged({ ...record, spend: { at, feeSat: SWAP_FEE_SAT, receivedSat } }, at,
-      `${people[record.creatorId].short} spent the payout: ${sats(receivedSat)} received after a ${SWAP_FEE_SAT}-sat swap fee.`);
+  const record = findCampaign(world, campaignId);
+  const receivedSat = record ? tally(record).targetSat - SWAP_FEE_SAT : 0;
+  const spent = record
+    ? `${people[record.creatorId].short} spent it. Swap fee at the mint, ${sats(SWAP_FEE_SAT)}. Received, ${sats(receivedSat)}.` : '';
+  return update(world, campaignId, spent, current => {
+    if (world.viewerId !== current.creatorId) throw new Error('Only the creator can spend the payout.');
+    if (statusOf(current) !== 'paid' || current.spend) throw new Error('There is no unspent payout.');
+    return logged({ ...current, spend: { at, feeSat: SWAP_FEE_SAT, receivedSat } }, at, spent);
   });
 }
 
-// Stopping collection is a note on the campaign. It moves no money and revokes nothing.
+// Stopping collection is a note on the campaign. It moves no money and undoes no signature.
 export function stopCollecting(world: World, campaignId: string, at: string): World {
-  return update(world, campaignId, 'Collection stopped. Each backer can take their own deposit back.', record => {
+  return update(world, campaignId, 'Collecting stopped. Signatures already released still count.', record => {
     if (world.viewerId !== record.creatorId) throw new Error('Only the organizer can stop collecting.');
     if (statusOf(record) !== 'collecting') throw new Error('This campaign is no longer collecting.');
     return logged({ ...record, campaign: { ...record.campaign, collectionStopped: true }, stoppedAt: at }, at,
@@ -495,7 +550,7 @@ function seed(id: string, title: string, issue: number, at: string): CampaignRec
   return {
     campaign: {
       id, title, publicWorkUrl: `https://git.example.org/ngozi/pocket-ical/issues/${issue}`, mint: TEST_MINT,
-      beneficiaryPubkey: people.ngozi.pubkey, backerCount: 3, contributionSat: 21, collectionStopped: false,
+      beneficiaryPubkey: people.ngozi.pubkey, backerCount: 3, contributionSat: DEPOSIT_SAT, collectionStopped: false,
       depositIds: slotIds,
     },
     creatorId: 'ngozi',
@@ -505,7 +560,7 @@ function seed(id: string, title: string, issue: number, at: string): CampaignRec
     outputsVerified: false,
     operations: [],
     mintFavours: 'creator',
-    log: [{ at, text: 'Ngozi created the campaign: three deposits of 21 sats.' }],
+    log: [{ at, text: `Ngozi created the campaign: three plebs, ${sats(DEPOSIT_SAT)} each.` }],
   };
 }
 

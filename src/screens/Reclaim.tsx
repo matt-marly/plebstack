@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { checkMint, latestOperation, pendingOperation, people, requestReclaim, sats, tally } from '../demo/world';
+import { checkMint, latestOperation, pendingOperation, people, requestReclaim, sats, stateSentence, statusOf, tally } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { paths } from '../routes';
 import { formatWhen, shortKey } from '../ui/format';
@@ -38,33 +38,37 @@ export function Reclaim() {
     const batch = latestOperation(record, 'payout');
     return (
       <>
-        <PageHead back={back} eyebrow={campaign.title} title="Take mine back" />
+        <PageHead back={back} eyebrow={campaign.title} title="Take mine back">
+          <p>Back to you. {each} minted to your own outputs, saved in this browser.</p>
+        </PageHead>
         <Section label="Status">
-          <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence} confirmed>
-            {request?.settledAt && <p className="state-meta">Confirmed {formatWhen(request.settledAt)}.</p>}
+          <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'reclaimed')} confirmed>
+            {request?.settledAt && <p className="state-meta">Confirmed by the mint {formatWhen(request.settledAt)}.</p>}
           </StateBlock>
         </Section>
         <Section label="Receipt">
           <div className="panel">
             <p className="receipt-row" data-kind="total" data-first>
-              <span>Issued to your own outputs</span>
+              <span>Minted to your own outputs</span>
               <span>{each}</span>
             </p>
             <p className="receipt-foot">
-              {request && <>Request {request.id}<br /></>}
+              Mint {campaign.mint}<br />
+              Quote {slot.quote!.id}<br />
               Key {shortKey(slot.quote!.ownerPubkey)}<br />
-              {campaign.mint}
+              {request && <>Request {request.id}<br /></>}
+              Test mint, fake sats.
             </p>
           </div>
         </Section>
         <Section label="The campaign">
           <div className="stack">
             {batch?.status === 'rejected' && (
-              <p>The payout batch was rejected because your reclaim settled first. Nothing was paid to {creator.short}.</p>
+              <p>Your reclaim got there first. The payout was rejected. Nothing was paid to {creator.short}.</p>
             )}
             <p>
-              The campaign can’t pay out without your deposit. The other deposits are still at the mint; their owners
-              can take them back the same way.
+              No payout without your deposit. The other deposits are still at the mint; their owners can take them back
+              the same way.
             </p>
             <p className="link-alone"><Link to={paths.campaign(campaign.id)}>Back to the campaign</Link></p>
           </div>
@@ -80,16 +84,16 @@ export function Reclaim() {
         <PageHead back={back} eyebrow={campaign.title} title="Take mine back" />
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence} confirmed />
+            <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'paid')} confirmed />
             {request?.status === 'rejected' ? (
               <Note title="Your reclaim was rejected.">
                 <p>
-                  The payout reached the mint first. Your deposit of {each} was paid to {creator.name} as part of
-                  the {totalSat}-sat payment, under the signature you released.
+                  The payout got there first. Your {each} went to {creator.short} as part of the {totalSat}-sat payment,
+                  under the signature you released.
                 </p>
               </Note>
             ) : (
-              <p>This deposit was paid to {creator.name}. There’s nothing left to take back.</p>
+              <p>These {each} were paid to {creator.name}. There’s nothing left to take back.</p>
             )}
             <div className="actions">
               <Link className="button" to={paths.payout(campaign.id)}>View payout receipt</Link>
@@ -105,18 +109,18 @@ export function Reclaim() {
     return (
       <>
         <PageHead back={back} eyebrow={campaign.title} title="Take mine back">
-          <p>You’ve asked the mint for your {each}. They aren’t reclaimed until the mint confirms it.</p>
+          <p>Unstacking. Waiting for the mint. Not reclaimed until the mint confirms.</p>
         </PageHead>
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence}>
-              {request && <p className="state-meta">Sent {formatWhen(request.savedAt)}. No result yet.</p>}
+            <StateBlock icon={copy.icon} word={copy.word} phrase={copy.phrase} sentence={stateSentence(record, 'reclaiming')}>
+              {request && <p className="state-meta">Sent {formatWhen(request.savedAt)}. No answer yet.</p>}
             </StateBlock>
             {batchInFlight && (
               <Note title="The payout batch is with the mint too.">
                 <p>
-                  You released a signature, so the batch is still valid. The mint will issue your deposit once: to you,
-                  or to {creator.short}.
+                  You signed, so the batch is still valid. The mint issues your {each} once: to you, or
+                  to {creator.short}. Whichever it issues first wins.
                 </p>
               </Note>
             )}
@@ -125,11 +129,12 @@ export function Reclaim() {
                 apply((world, at) => checkMint(world, campaign.id, at));
                 focusHeading();
               }}>
-                Check mint result
+                Check again
               </button>
             </div>
             <p className="small">
-              The request was saved before it was sent. It can be checked again from <Link to={paths.recovery()}>Recovery</Link>.
+              The request was saved before it was sent. Check again asks the mint about the same request, here or
+              from <Link to={paths.recovery()}>Recovery</Link>.
             </p>
           </div>
         </Section>
@@ -140,27 +145,31 @@ export function Reclaim() {
   return (
     <>
       <PageHead back={back} eyebrow={campaign.title} title="Take mine back">
-        <p>Ask the mint to issue your {each} to you instead of waiting for the payout.</p>
+        <p>
+          {statusOf(record) === 'unmet'
+            ? `No payout this time. Take your ${each} back as ecash at this mint.`
+            : `Mint your ${each} back into your own outputs instead of waiting for the payout.`}
+        </p>
       </PageHead>
 
       <Section label="What happens">
         <div className="stack" data-gap="large">
           <Facts>
-            <Fact label="You get">{each}, as ecash at this mint. It isn’t a Lightning refund.</Fact>
+            <Fact label="You get">{each}, as ecash at this mint.</Fact>
             <Fact label="Goes to">
-              <p>Your own outputs, in this browser</p>
+              <p>Your own outputs, saved in this browser</p>
               <KeyText value={slot.quote!.ownerPubkey} label="key" />
             </Fact>
             <Fact label="The campaign">
-              Can’t pay out without your deposit. The other backers keep theirs and can take them back too.
+              No payout without your deposit. The other plebs keep theirs and can take them back too.
             </Fact>
             <Fact label="Mint"><span className="mono">{campaign.mint}</span></Fact>
           </Facts>
           {deposit.authorizationReleased && (
-            <Note title="You already approved, and that can’t be taken back.">
+            <Note title="You already signed.">
               <p>
-                Your signature stays valid, so the payout may still reach the mint first. If it does, your {each} go
-                to {creator.name} and this reclaim is rejected.
+                If the payout reaches the mint first, your {each} go to {creator.short} and this reclaim is rejected.
+                A signature can’t be taken back.
               </p>
             </Note>
           )}
@@ -172,7 +181,7 @@ export function Reclaim() {
         </div>
       </Section>
 
-      <ConfirmDialog open={confirming} title={`Take your ${each} back`} confirmLabel={`Take ${each} back`}
+      <ConfirmDialog open={confirming} title={`Mint your ${each} into your own outputs at this mint?`} confirmLabel="Take mine back"
         onConfirm={() => {
           setConfirming(false);
           apply((world, at) => requestReclaim(world, campaign.id, slot.id, at));
@@ -180,15 +189,12 @@ export function Reclaim() {
         }}
         onCancel={() => setConfirming(false)}>
         <p>
-          The mint will issue {each} to your own outputs in this browser
-          {' '}(<span className="mono">{shortKey(slot.quote!.ownerPubkey)}</span>). The campaign can’t pay out with
-          your deposit afterwards.
+          You get {each} as ecash at this mint, saved in this browser
+          {' '}(<span className="mono">{shortKey(slot.quote!.ownerPubkey)}</span>). No payout for this campaign
+          afterwards.
         </p>
         {deposit.authorizationReleased && (
-          <p>
-            You’ve already released a signature. If the payout reaches the mint first, your {each} are paid
-            to {creator.name} instead.
-          </p>
+          <p>You already signed. If the payout reaches the mint first, your {each} go to {creator.short}.</p>
         )}
       </ConfirmDialog>
     </>

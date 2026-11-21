@@ -25,14 +25,14 @@ export function CampaignPage() {
         title={campaign.title}
       >
         <p>
-          Three backers deposit {sats(campaign.contributionSat)} each. {creator.short} is paid {sats(total)} in one
-          payment once all three approve, or not at all.
+          Three plebs stack {sats(campaign.contributionSat)} each at the mint. {creator.short} is paid {sats(total)} in
+          one batch once all three sign, or not at all.
         </p>
       </PageHead>
 
       <Section label="Status">
         <div className="stack" data-gap="large">
-          <StateBlock icon={head.icon} word={head.word} sentence={head.sentence}
+          <StateBlock icon={head.icon} word={head.word} phrase={head.phrase} sentence={head.sentence}
             confirmed={confirmedStates.includes(head.state as MoneyState)}
             signal={signalStates.includes(head.state as MoneyState)}>
             <p className="state-meta">{progressLine(record)}</p>
@@ -57,11 +57,11 @@ export function CampaignPage() {
           </Fact>
           <Fact label="Mint">
             <span className="mono">{campaign.mint}</span>
-            <p className="muted small">A test mint. It holds every deposit until payout or reclaim.</p>
+            <p className="muted small">Test mint, fake sats. It holds every deposit, locked to its backer’s key, until payout or reclaim.</p>
           </Fact>
           <Fact label="Rule">
-            Three deposits of {sats(campaign.contributionSat)}, each locked to its backer. One payment of {sats(total)},
-            or none.
+            Three plebs, {sats(campaign.contributionSat)} each, each locked to its own key. One {sats(total)} batch to
+            {' '}{creator.short}, or none.
           </Fact>
         </Facts>
       </Section>

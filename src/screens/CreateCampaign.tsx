@@ -1,23 +1,16 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../demo/store';
-import { createCampaign, sats } from '../demo/world';
+import { DEPOSIT_SAT, createCampaign, sats } from '../demo/world';
 import { TEST_MINT } from '../domain/models';
 import { paths } from '../routes';
 import { isCompressedPubkey, isHttpUrl } from '../ui/format';
 import { PageHead, Section, useTitle } from '../ui/parts';
 
-type FieldName = 'title' | 'work' | 'amount' | 'pubkey' | 'confirmed';
+type FieldName = 'title' | 'work' | 'pubkey' | 'confirmed';
 type Errors = Partial<Record<FieldName, string>>;
 
-const order: FieldName[] = ['title', 'work', 'amount', 'pubkey', 'confirmed'];
-const MAX_DEPOSIT_SAT = 10_000;
-
-function parseAmount(text: string): number | undefined {
-  if (!/^\d+$/.test(text.trim())) return undefined;
-  const amount = Number(text);
-  return amount >= 1 && amount <= MAX_DEPOSIT_SAT ? amount : undefined;
-}
+const order: FieldName[] = ['title', 'work', 'pubkey', 'confirmed'];
 
 export function CreateCampaign() {
   useTitle('Start a campaign');
@@ -27,22 +20,18 @@ export function CreateCampaign() {
 
   const [title, setTitle] = useState('');
   const [work, setWork] = useState('');
-  const [amount, setAmount] = useState('21');
   // The key follows whoever is viewing until someone types their own.
   const [typedKey, setTypedKey] = useState<string>();
   const pubkey = typedKey ?? viewer.pubkey;
   const [confirmed, setConfirmed] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
-  const each = parseAmount(amount);
-
   function validate(): Errors {
     const found: Errors = {};
     if (!title.trim()) found.title = 'Enter a title for the work, such as the name of the issue.';
     if (!isHttpUrl(work)) found.work = 'Enter a public link to the work, starting with https://.';
-    if (each === undefined) found.amount = `Enter a whole number of sats from 1 to ${MAX_DEPOSIT_SAT.toLocaleString('en')}.`;
-    if (!isCompressedPubkey(pubkey)) found.pubkey = 'Enter the creator’s public key: 66 characters, starting with 02 or 03.';
-    if (!confirmed) found.confirmed = 'Tick the box once you’ve checked this key against the receiving wallet.';
+    if (!isCompressedPubkey(pubkey)) found.pubkey = 'Enter the maintainer’s public key: 66 characters, starting with 02 or 03.';
+    if (!confirmed) found.confirmed = 'Tick the box once you’ve checked this key on your own device.';
     return found;
   }
 
@@ -56,7 +45,7 @@ export function CreateCampaign() {
       return;
     }
     const next = apply((world, at) => createCampaign(world, {
-      title, publicWorkUrl: work, contributionSat: each!, beneficiaryPubkey: pubkey,
+      title, publicWorkUrl: work, contributionSat: DEPOSIT_SAT, beneficiaryPubkey: pubkey,
     }, at));
     navigate(paths.campaign(next.campaigns[next.campaigns.length - 1].campaign.id));
   }
@@ -70,7 +59,7 @@ export function CreateCampaign() {
     <>
       <PageHead back={{ to: paths.home(), label: 'Campaigns' }} title="Start a campaign">
         <p>
-          Set this up as the person who’ll be paid. Backers see everything on this page, and none of it can change
+          Set this up as the maintainer who’ll be paid. Plebs see everything on this page, and none of it can change
           once the first deposit arrives.
         </p>
       </PageHead>
@@ -79,7 +68,7 @@ export function CreateCampaign() {
         <Section label="The work">
           <div className="field">
             <label htmlFor="title">Title</label>
-            <p className="field-hint" id="title-hint">What the backers are paying for, in a few words.</p>
+            <p className="field-hint" id="title-hint">What the plebs are paying for, in a few words.</p>
             <input id="title" name="title" type="text" autoComplete="off" value={title} onChange={event => setTitle(event.target.value)}
               aria-invalid={errors.title ? true : undefined} aria-describedby={describe('title', true)} />
             {fieldError('title')}
@@ -94,39 +83,30 @@ export function CreateCampaign() {
           </div>
         </Section>
 
-        <Section label="The money">
+        <Section label="The terms">
+          <p>Three plebs. {sats(DEPOSIT_SAT)} each. One mint. One maintainer key.</p>
           <div className="field">
-            <label htmlFor="amount">Each backer deposits</label>
-            <p className="field-hint" id="amount-hint">
-              {each !== undefined
-                ? `Three deposits of ${sats(each)} make one payment of ${sats(each * 3)}.`
-                : 'Three equal deposits make one payment.'}
-            </p>
-            <div className="field-suffix">
-              <input id="amount" name="amount" type="text" inputMode="numeric" autoComplete="off" value={amount}
-                onChange={event => setAmount(event.target.value)}
-                aria-invalid={errors.amount ? true : undefined} aria-describedby={describe('amount', true)} />
-              <span aria-hidden="true">sats</span>
-            </div>
-            {fieldError('amount')}
+            <p className="field-label">Each pleb stacks</p>
+            <p className="field-fixed">{sats(DEPOSIT_SAT)}</p>
+            <p className="field-hint">Three deposits of {sats(DEPOSIT_SAT)} make one {sats(DEPOSIT_SAT * 3)} payout. Fixed in this version.</p>
           </div>
           <div className="field">
-            <p className="field-label">Backers</p>
+            <p className="field-label">Plebs</p>
             <p className="field-fixed">Three. Fixed in this version.</p>
           </div>
           <div className="field">
             <p className="field-label">Mint</p>
             <p className="field-fixed"><span className="mono">{TEST_MINT}</span></p>
-            <p className="field-hint">A test mint with fake sats. Fixed in this version.</p>
+            <p className="field-hint">Test mint, fake sats. Fixed in this version.</p>
           </div>
         </Section>
 
         <Section label="Who is paid">
           <div className="field">
-            <label htmlFor="pubkey">Creator’s public key</label>
+            <label htmlFor="pubkey">Maintainer’s public key</label>
             <p className="field-hint" id="pubkey-hint">
-              Filled in from this browser’s wallet. The payout is locked to this key, and a payout locked to the
-              wrong key can’t be recovered.
+              Filled in from this browser. The payout is locked to this key, and a payout locked to the wrong key
+              can’t be recovered. Confirm it on your own device before anyone deposits.
             </p>
             <textarea id="pubkey" name="pubkey" rows={3} autoComplete="off" autoCapitalize="off" spellCheck={false}
               value={pubkey} onChange={event => setTypedKey(event.target.value)}
@@ -137,7 +117,7 @@ export function CreateCampaign() {
             <input id="confirmed" name="confirmed" type="checkbox" checked={confirmed}
               onChange={event => setConfirmed(event.target.checked)}
               aria-invalid={errors.confirmed ? true : undefined} aria-describedby={describe('confirmed')} />
-            <label htmlFor="confirmed">I’ve checked this key against the wallet that will receive the payout.</label>
+            <label htmlFor="confirmed">I’ve checked this key on my own device.</label>
             {fieldError('confirmed')}
           </div>
           <div className="actions form-actions">

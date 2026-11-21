@@ -1,13 +1,35 @@
 import type { Campaign, CampaignState, Deposit, MoneyState } from './models';
 
-export const stateCopy: Record<MoneyState, { word: string; icon: string; sentence: string }> = {
-  deposited: { word: 'Deposited', icon: 'tray-down', sentence: 'Deposited at mint; not paid to creator.' },
-  ready: { word: 'Ready', icon: 'three-line-bracket', sentence: 'Ready for each backer to approve.' },
-  approved: { word: 'Approved', icon: 'pen-nib', sentence: 'Approved; reclaim can still race payout.' },
-  'paying out': { word: 'Paying out', icon: 'clock', sentence: 'Paying out; checking the mint result.' },
-  paid: { word: 'Paid', icon: 'circle-check', sentence: 'Paid to the creator; confirmed by the mint.' },
-  reclaiming: { word: 'Reclaiming', icon: 'counterclockwise-arrow', sentence: 'Reclaiming; payout may still win if approval was released.' },
-  reclaimed: { word: 'Reclaimed', icon: 'tray-left', sentence: 'Reclaimed to your outputs; confirmed by the mint.' },
+// The campaign's maintainer and per-backer amount, so every sentence names who is paid and how much.
+export interface StateTerms {
+  maintainer: { name: string; short: string };
+  amountSat: number;
+}
+
+export interface StateCopy {
+  word: string;
+  phrase: string;
+  icon: string;
+  sentence: (terms: StateTerms) => string;
+}
+
+const sats = (amount: number) => `${amount.toLocaleString('en')} ${amount === 1 ? 'sat' : 'sats'}`;
+
+export const stateCopy: Record<MoneyState, StateCopy> = {
+  deposited: { word: 'Deposited', phrase: 'Stacked', icon: 'tray-down',
+    sentence: t => `${sats(t.amountSat)} at the mint, locked to your key. Not paid to ${t.maintainer.short}.` },
+  ready: { word: 'Ready', phrase: 'At the line', icon: 'three-line-bracket',
+    sentence: () => 'All three deposits are in. Each pleb checks the outputs and signs.' },
+  approved: { word: 'Approved', phrase: 'Signed', icon: 'pen-nib',
+    sentence: () => 'You signed. You can’t take it back. A reclaim can still race the payout.' },
+  'paying out': { word: 'Paying out', phrase: 'Sending', icon: 'clock',
+    sentence: () => 'Sent to the mint as one batch. Not paid until the mint confirms.' },
+  paid: { word: 'Paid', phrase: 'Stacked. Paid.', icon: 'circle-check',
+    sentence: t => `Paid to ${t.maintainer.name}. Confirmed by the mint.` },
+  reclaiming: { word: 'Reclaiming', phrase: 'Unstacking', icon: 'counterclockwise-arrow',
+    sentence: t => `Asking the mint for your own ${sats(t.amountSat)}. If you signed, the payout may still win.` },
+  reclaimed: { word: 'Reclaimed', phrase: 'Back to you', icon: 'tray-left',
+    sentence: t => `${sats(t.amountSat)} minted to your own outputs, as ecash at this mint. Confirmed by the mint.` },
 };
 
 // Only a mint-confirmed issuance may use a state colour that reads as settled.

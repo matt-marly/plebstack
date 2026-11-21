@@ -37,8 +37,8 @@ export function NotYours({ slot }: { slot: Slot }) {
   const { apply } = useStore();
   const owner = people[slot.backerId!];
   return (
-    <Note title={`This deposit belongs to ${owner.name}.`}>
-      <p>Only {owner.short}’s browser holds its key, so nothing can be done with it from here.</p>
+    <Note title={`This is ${owner.short}’s deposit.`}>
+      <p>Only {owner.short} can sign it or take it back. The key is in {owner.short}’s browser, not this one.</p>
       <p>
         <button type="button" className="button" data-size="small" onClick={() => apply(world => setViewer(world, owner.id))}>
           View as {owner.short}

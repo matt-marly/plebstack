@@ -6,7 +6,7 @@ import {
   MAIN_CAMPAIGN, RACE_CAMPAIGN, UNMET_CAMPAIGN, canApprove, checkMint, confirmDeposit, createCampaign, findCampaign,
   headline, initialWorld, latestOperation, pendingOperation, people, progressLine, recordSpend, releaseApproval,
   requestQuote, requestReclaim, rowSentence, sats, setViewer, slotOf, slotStatus, statusOf, stopApproval,
-  stopCollecting, tally, viewerStep, type World,
+  stopCollecting, tally, termsOf, viewerStep, type World,
 } from '../src/demo/world';
 import { stateCopy } from '../src/domain/states';
 import { routes } from '../src/routes';
@@ -53,7 +53,7 @@ test('joining takes the open slot, then the third deposit makes the campaign rea
   const world = ready();
   assert.equal(statusOf(record(world, MAIN_CAMPAIGN)), 'ready');
   assert.deepEqual(states(world, MAIN_CAMPAIGN), ['deposited', 'deposited', 'deposited']);
-  assert.equal(world.notice, stateCopy.deposited.sentence);
+  assert.equal(world.notice, 'Stacked. 21 sats at the mint, locked to your key.');
   assert.throws(() => confirmDeposit(world, MAIN_CAMPAIGN, 'backer-3', at('14:03')));
 });
 
@@ -93,7 +93,7 @@ test('the third signature sends one batch, and nothing is paid until the mint sa
   assert.equal(statusOf(paid), 'paid');
   assert.ok(paid.slots.every(slot => slot.deposit?.quote.mintState === 'ISSUED'));
   assert.equal(latestOperation(paid, 'payout')?.status, 'confirmed');
-  assert.equal(world.notice, stateCopy.paid.sentence);
+  assert.equal(world.notice, 'Stacked. Paid. 63 sats from 3 plebs to Ngozi Eze. Confirmed by the mint at 13 Nov, 14:07 UTC.');
   assert.equal(checkMint(world, MAIN_CAMPAIGN, at('14:08')), world);
 });
 
@@ -221,18 +221,23 @@ test('the next step follows the viewer through the campaign', () => {
 
 test('progress and row sentences use the documented words', () => {
   const start = initialWorld();
-  assert.equal(progressLine(record(start, MAIN_CAMPAIGN)), '2 of 3 deposited');
-  assert.equal(progressLine(record(start, UNMET_CAMPAIGN)), '2 of 3 deposited · collection stopped');
-  assert.equal(progressLine(record(start, RACE_CAMPAIGN)), '3 of 3 deposited · 3 of 3 approved');
-  assert.equal(progressLine(record(ready(), MAIN_CAMPAIGN)), '3 of 3 deposited · 0 of 3 approved');
-  assert.equal(headline(record(start, MAIN_CAMPAIGN)).word, 'Collecting');
+  const main = record(start, MAIN_CAMPAIGN);
+  assert.equal(progressLine(main), '2 of 3 stacked · 42 of 63 sats');
+  assert.equal(progressLine(record(start, UNMET_CAMPAIGN)), '2 of 3 stacked · 42 of 63 sats · collecting stopped');
+  assert.equal(progressLine(record(start, RACE_CAMPAIGN)), '3 of 3 stacked · 63 of 63 sats · signed 3 of 3');
+  assert.equal(progressLine(record(ready(), MAIN_CAMPAIGN)), '3 of 3 stacked · 63 of 63 sats · signed 0 of 3');
+  assert.equal(progressLine(record(checkMint(allApproved(), MAIN_CAMPAIGN, at('14:07')), MAIN_CAMPAIGN)), 'goal reached · 63 sats paid');
+  assert.equal(headline(main).word, 'Collecting');
   assert.equal(headline(record(ready(), MAIN_CAMPAIGN)).word, 'Ready');
+  assert.equal(headline(record(ready(), MAIN_CAMPAIGN)).phrase, 'At the line');
 
-  assert.equal(rowSentence('approved', true), stateCopy.approved.sentence);
-  assert.equal(rowSentence('reclaimed', true), stateCopy.reclaimed.sentence);
-  assert.match(rowSentence('reclaimed', false), /their own outputs/);
-  assert.match(rowSentence('open', false), /No deposit yet/);
-  assert.match(rowSentence('awaiting', true), /nothing at the mint yet/);
+  assert.equal(rowSentence(main, 'approved', true), stateCopy.approved.sentence(termsOf(main)));
+  assert.equal(rowSentence(main, 'reclaimed', true), stateCopy.reclaimed.sentence(termsOf(main)));
+  assert.match(rowSentence(main, 'deposited', true), /locked to your key\. Not paid to Ngozi\.$/);
+  assert.match(rowSentence(main, 'deposited', false), /locked to their key/);
+  assert.match(rowSentence(main, 'reclaimed', false), /their own outputs/);
+  assert.match(rowSentence(main, 'open', false), /No deposit yet/);
+  assert.match(rowSentence(main, 'awaiting', true), /Not stacked until the mint reports it paid/);
   assert.equal(sats(1), '1 sat');
   assert.equal(sats(63), '63 sats');
 });

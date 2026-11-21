@@ -56,9 +56,10 @@ export function Amount({ value, of, size = 'large' }: { value: number; of?: numb
   );
 }
 
-export function StateBlock({ icon, word, sentence, confirmed, signal, children }: {
+export function StateBlock({ icon, word, phrase, sentence, confirmed, signal, children }: {
   icon: string;
   word: string;
+  phrase?: string;
   sentence: string;
   confirmed?: boolean;
   signal?: boolean;
@@ -69,6 +70,7 @@ export function StateBlock({ icon, word, sentence, confirmed, signal, children }
       <Icon name={icon} size={28} />
       <div className="state-text">
         <p className="state-word">{word}</p>
+        {phrase && <p className="state-phrase">{phrase}</p>}
         <p className="state-sentence">{sentence}</p>
         {children}
       </div>
@@ -152,10 +154,11 @@ export function RecordList({ entries }: { entries: LogEntry[] }) {
   );
 }
 
-export function ConfirmDialog({ open, title, confirmLabel, onConfirm, onCancel, children }: {
+export function ConfirmDialog({ open, title, confirmLabel, cancelLabel = 'Not yet', onConfirm, onCancel, children }: {
   open: boolean;
   title: string;
   confirmLabel: string;
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   children: ReactNode;
@@ -179,7 +182,7 @@ export function ConfirmDialog({ open, title, confirmLabel, onConfirm, onCancel, 
       <h2 id={titleId}>{title}</h2>
       <div className="dialog-body">{children}</div>
       <div className="dialog-actions">
-        <button type="button" className="button" onClick={onCancel}>Cancel</button>
+        <button type="button" className="button" onClick={onCancel}>{cancelLabel}</button>
         <button type="button" className="button" data-variant="primary" onClick={onConfirm}>{confirmLabel}</button>
       </div>
     </dialog>
