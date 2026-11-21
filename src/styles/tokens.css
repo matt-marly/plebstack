@@ -1,13 +1,23 @@
 :root {
-  --color-canvas: #faf9f6;
-  --color-surface: #ffffff;
-  --color-ink: #20221f;
-  --color-muted: #575c55;
-  --color-border: #777c73;
-  --color-rule: #dedbd3;
-  --color-on-ink: #faf9f6;
-  --color-success: #17643c;
-  --color-error: #a12622;
+  --color-canvas: #0b0b0c;
+  --color-surface: #161618;
+  --color-ink: #f4f4f1;
+  --color-muted: #a1a1aa;
+  /* 3.67:1 on canvas, 3.37:1 on surface. */
+  --color-border: #6a6a72;
+  --color-rule: #2a2a2e;
+  --color-on-ink: #0b0b0c;
+  --color-signal: #c8f135;
+  --color-on-signal: #0b0b0c;
+  --color-success: var(--color-signal);
+  --color-error: #f0908a;
+  --color-state-deposited: #b4b4bc;
+  --color-state-ready: #2dd4bf;
+  --color-state-approved: #8fa8ff;
+  --color-state-paying-out: #f5a524;
+  --color-state-paid: var(--color-signal);
+  --color-state-reclaiming: #c4a1ff;
+  --color-state-reclaimed: #85858e;
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
   --text-small: .875rem;
@@ -29,17 +39,25 @@
   --gutter: 1.25rem;
 }
 
-/* Same roles, measured again on the dark canvas. Set by the theme script in index.html. */
-:root[data-theme="dark"] {
-  --color-canvas: #171916;
-  --color-surface: #20221f;
-  --color-ink: #ecebe6;
-  --color-muted: #a9ada5;
-  --color-border: #8a8f86;
-  --color-rule: #363933;
-  --color-on-ink: #171916;
-  --color-success: #7fcf9f;
-  --color-error: #f0908a;
+/* Paper: the same roles, measured again on the light canvas. Set by the theme script in index.html. */
+:root[data-theme="light"] {
+  --color-canvas: #f4f4f1;
+  --color-surface: #ffffff;
+  --color-ink: #0b0b0c;
+  --color-muted: #55555c;
+  /* 3.56:1 on canvas, 3.92:1 on surface. */
+  --color-border: #808087;
+  --color-rule: #dcdcd6;
+  --color-on-ink: #f4f4f1;
+  --color-signal: #4a6b00;
+  --color-on-signal: #ffffff;
+  --color-error: #a12622;
+  --color-state-deposited: #52525b;
+  --color-state-ready: #0f766e;
+  --color-state-approved: #2944c2;
+  --color-state-paying-out: #8a5a00;
+  --color-state-reclaiming: #7e3fb8;
+  --color-state-reclaimed: #66666e;
 }
 
 @media (min-width: 40rem) {

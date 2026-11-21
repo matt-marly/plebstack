@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   SWAP_FEE_SAT, checkMint, headline, isPending, latestOperation, people, progressLine, recordSpend, sats, slotStatus, tally,
 } from '../demo/world';
-import { confirmedStates, stateCopy } from '../domain/states';
+import { confirmedStates, signalStates, stateCopy } from '../domain/states';
 import type { MoneyState } from '../domain/models';
 import { paths } from '../routes';
 import { formatWhen, shortKey } from '../ui/format';
@@ -30,7 +30,8 @@ export function Payout() {
         <Section label="Status">
           <div className="stack" data-gap="large">
             <StateBlock icon={head.icon} word={head.word} sentence={head.sentence}
-              confirmed={confirmedStates.includes(head.state as MoneyState)}>
+              confirmed={confirmedStates.includes(head.state as MoneyState)}
+              signal={signalStates.includes(head.state as MoneyState)}>
               <p className="state-meta">{progressLine(record)}</p>
             </StateBlock>
             {batch ? (
@@ -116,7 +117,7 @@ export function Payout() {
       </PageHead>
 
       <Section label="Status">
-        <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence} confirmed>
+        <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence} confirmed signal>
           <p className="state-meta">Confirmed {formatWhen(batch.settledAt ?? batch.savedAt)}.</p>
         </StateBlock>
       </Section>

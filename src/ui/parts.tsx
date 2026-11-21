@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 
 export function useTitle(title: string) {
   useEffect(() => {
-    document.title = `${title} · All Together`;
+    document.title = `${title} · Plebstack`;
   }, [title]);
 }
 
@@ -56,15 +56,16 @@ export function Amount({ value, of, size = 'large' }: { value: number; of?: numb
   );
 }
 
-export function StateBlock({ icon, word, sentence, confirmed, children }: {
+export function StateBlock({ icon, word, sentence, confirmed, signal, children }: {
   icon: string;
   word: string;
   sentence: string;
   confirmed?: boolean;
+  signal?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="state" data-confirmed={confirmed || undefined}>
+    <div className="state" data-confirmed={confirmed || undefined} data-signal={signal || undefined}>
       <Icon name={icon} size={28} />
       <div className="state-text">
         <p className="state-word">{word}</p>

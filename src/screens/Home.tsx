@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../demo/store';
 import { MAIN_CAMPAIGN, headline, progressLine, roleLine, sats, tally } from '../demo/world';
-import { confirmedStates, stateCopy } from '../domain/states';
+import { confirmedStates, signalStates, stateCopy } from '../domain/states';
 import type { MoneyState } from '../domain/models';
 import { paths } from '../routes';
 import { Icon } from '../ui/Icon';
@@ -63,7 +63,8 @@ export function Home() {
               <li key={record.campaign.id}>
                 <p className="index-title"><Link to={paths.campaign(record.campaign.id)}>{record.campaign.title}</Link></p>
                 <p className="index-sum">{head.state === 'paid' ? sats(targetSat) : `${heldSat} of ${sats(targetSat)}`}</p>
-                <p className="index-state" data-confirmed={confirmed || undefined}>
+                <p className="index-state" data-confirmed={confirmed || undefined}
+                  data-signal={signalStates.includes(head.state as MoneyState) || undefined}>
                   <Icon name={head.icon} size={18} />
                   <strong>{head.word}</strong>
                   <span>{progressLine(record)}</span>
@@ -90,10 +91,11 @@ export function Home() {
 
       <Section label="Seven words">
         <div className="stack">
-          <p>Money here is always in one of seven states, each with one word and one sentence. Only the two the mint has confirmed are shown in green.</p>
+          <p>Money here is always in one of seven states, each with one word and one sentence. Paid and Reclaimed show only once the mint confirms them, and only Paid is lit.</p>
           <ul className="words" role="list">
             {words.map(([state, copy]) => (
-              <li key={state} data-confirmed={confirmedStates.includes(state) || undefined}>
+              <li key={state} data-confirmed={confirmedStates.includes(state) || undefined}
+                data-signal={signalStates.includes(state) || undefined}>
                 <Icon name={copy.icon} size={22} />
                 <strong>{copy.word}</strong>
                 <span className="words-sentence">{copy.sentence}</span>

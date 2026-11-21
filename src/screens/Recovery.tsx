@@ -95,7 +95,8 @@ export function Recovery() {
             {settled.map(({ record, operation }) => {
               const result = outcome(operation);
               return (
-                <li key={operation.id} className="operation" data-confirmed={result.icon ? true : undefined}>
+                <li key={operation.id} className="operation" data-confirmed={result.icon ? true : undefined}
+                  data-signal={(result.icon && operation.kind === 'payout') || undefined}>
                   <h3>{name(operation)}</h3>
                   <p className="small link-alone">
                     <Link to={paths.campaign(record.campaign.id)}>{record.campaign.title}</Link>

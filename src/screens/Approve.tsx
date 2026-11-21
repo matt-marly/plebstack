@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   canApprove, findCampaign, people, releaseApproval, sats, statusOf, stopApproval, tally,
 } from '../demo/world';
-import { confirmedStates, stateCopy } from '../domain/states';
+import { confirmedStates, signalStates, stateCopy } from '../domain/states';
 import { paths } from '../routes';
 import { shortKey } from '../ui/format';
 import { Icon } from '../ui/Icon';
@@ -50,7 +50,8 @@ export function Approve() {
         </PageHead>
         <Section label="Status">
           <div className="stack" data-gap="large">
-            <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence} confirmed={confirmedStates.includes(deposit.state)} />
+            <StateBlock icon={copy.icon} word={copy.word} sentence={copy.sentence} confirmed={confirmedStates.includes(deposit.state)}
+              signal={signalStates.includes(deposit.state)} />
             <NextStep record={record} />
           </div>
         </Section>

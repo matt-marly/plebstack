@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { people, rowSentence, sats, slotStatus } from '../demo/world';
-import { confirmedStates, stateCopy } from '../domain/states';
+import { confirmedStates, signalStates, stateCopy } from '../domain/states';
 import type { LockedQuote } from '../domain/models';
 import { paths } from '../routes';
 import { NextStep } from '../ui/NextStep';
@@ -26,8 +26,9 @@ export function DepositDetail() {
   const status = slotStatus(slot);
   const deposit = slot.deposit;
   const state = status === 'awaiting' || status === 'open'
-    ? { icon: 'awaiting', word: 'Awaiting deposit', confirmed: false }
-    : { icon: stateCopy[status].icon, word: stateCopy[status].word, confirmed: confirmedStates.includes(status) };
+    ? { icon: 'awaiting', word: 'Awaiting deposit', confirmed: false, signal: false }
+    : { icon: stateCopy[status].icon, word: stateCopy[status].word, confirmed: confirmedStates.includes(status),
+      signal: signalStates.includes(status) };
 
   let approval = 'Not released.';
   if (deposit?.authorizationReleased) approval = 'Signature released. It can’t be taken back.';
@@ -41,7 +42,7 @@ export function DepositDetail() {
 
       <Section label="Status">
         <div className="stack" data-gap="large">
-          <StateBlock icon={state.icon} word={state.word} sentence={rowSentence(status, own)} confirmed={state.confirmed} />
+          <StateBlock icon={state.icon} word={state.word} sentence={rowSentence(status, own)} confirmed={state.confirmed} signal={state.signal} />
           {own ? <NextStep record={record} /> : <NotYours slot={slot} />}
         </div>
       </Section>

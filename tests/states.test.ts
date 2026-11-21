@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { generatePath, matchPath } from 'react-router-dom';
 import { TEST_MINT, type Campaign, type Deposit } from '../src/domain/models';
-import { campaignState, confirmedStates, stateCopy, transitionDeposit } from '../src/domain/states';
+import { campaignState, confirmedStates, signalStates, stateCopy, transitionDeposit } from '../src/domain/states';
 import { protocol } from '../src/protocol/client';
 import { routes } from '../src/routes';
 
@@ -90,6 +90,7 @@ test('each of the seven states has a word, an icon and a sentence that opens wit
     assert.ok(copy.sentence.startsWith(copy.word), copy.sentence);
   }
   assert.deepEqual([...confirmedStates], ['paid', 'reclaimed']);
+  assert.deepEqual([...signalStates], ['paid']);
 });
 
 test('every documented route has a shell path', () => {

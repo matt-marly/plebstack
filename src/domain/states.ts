@@ -10,8 +10,11 @@ export const stateCopy: Record<MoneyState, { word: string; icon: string; sentenc
   reclaimed: { word: 'Reclaimed', icon: 'tray-left', sentence: 'Reclaimed to your outputs; confirmed by the mint.' },
 };
 
-// Only a mint-confirmed issuance may use the success hue.
+// Only a mint-confirmed issuance may use a state colour that reads as settled.
 export const confirmedStates: readonly MoneyState[] = ['paid', 'reclaimed'];
+
+// Signal lime has one meaning: the mint confirmed the payout.
+export const signalStates: readonly MoneyState[] = ['paid'];
 
 export type DepositEvent =
   | { type: 'release-authorization' }

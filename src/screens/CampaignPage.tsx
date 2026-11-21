@@ -1,5 +1,5 @@
 import { headline, people, progressLine, sats } from '../demo/world';
-import { confirmedStates } from '../domain/states';
+import { confirmedStates, signalStates } from '../domain/states';
 import type { MoneyState } from '../domain/models';
 import { paths } from '../routes';
 import { ContributionGroup } from '../ui/ContributionGroup';
@@ -33,7 +33,8 @@ export function CampaignPage() {
       <Section label="Status">
         <div className="stack" data-gap="large">
           <StateBlock icon={head.icon} word={head.word} sentence={head.sentence}
-            confirmed={confirmedStates.includes(head.state as MoneyState)}>
+            confirmed={confirmedStates.includes(head.state as MoneyState)}
+            signal={signalStates.includes(head.state as MoneyState)}>
             <p className="state-meta">{progressLine(record)}</p>
           </StateBlock>
           <NextStep record={record} />
