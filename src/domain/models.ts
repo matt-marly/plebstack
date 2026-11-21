@@ -46,11 +46,21 @@ export interface OutputConstruction {
   blindingFactorHex: string;
 }
 
+export interface PublicKeyset {
+  id: string;
+  unit: 'sat';
+  inputFeePpk: number;
+  keys: Record<string, string>;
+}
+
+// Public material only: anyone holding it can re-derive every blinded message, nobody can spend with it.
 export interface BatchPlan {
   campaignId: string;
   mint: MintUrl;
   beneficiaryPubkey: string;
   quoteIds: [string, string, string];
+  ownerPubkeys: [string, string, string];
+  keyset: PublicKeyset;
   outputs: OutputConstruction[];
   totalSat: number;
 }
@@ -76,6 +86,9 @@ export type Settlement =
   | { kind: 'confirmed'; operationId: string; destination: 'creator' | 'owner'; proofs: IssuedProof[] }
   | { kind: 'rejected'; operationId: string; reason: string };
 
+// rejected: the mint answered with a Cashu error, so nothing was issued and nothing needs recovering.
+export type OperationStatus = 'prepared' | 'dispatched' | 'unresolved' | 'confirmed' | 'rejected';
+
 export interface RecoveryOperation {
   version: 1;
   id: string;
@@ -86,6 +99,10 @@ export interface RecoveryOperation {
   keysetId: string;
   requestBody: string;
   createdAt: string;
-  status: 'prepared' | 'dispatched' | 'unresolved' | 'confirmed';
+  status: OperationStatus;
+  dispatchedAt?: string;
+  settledAt?: string;
+  reason?: string;
+  response?: string;
   proofs?: IssuedProof[];
 }

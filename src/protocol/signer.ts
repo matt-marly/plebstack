@@ -34,17 +34,24 @@ export function mintQuoteDigest(quoteId: string, outputs: Pick<BlindedOutput, 'a
   return hash.digest();
 }
 
-export function createQuoteSigner(secretKey: Uint8Array, pubkey: string, owns: (quoteId: string) => boolean): QuoteSigner {
-  const stopped = new Set<string>();
+export interface StopList {
+  has(quoteId: string): boolean;
+  add(quoteId: string): void;
+}
+
+// A stop only prevents new signatures from this key. One already released stays valid at the mint.
+export function createQuoteSigner(secretKey: Uint8Array, pubkey: string, owns: (quoteId: string) => boolean,
+  stops: StopList = new Set<string>()): QuoteSigner {
   return {
     pubkey,
     async signQuote(quoteId, outputs) {
       if (!owns(quoteId)) throw new Error('This key does not own that quote.');
+      if (stops.has(quoteId)) throw new Error('New approvals for this deposit are stopped on this device.');
       return schnorrSignDigest(mintQuoteDigest(quoteId, outputs), secretKey);
     },
     async stopNewApprovals(quoteId) {
-      stopped.add(quoteId);
+      stops.add(quoteId);
     },
-    approvalsStopped: quoteId => stopped.has(quoteId),
+    approvalsStopped: quoteId => stops.has(quoteId),
   };
 }
