@@ -7,7 +7,7 @@ import {
   stopCollecting, tally, termsOf, viewerStep, type World,
 } from '../src/demo/world';
 import { stateCopy } from '../src/domain/states';
-import { formatClock, formatWhen, isCompressedPubkey, isHttpUrl, listNames, plural, setTimeZone, shortKey } from '../src/ui/format';
+import { formatClock, formatWhen, isCompressedPubkey, isHttpUrl, listNames, plural, setTimeZone, shortKey, zoneName } from '../src/ui/format';
 
 // Notices carry times; pin the zone so the expected text doesn't depend on the machine.
 setTimeZone('UTC');
@@ -242,15 +242,30 @@ test('progress and row sentences use the documented words', () => {
   assert.equal(sats(63), '63 sats');
 });
 
+test('times carry the zone’s short name, not a GMT offset, where one exists', () => {
+  const winter = '2026-01-15T12:00:00Z';
+  const summer = '2026-07-15T12:00:00Z';
+  assert.equal(zoneName(winter, 'Africa/Lagos'), 'WAT');
+  assert.equal(zoneName(summer, 'Africa/Lagos'), 'WAT');
+  assert.equal(zoneName(winter, 'America/New_York'), 'EST');
+  assert.equal(zoneName(summer, 'America/New_York'), 'EDT');
+  assert.equal(zoneName(winter, 'Europe/London'), 'GMT');
+  assert.equal(zoneName(summer, 'Europe/London'), 'BST');
+  assert.equal(zoneName(winter, 'UTC'), 'UTC');
+  // No English name for Tokyo in these locales: the offset is the honest fallback.
+  assert.equal(zoneName(winter, 'Asia/Tokyo'), 'GMT+9');
+  assert.equal(formatClock(summer, 'Europe/London'), '13:00:00 BST');
+});
+
 test('format helpers', () => {
   assert.equal(formatWhen('2026-11-13T14:02:00Z'), '13 Nov, 14:02 UTC');
   assert.equal(formatWhen('2026-11-06T23:59:00-05:00'), '7 Nov, 04:59 UTC');
-  assert.equal(formatWhen('2026-11-13T14:02:00Z', 'Africa/Lagos'), '13 Nov, 15:02 GMT+1');
-  assert.equal(formatWhen('2026-11-12T23:52:43Z', 'Africa/Lagos'), '13 Nov, 00:52 GMT+1');
-  assert.equal(formatClock('2026-11-13T18:32:05Z', 'Africa/Lagos'), '19:32:05 GMT+1');
+  assert.equal(formatWhen('2026-11-13T14:02:00Z', 'Africa/Lagos'), '13 Nov, 15:02 WAT');
+  assert.equal(formatWhen('2026-11-12T23:52:43Z', 'Africa/Lagos'), '13 Nov, 00:52 WAT');
+  assert.equal(formatClock('2026-11-13T18:32:05Z', 'Africa/Lagos'), '19:32:05 WAT');
   assert.equal(formatClock(new Date('2026-11-13T18:32:05Z'), 'UTC'), '18:32:05 UTC');
   setTimeZone('Africa/Lagos');
-  assert.equal(formatWhen('2026-11-13T14:02:00Z'), '13 Nov, 15:02 GMT+1');
+  assert.equal(formatWhen('2026-11-13T14:02:00Z'), '13 Nov, 15:02 WAT');
   setTimeZone('UTC');
   assert.equal(shortKey(people.ngozi.pubkey!), '02c41f7a…29e8a3');
   assert.equal(shortKey('op-541d70ed'), 'op-541d70ed');

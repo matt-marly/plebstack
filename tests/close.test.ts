@@ -94,7 +94,7 @@ test('the close shows in the viewer’s own zone, from the time saved with the c
   const { actions, id } = setup();
   const open = record(actions.world('tobi'), id);
   assert.equal(open.closesAt, CLOSES);
-  assert.equal(closeLine(open, 'Africa/Lagos'), 'closes 26 Nov, 18:00 GMT+1');
+  assert.equal(closeLine(open, 'Africa/Lagos'), 'closes 26 Nov, 18:00 WAT');
   assert.equal(closeLine(open, 'UTC'), 'closes 26 Nov, 17:00 UTC');
-  assert.equal(closeLine(open, 'America/New_York'), 'closes 26 Nov, 12:00 GMT-5');
+  assert.equal(closeLine(open, 'America/New_York'), 'closes 26 Nov, 12:00 EST');
 });
