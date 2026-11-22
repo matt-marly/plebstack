@@ -1,8 +1,12 @@
-// Drives the whole pleb journey against testnut in headless Chromium, in a phone viewport:
-//   A. three plebs join, pay the real locked invoices, check the payout, sign, send, and the mint confirms: Paid.
+// Drives every journey against testnut in headless Chromium, in a phone viewport:
+//   A. Ada starts a stack, Ngozi confirms her key on her own side, three plebs join, pay the real locked invoices,
+//      check the payout and sign; the last signature sends it and the mint confirms: Paid. Ngozi receives the locked
+//      payout, spends it with a real swap and copies her ecash.
 //   B. two plebs in, one takes theirs back (with a reload mid-request and Check again), the other gets No payout.
 //   C. the payout and a take-back race, and the payout lands first.
 //   D. the same race, and the take-back lands first.
+//   E. the close passes with two of three in: No payout, and each takes theirs back. Time is moved with the
+//      browser's own clock control, so nothing in the app has a test switch.
 // The races are produced by holding one request to the mint until the other one has its answer. Nothing is faked:
 // every answer is the mint's.
 //
@@ -16,6 +20,7 @@
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getDecodedToken } from '@cashu/cashu-ts';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { optimisePng } from './png.mjs';
@@ -49,17 +54,23 @@ if (!base) {
 }
 
 const browser = await chromium.launch().catch(() => chromium.launch({ channel: 'chrome' }));
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-const scratch = await browser.newPage();
 const errors = [];
-page.on('pageerror', error => errors.push(error.message));
+const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ['clipboard-read', 'clipboard-write'] };
+async function phonePage(context) {
+  const opened = await context.newPage();
+  opened.on('pageerror', error => errors.push(error.message));
+  return opened;
+}
+let page = await phonePage(await browser.newContext(phone));
+const scratch = await browser.newPage();
 
 const secretKeys = () => page.evaluate(() => Object.keys(localStorage)
   .filter(key => /^plebstack:person:[^/]+\/key:/.test(key))
   .map(key => JSON.parse(localStorage.getItem(key)).value.secretKey));
 
 const board = id => page.evaluate(campaignId => JSON.parse(localStorage.getItem(`plebstack:public/campaign:${campaignId}`)).value, id);
-const campaignOf = () => page.url().split('/s/')[1].split('/')[0];
+const campaignOf = () => page.url().split(/\/(?:s|o|m|claim)\//)[1].split('/')[0];
+const storageKeys = prefix => page.evaluate(start => Object.keys(localStorage).filter(key => key.startsWith(start)), prefix);
 const heading = name => page.getByRole('heading', { level: 1, name });
 const dialog = () => page.getByRole('dialog');
 
@@ -133,18 +144,92 @@ async function hold(path) {
 
 async function playAs(name) {
   await page.getByRole('button', { name: /^Playing as/ }).click();
-  await dialog().getByRole('button', { name: new RegExp(name) }).click();
+  await dialog().getByRole('button', { name: new RegExp(`^${name}`) }).click();
   await page.getByRole('button', { name: `Playing as ${name}` }).waitFor();
 }
 
-async function freshStack() {
-  await page.getByRole('button', { name: /^Playing as/ }).click();
-  await dialog().getByRole('button', { name: 'Open a fresh stack' }).click();
-  await page.getByRole('button', { name: 'Chip in 21 sats' }).waitFor();
+// Ada names the work, Ngozi confirms her key on her own side, Ada sets the terms and opens the stack.
+async function openStack({ shots: still = false, close = '48 hours' } = {}) {
+  if (!page.url().endsWith('/new')) {
+    await page.getByRole('button', { name: /^Playing as/ }).click();
+    await dialog().getByRole('button', { name: 'Start a new stack as Ada' }).click();
+  }
+  await heading('Who are you backing?').waitFor();
+  if (still) {
+    const link = page.getByLabel('Public link to the work');
+    const typed = await link.inputValue();
+    await link.fill('');
+    await page.getByRole('button', { name: 'Next' }).click();
+    check('O1: the public link is required', await page.getByText('Add a public link to the work').isVisible()
+      && /^\/new$/.test(new URL(page.url()).pathname));
+    await link.fill(typed);
+    check('O1: says Paid means ecash received, not work done',
+      await page.getByText('Paid means Ngozi received ecash, not that the work was done.').isVisible());
+    await noLime('O1 who');
+    await shoot('o1-who');
+  }
+  await page.getByRole('button', { name: 'Next' }).click();
+  await heading('Get Ngozi’s key.').waitFor();
+  const id = campaignOf();
+  if (still) {
+    check('O2: a claim link, no key typed by Ada', (await page.locator('.link-text').innerText()).includes(`/claim/${id}`));
+    await noLime('O2 key');
+    await shoot('o2-key');
+  }
+  await playAs('Ngozi');
+  await heading('Ada is starting a stack for you.').waitFor();
+  check(`${id}: the claim link opens as Ngozi`, page.url().endsWith(`/claim/${id}`));
+  if (still) {
+    await noLime('M1 claim');
+    await shoot('m1-claim');
+  }
+  await page.getByRole('button', { name: 'Confirm my key' }).click();
+  await heading('Your key is confirmed.').waitFor();
+  await playAs('Ada');
+  await heading('Ngozi confirmed her key.').waitFor();
+  if (still) {
+    check('O2c: key confirmed, the short key shown, on Ngozi’s own storage',
+      (await page.locator('.badge').innerText()).includes('Key confirmed') && /^0[23][0-9a-f]{2}…[0-9a-f]{4}$/.test(await page.locator('.rows dd').first().innerText()));
+    await noLime('O2c confirmed');
+    await shoot('o2c-confirmed');
+  }
+  await page.getByRole('button', { name: 'Next' }).click();
+  await heading('Set the terms.').waitFor();
+  await page.getByRole('button', { name: close, exact: true }).click();
+  const closes = await page.locator('.close-pick .field-note').innerText();
+  check(`${id}: the close is a real time with a zone`, /^Closes \d{1,2} \w{3}, \d\d:00 \S+\. The close never moves anyone’s sats\.$/.test(closes), closes);
+  if (still) {
+    await noLime('O3 terms');
+    await shoot('o3-terms');
+  }
+  await page.getByRole('button', { name: 'Create stack' }).click();
+  await heading('Your stack is open.').waitFor();
+  if (still) {
+    check('O4: the organizer can share and stop, not move sats',
+      await page.getByText('You organize this stack. You can share it and stop collecting, but you can’t move anyone’s sats.').isVisible()
+      && await page.locator('svg.qr').isVisible());
+    await noLime('O4 share');
+    await shoot('o4-share');
+  }
+  await page.getByRole('button', { name: 'Watch it fill' }).click();
+  await heading('Nobody’s in yet.').waitFor();
+  const entry = await board(id);
+  check(`${id}: Ada organizes, Ngozi is paid, the key came from her side`,
+    entry.creatorId === 'ada' && entry.maintainerId === 'ngozi' && entry.key.by === 'maintainer' && entry.closesAt);
+  return id;
 }
 
 async function chipIn(person, { shotPrefix } = {}) {
   await playAs(person);
+  if (shotPrefix) {
+    check('P1: organized by Ada, the close from the stack, nobody pre-labelled',
+      await heading('Ada is getting 3 plebs to back Ngozi.').isVisible()
+      && (await page.locator('.who').innerText()).includes('Organized by Ada')
+      && /closes \d{1,2} \w{3}, \d\d:00/.test(await page.locator('.stack-labels').innerText())
+      && (await page.locator('.stack-name').count()) === 0);
+    await noLime('P1 join');
+    await shoot('p1-join');
+  }
   await page.getByRole('button', { name: 'Chip in 21 sats' }).click();
   await page.getByRole('link', { name: 'Open in wallet' }).waitFor({ timeout: 30_000 });
   const invoice = await page.getByRole('link', { name: 'Open in wallet' }).getAttribute('href');
@@ -208,12 +293,10 @@ try {
   await page.getByRole('button', { name: 'Next' }).click();
   await shoot('intro-3');
   await noLime('Intro 3');
-  await page.getByRole('button', { name: 'Join the demo stack' }).click();
-  await page.getByRole('button', { name: 'Chip in 21 sats' }).waitFor();
-  const a = summary.campaigns.paid = campaignOf();
-  check('A1: the demo stack is open, nobody pre-labelled', (await page.locator('.stack-name').count()) === 0, a);
-  await noLime('P1 join');
-  await shoot('p1-join');
+  check('A1: Intro 3 starts a stack; no invite yet in a fresh browser',
+    await page.getByRole('button', { name: 'Start a stack' }).isVisible() && !(await page.getByRole('button', { name: 'I have an invite link' }).count()));
+  await page.getByRole('button', { name: 'Start a stack' }).click();
+  const a = summary.campaigns.paid = await openStack({ shots: true });
 
   await chipIn('Tobi', { shotPrefix: true });
   await page.getByRole('button', { name: 'See who’s in' }).click();
@@ -232,6 +315,28 @@ try {
   await page.getByRole('button', { name: 'Playing as Maren' }).waitFor();
   check('A2: after a reload Maren is still playing and still stacked',
     (await page.locator('.stack-name').allTextContents()).includes('You'));
+
+  await playAs('Ada');
+  await heading('2 of 3 in.').waitFor();
+  check('O5: names, times and the close; the last signature sends the payout',
+    (await page.locator('.rows').innerText()).includes('Tobi Adewale') && /in · \d\d:\d\d/.test(await page.locator('.rows').innerText())
+    && (await page.getByText('the last signature sends the payout to the mint').count()) === 1);
+  await noLime('O5 watch');
+  await shoot('o5-watch');
+  await page.getByRole('button', { name: 'Stop collecting' }).click();
+  check('O5: stopping says released signatures still count', (await dialog().innerText()).includes('Signatures already released still count.'));
+  await shoot('o5-stop', 700);
+  await dialog().getByRole('button', { name: 'Keep collecting' }).click();
+  await dialog().waitFor({ state: 'detached' });
+
+  await playAs('Ngozi');
+  await heading('A stack for you.').waitFor();
+  check('M2: the payout will be locked to her key, nothing to do yet',
+    await page.getByText('The payout will be locked to your key. Nothing to do yet.', { exact: false }).isVisible()
+    && (await page.locator('.track').getAttribute('aria-label')).endsWith('42 of 63 sats at the mint'));
+  await noLime('M2 following');
+  await shoot('m2-following');
+
   await chipIn('Ishaan');
   await page.getByRole('button', { name: 'Continue' }).click();
 
@@ -277,10 +382,57 @@ try {
   await playAs('Tobi');
   await heading('Stacked. Paid.').waitFor();
   check('A10: Tobi sees Paid without a second moment', (await page.locator('[data-lighting]').count()) === 0);
+  check('A11: the receipt names the organizer and says the close no longer applied',
+    (await page.locator('.receipt').innerText()).includes('Organized by Ada')
+    && (await page.locator('.receipt').innerText()).includes('so the close no longer applied'));
+
+  await playAs('Ngozi');
+  await heading('63 sats for you.').waitFor();
+  const delivered = (await board(a)).events.find(event => event.type === 'delivered');
+  const received = await page.evaluate(id => JSON.parse(localStorage.getItem(`plebstack:person:ngozi/received:${id}`))?.value, a);
+  check('M3: the locked payout was handed on and saved in Ngozi’s own storage',
+    delivered?.proofs.length > 0 && received?.proofs.length === delivered.proofs.length
+    && received.proofs.reduce((sum, proof) => sum + proof.amount, 0) === 63
+    && received.proofs.every(proof => JSON.parse(proof.secret)[1].data === received.pubkey));
+  check('M3: lime only now, on Paid', (await limeStyles()).length > 0);
+  await shoot('m3-receive');
+  await page.getByRole('button', { name: 'What’s really happening' }).click();
+  check('M3: the sheet says the locked ecash only works with her key', (await dialog().innerText()).includes('it only works with your key'));
+  await dialog().getByRole('button', { name: 'Got it' }).click();
+  await dialog().waitFor({ state: 'detached' });
+
+  const keysets = (await (await fetch(`${MINT}/v1/keysets`)).json()).keysets;
+  const feePpk = keysets.find(keyset => keyset.id === delivered.proofs[0].id)?.input_fee_ppk ?? 0;
+  const fee = Math.ceil(delivered.proofs.length * feePpk / 1000);
+  await page.getByRole('button', { name: 'Spend', exact: true }).click();
+  await heading(`Yours. ${63 - fee} sats.`).waitFor({ timeout: 60_000 });
+  const spentText = await page.locator('.lead p').innerText();
+  check('M4: a real swap at the mint, fee from its keyset',
+    fee === 1 && spentText.startsWith('Swap fee at the mint, 1 sat. Received, 62 sats.'),
+    `${delivered.proofs.length} inputs at ${feePpk} ppk: ${spentText}`);
+  const swap = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('plebstack:person:ngozi/operation:'))
+    .map(key => JSON.parse(localStorage.getItem(key)).value).find(op => op.kind === 'swap'));
+  check('M4: the swap was saved in her storage before it went, and its proofs are kept there',
+    swap?.status === 'confirmed' && swap.createdAt <= swap.dispatchedAt && swap.proofs.reduce((sum, proof) => sum + proof.amount, 0) === 62);
+  await noLime('M4 spent');
+  await page.getByRole('button', { name: 'Copy ecash' }).click();
+  await page.getByRole('button', { name: 'Copied' }).waitFor();
+  const token = await page.evaluate(() => navigator.clipboard.readText());
+  const decoded = getDecodedToken(token, keysets.map(keyset => keyset.id));
+  const amount = decoded.proofs.reduce((sum, proof) => sum + Number(proof.amount), 0);
+  const keysNow = await secretKeys();
+  check('M4: Copy ecash gives a real token for 62 sats with no private key in it',
+    token.startsWith('cashuB') && decoded.mint === MINT && amount === 62
+    && !keysNow.some(secret => token.includes(secret) || JSON.stringify(decoded, (_, v) => typeof v === 'bigint' ? String(v) : v).includes(secret)),
+    `${token.length} chars, ${decoded.proofs.length} proofs`);
+  await page.getByRole('button', { name: 'Copied' }).waitFor({ state: 'detached' }).catch(() => {});
+  await shoot('m4-spent');
+  check('A12: Ada’s storage holds no key; Ngozi’s key is only in hers',
+    (await storageKeys('plebstack:person:ada/')).length === 0
+    && (await storageKeys('plebstack:person:ngozi/key:')).length === 1);
 
   // ---------------------------------------------------------------- B: no payout, take it back, with a reload
-  await freshStack();
-  const b = summary.campaigns.unmet = campaignOf();
+  const b = summary.campaigns.unmet = await openStack();
   await chipIn('Tobi');
   await chipIn('Maren');
   await page.getByRole('button', { name: 'See who’s in' }).click();
@@ -315,8 +467,7 @@ try {
   check('B5: Tobi is back too', (await board(b)).events.filter(event => event.type === 'settled' && event.status === 'confirmed').length === 2);
 
   // ---------------------------------------------------------------- C: the race, payout first
-  await freshStack();
-  const c = summary.campaigns.payoutFirst = campaignOf();
+  const c = summary.campaigns.payoutFirst = await openStack();
   await chipIn('Tobi');
   await chipIn('Maren');
   await chipIn('Ishaan');
@@ -344,8 +495,7 @@ try {
   await heading('Stacked. Paid.').waitFor();
 
   // ---------------------------------------------------------------- D: the race, take-back first
-  await freshStack();
-  const d = summary.campaigns.reclaimFirst = campaignOf();
+  const d = summary.campaigns.reclaimFirst = await openStack();
   await chipIn('Tobi');
   await chipIn('Maren');
   await chipIn('Ishaan');
@@ -379,13 +529,47 @@ try {
   await noLime('P10 take-back first');
   await shoot('p10r-reverse');
 
+  // ---------------------------------------------------------------- E: the close passes with two of three in
+  const leakedBefore = await page.evaluate(keys => {
+    const shared = Object.keys(localStorage).filter(key => /^plebstack:(public|coordinator|person:ada)\//.test(key))
+      .map(key => localStorage.getItem(key)).join('\n');
+    return keys.filter(secret => shared.includes(secret) || document.documentElement.outerHTML.includes(secret)).length;
+  }, await secretKeys());
+  check('Z0: no private key on the board, with the coordinator, with Ada or on the page', leakedBefore === 0);
+
+  const clocked = await browser.newContext(phone);
+  await clocked.clock.install();
+  page = await phonePage(clocked);
+  await page.goto(`${base}/`);
+  await page.waitForURL(/\/intro\/1$/);
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await page.getByRole('button', { name: 'Start a stack' }).click();
+  const e = summary.campaigns.closed = await openStack({ close: '24 hours' });
+  await chipIn('Tobi');
+  await chipIn('Maren');
+  const closesAt = (await board(e)).closesAt;
+  await page.clock.fastForward('25:00:00');
+  await playAs('Tobi');
+  await heading('No payout this time.').waitFor({ timeout: 30_000 });
+  const why = await page.locator('.lead > p:not(.state-chip)').innerText();
+  check('E1: past the close with 2 of 3 in, No payout, and the reason is the close', why.startsWith('The stack closed at') && why.includes('with 2 of 3 in'), why);
+  check('E2: the close moved nobody’s sats', (await board(e)).events.every(event => event.type !== 'sent'), closesAt);
+  await noLime('P9 closed');
+  await shoot('p9-closed');
+  await playAs('Ishaan');
+  check('E3: nobody new can join after the close', !(await page.getByRole('button', { name: 'Chip in 21 sats' }).count()));
+  await playAs('Maren');
+  await takeBack();
+  await heading('Back to you.').waitFor({ timeout: 60_000 });
+  check('E4: Maren took hers back after the close', (await board(e)).events.some(event => event.type === 'settled' && event.status === 'confirmed'));
+
   // ---------------------------------------------------------------- everywhere
   const leaked = await page.evaluate(keys => {
     const shared = Object.keys(localStorage).filter(key => /^plebstack:(public|coordinator)\//.test(key))
       .map(key => localStorage.getItem(key)).join('\n');
     return keys.filter(secret => shared.includes(secret) || document.documentElement.outerHTML.includes(secret)).length;
   }, await secretKeys());
-  check('Z1: no private key on the board, with the coordinator or on the page', leaked === 0);
+  check('Z1: no private key on the board, with the coordinator or on the page (closed run)', leaked === 0);
   check('Z2: no private key on any screenshotted page', shotLeaks.length === 0, shotLeaks.join(', '));
   check('Z3: no page errors', errors.length === 0, errors.join(' | '));
   summary.limeChecked = limeChecked;
