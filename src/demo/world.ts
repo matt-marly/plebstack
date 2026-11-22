@@ -134,6 +134,11 @@ export function isHeld(slot: Slot): boolean {
   return slot.deposit !== undefined && slot.deposit.state !== 'reclaimed';
 }
 
+// Collecting is over and fewer than three deposits are held: the stack didn't fill.
+export function fellShort(record: CampaignRecord): boolean {
+  return statusOf(record) !== 'collecting' && tally(record).held < record.campaign.backerCount;
+}
+
 export function tally(record: CampaignRecord) {
   const held = record.slots.filter(isHeld).length;
   const approvals = record.slots.filter(slot => slot.deposit?.authorizationReleased).length;

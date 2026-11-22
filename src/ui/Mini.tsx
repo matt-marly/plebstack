@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { maintainerOf, people, sats, statusOf, tally, type CampaignRecord, type World } from '../demo/world';
+import { maintainerOf, people, sats, fellShort, statusOf, tally, type CampaignRecord, type World } from '../demo/world';
 import type { Wallet } from '../live/actions';
 import type { BoardDraft } from '../live/board';
 import { whyUnmet } from '../screens/Unmet';
@@ -87,12 +87,14 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
   switch (journey.screen) {
     case 'join': {
       const full = journey.step.kind === 'watch';
-      const title = full ? 'This stack is full.' : `${organizer} is getting 3 plebs to back ${maintainer.short}.`;
+      const short = full && fellShort(record);
+      const title = short ? 'This stack didn’t fill.' : full ? 'This stack is full.' : `${organizer} is getting 3 plebs to back ${maintainer.short}.`;
       return shown(title, (
         <>
           <Who name={maintainer.name} title={record.campaign.title} keyBy={record.keyBy} organizer={organizer} />
-          <Lead title={title} text={full ? `Three plebs are in. ${maintainer.short} gets ${total} once all three sign and the mint confirms.`
-            : `Chip in ${each}. If all three of you sign, ${maintainer.short} gets ${total}. If not, everyone takes their own back.`} />
+          <Lead title={title} text={short ? `There’s no payout this time. Each pleb takes their own ${each} back.`
+            : full ? `Three plebs are in. ${maintainer.short} gets ${total} once all three sign and the mint confirms.`
+              : `Chip in ${each}. If all three of you sign, ${maintainer.short} gets ${total}. If not, everyone takes their own back.`} />
         </>
       ), !full && (
         <>

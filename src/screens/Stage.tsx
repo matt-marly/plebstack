@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams } from 'react-router-dom';
-import { findCampaign, maintainerOf, people, sats, statusOf, type CampaignRecord } from '../demo/world';
+import { findCampaign, maintainerOf, people, sats, statusOf, fellShort, type CampaignRecord } from '../demo/world';
 import { liveActions, type Wallet } from '../live/actions';
 import type { BoardDraft } from '../live/board';
 import { useSession } from '../session';
@@ -272,7 +272,7 @@ function StageView({ id }: { id: string | undefined }) {
     return (
       <section key={id} className="tile" aria-label={`${people[id].name}’s phone: ${view.title}`}>
         <h2 className="tile-who"><Avatar name={people[id].short} size="small" />{people[id].short}</h2>
-        <p className="tile-state">{stateWord(journey)}</p>
+        <p className="tile-state">{stateWord(journey, record)}</p>
         {pocket(id, journey?.stop ?? 'wallet')}
         {tick === id && <span className="mini-tick" aria-hidden="true"><Icon name="nib" /></span>}
       </section>
@@ -365,10 +365,10 @@ function StageView({ id }: { id: string | undefined }) {
 }
 
 // One word for where a pleb is, as their own phone has it.
-function stateWord(journey: Journey | undefined): string {
+function stateWord(journey: Journey | undefined, record: CampaignRecord | undefined): string {
   switch (journey?.screen) {
     case undefined: return 'not open yet';
-    case 'join': return journey.step.kind === 'watch' ? 'stack is full' : 'not in yet';
+    case 'join': return journey.step.kind !== 'watch' ? 'not in yet' : record && fellShort(record) ? 'didn’t fill' : 'stack is full';
     case 'pay': return 'paying';
     case 'stacked': case 'waiting': return 'stacked';
     case 'sign': return journey.step.kind === 'stopped' ? 'stopped signing' : 'to sign';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { maintainerOf, people, sats, statusOf } from '../demo/world';
+import { maintainerOf, people, fellShort, sats, statusOf } from '../demo/world';
 import { failureCopy, liveActions } from '../live/actions';
 import { storageWorks, useSession } from '../session';
 import { Frame } from '../ui/Frame';
@@ -23,7 +23,7 @@ export function Join({ world, record, journey }: ScreenProps) {
   const total = sats(campaign.contributionSat * campaign.backerCount);
   const goal = campaignGoal(record, world.viewerId);
   const kind = journey.step.kind;
-  const unmet = statusOf(record) === 'unmet';
+  const unmet = statusOf(record) === 'unmet' || (kind === 'watch' && fellShort(record));
 
   async function chipIn() {
     setAsking(true);
