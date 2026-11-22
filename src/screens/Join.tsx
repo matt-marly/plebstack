@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { people, sats, statusOf } from '../demo/world';
+import { maintainerOf, people, sats, statusOf } from '../demo/world';
 import { failureCopy, liveActions } from '../live/actions';
 import { storageWorks, useSession } from '../session';
-import { formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { campaignGoal } from '../ui/journey';
+import { campaignGoal, closeLine } from '../ui/journey';
 import { Note, useOnline } from '../ui/parts';
 import { Stack } from '../ui/Stack';
+import { Who } from '../ui/Who';
 import type { ScreenProps } from './StackRoute';
 
 // P1: meet the maintainer, see the stack, chip in.
@@ -17,7 +17,8 @@ export function Join({ world, record, journey }: ScreenProps) {
   const [failure, setFailure] = useState<string>();
   const [canSave] = useState(storageWorks);
   const { campaign } = record;
-  const maintainer = people[record.creatorId];
+  const maintainer = maintainerOf(record);
+  const organizer = people[record.creatorId].short;
   const each = sats(campaign.contributionSat);
   const total = sats(campaign.contributionSat * campaign.backerCount);
   const goal = campaignGoal(record, world.viewerId);
@@ -38,11 +39,9 @@ export function Join({ world, record, journey }: ScreenProps) {
 
   const blocked = !canSave ? 'This browser can’t save anything, so it couldn’t keep your key. Nothing was sent to the mint.'
     : !online ? 'You’re offline. Nothing was sent.' : undefined;
-  const headline = kind === 'organize' ? 'You’re the maintainer.'
-    : unmet ? 'This stack didn’t fill.'
-      : kind === 'watch' ? 'This stack is full.' : `${maintainer.short} is looking for 3 plebs.`;
-  const text = kind === 'organize' ? 'The payout is locked to your key, so you can’t also chip in.'
-    : unmet ? `There’s no payout this time. Each pleb takes their own ${each} back.`
+  const headline = unmet ? 'This stack didn’t fill.'
+    : kind === 'watch' ? 'This stack is full.' : `${organizer} is getting 3 plebs to back ${maintainer.short}.`;
+  const text = unmet ? `There’s no payout this time. Each pleb takes their own ${each} back.`
       : kind === 'watch' ? `Three plebs are in. ${maintainer.short} gets ${total} once all three sign and the mint confirms.`
         : `Chip in ${each}. If all three of you sign, ${maintainer.short} gets ${total}. If not, everyone takes their own back.`;
 
@@ -57,18 +56,12 @@ export function Join({ world, record, journey }: ScreenProps) {
           <p className="fine">Nobody holds your keys but you. Not us, not the organizer.</p>
         </>
       )}>
-      <div className="who">
-        <span className="avatar" data-size="large" aria-hidden="true">{maintainer.short[0]}</span>
-        <div>
-          <p className="who-name">{maintainer.name} <span className="badge">Key confirmed</span></p>
-          <p className="who-work">{campaign.title}</p>
-        </div>
-      </div>
+      <Who name={maintainer.name} title={campaign.title} keyBy={record.keyBy} organizer={organizer} />
       <div className="lead rise">
         <h1>{headline}</h1>
         <p>{text}</p>
       </div>
-      <Stack goal={goal} meta={`opened ${formatWhen(record.log[0]?.at ?? new Date().toISOString())}`} />
+      <Stack goal={goal} meta={closeLine(record)} />
       {kind === 'join' && (blocked || failure) && <Note><p>{blocked ?? failure}</p></Note>}
     </Frame>
   );

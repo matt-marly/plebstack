@@ -6,16 +6,14 @@ import { memoryStorage, type StorageLike } from '../src/protocol/storage';
 import { createLiveActions, failureCopy } from '../src/live/actions';
 import { createActors, namespaces } from '../src/live/actors';
 import { mockMint } from './mock-mint';
+import { openStack } from './stack';
 
 const BACKERS = ['ishaan', 'tobi', 'maren'];
 
 async function setup({ storage = memoryStorage(), sign = true }: { storage?: StorageLike & { failWrites: boolean }; sign?: boolean } = {}) {
   const mint = mockMint();
   const actions = createLiveActions(createActors({ storage, fetch: mint.fetchFor('browser') }));
-  const id = actions.createCampaign('ngozi', {
-    title: 'Fix DST drift in pocket-ical recurring events', publicWorkUrl: 'https://codeberg.org/ngozi/pocket-ical/issues/412',
-    contributionSat: 21, beneficiaryPubkey: actions.maintainerKey('ngozi'),
-  });
+  const id = openStack(actions);
   for (const person of BACKERS) {
     const quote = await actions.join(person, id);
     await actions.waitForDeposit(person, id, quote.id, {});
@@ -103,10 +101,7 @@ test('a deposit still unpaid at the mint shows as awaiting after a reload, and w
   const mint = mockMint();
   const storage = memoryStorage();
   const actions = createLiveActions(createActors({ storage, fetch: mint.fetchFor('browser') }));
-  const id = actions.createCampaign('ngozi', {
-    title: 'Fix DST drift in pocket-ical recurring events', publicWorkUrl: 'https://codeberg.org/ngozi/pocket-ical/issues/412',
-    contributionSat: 21, beneficiaryPubkey: actions.maintainerKey('ngozi'),
-  });
+  const id = openStack(actions);
   const quote = await actions.join('ishaan', id);
   mint.quotes.get(quote.id)!.state = 'UNPAID';
 
@@ -123,10 +118,7 @@ test('a deposit still unpaid at the mint shows as awaiting after a reload, and w
 
 test('when this device refuses every write, nothing goes to the mint and the person is told so', async () => {
   const { mint, storage, id, actions } = await setup();
-  const fresh = actions.createCampaign('ngozi', {
-    title: 'Add Nostr login to a self-hosted invoice app', publicWorkUrl: 'https://codeberg.org/ngozi/ledgerline/issues/57',
-    contributionSat: 21, beneficiaryPubkey: actions.maintainerKey('ngozi'),
-  });
+  const fresh = openStack(actions, { title: 'Nostr login for a self-hosted invoice app' });
   storage.failWrites = true;
   const before = mint.calls.length;
   const refused = (error: unknown) => error instanceof ProtocolError && error.kind === 'storage' && failureCopy(error) === NOT_SAVED;
@@ -135,11 +127,8 @@ test('when this device refuses every write, nothing goes to the mint and the per
   await assert.rejects(actions.payout('ngozi', id), refused);
   await assert.rejects(actions.reclaim('tobi', id), refused);
   await assert.rejects(actions.stopSigning('maren', id), refused);
-  assert.throws(() => actions.stopCollecting('ngozi', fresh), refused);
-  assert.throws(() => actions.createCampaign('ngozi', {
-    title: 'Another', publicWorkUrl: 'https://codeberg.org/ngozi/ledgerline/issues/58', contributionSat: 21,
-    beneficiaryPubkey: actions.maintainerKey('ngozi'),
-  }), refused);
+  assert.throws(() => actions.stopCollecting('ada', fresh), refused);
+  assert.throws(() => openStack(actions, { title: 'Another' }), refused);
   assert.equal(mint.calls.length, before);
 
   storage.failWrites = false;

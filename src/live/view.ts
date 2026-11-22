@@ -1,20 +1,25 @@
-import { isPending, people, sats, type CampaignRecord, type LogEntry, type SavedOperation, type Slot, type World } from '../demo/world';
+import {
+  closeOf, isPending, maintainerOf, people, sats, type CampaignRecord, type LogEntry, type SavedOperation, type Slot, type World,
+} from '../demo/world';
 import type { DepositState } from '../domain/models';
 import type { QuoteState } from '../protocol/mint';
 import type { Board, BoardCampaign } from './board';
 
-export function boardWorld(board: Board, viewerId: string, notice = ''): World {
-  return { viewerId, notice, campaigns: board.list().map(campaignRecord) };
+export function boardWorld(board: Board, viewerId: string, notice = '', now = new Date()): World {
+  return { viewerId, notice, campaigns: board.list().map(entry => campaignRecord(entry, now)) };
 }
 
 // Each slot's state comes from what the mint answered, in the order it answered. A released
 // signature stops counting once a quote in its batch is gone: after a confirmed reclaim or a rejected batch.
-export function campaignRecord({ campaign, creatorId, createdAt, events }: BoardCampaign): CampaignRecord {
-  const maintainer = people[creatorId];
+// Past the close with fewer than three in, collecting stops: the record reads as stopped from then on.
+export function campaignRecord(entry: BoardCampaign, now = new Date()): CampaignRecord {
+  const { campaign, creatorId, maintainerId, maintainerName, key, closesAt, createdAt, events } = entry;
+  const maintainer = maintainerOf({ maintainerId, maintainerName });
+  const organizer = people[creatorId];
   const each = sats(campaign.contributionSat);
   const totalSat = campaign.contributionSat * campaign.backerCount;
   const slots: Slot[] = campaign.depositIds.map(id => ({ id }));
-  const log: LogEntry[] = [{ at: createdAt, text: `${maintainer.short} created the campaign: three plebs, ${each} each.` }];
+  const log: LogEntry[] = [{ at: createdAt, text: `${organizer.short} opened the stack for ${maintainer.short}: three plebs, ${each} each.` }];
   const operations: SavedOperation[] = [];
   const paid = new Set<string>();
   const released = new Set<string>();
@@ -42,6 +47,7 @@ export function campaignRecord({ campaign, creatorId, createdAt, events }: Board
         const slot = slotOf(event.personId);
         if (!slot || slot.quote?.id !== event.quote.id) break;
         slot.quote = event.quote;
+        slot.inAt = event.at;
         paid.add(slot.id);
         add(`${short(event.personId)} stacked ${sats(event.quote.amountSat)} at the mint.`);
         if (paid.size === slots.length) add('All three deposits are in. Each pleb checks the outputs and signs.');
@@ -51,6 +57,7 @@ export function campaignRecord({ campaign, creatorId, createdAt, events }: Board
         const slot = slotOf(event.personId);
         if (!slot) break;
         if (!broken) released.add(slot.id);
+        slot.signedAt = event.at;
         add(`${short(event.personId)} signed.`);
         break;
       }
@@ -63,7 +70,7 @@ export function campaignRecord({ campaign, creatorId, createdAt, events }: Board
       case 'collection-stopped':
         collectionStopped = true;
         stoppedAt = event.at;
-        add(`${maintainer.short} stopped collecting.`);
+        add(`${organizer.short} stopped collecting.`);
         break;
       case 'sent': {
         const payout = event.kind === 'payout';
@@ -105,7 +112,7 @@ export function campaignRecord({ campaign, creatorId, createdAt, events }: Board
         if (broken) released.clear();
         break;
       }
-      case 'package':
+      case 'package': case 'delivered':
         break;
     }
   }
@@ -130,9 +137,13 @@ export function campaignRecord({ campaign, creatorId, createdAt, events }: Board
     };
   }
 
-  return {
+  const record: CampaignRecord = {
     campaign: { ...campaign, collectionStopped },
     creatorId,
+    maintainerId,
+    maintainerName,
+    keyBy: key.by,
+    closesAt,
     slots,
     outputsVerified: paid.size === slots.length && !broken,
     operations,
@@ -140,4 +151,7 @@ export function campaignRecord({ campaign, creatorId, createdAt, events }: Board
     mintFavours: 'creator',
     ...(stoppedAt ? { stoppedAt } : {}),
   };
+  record.close = closeOf(record, now);
+  if (record.close === 'closed') record.campaign = { ...record.campaign, collectionStopped: true };
+  return record;
 }

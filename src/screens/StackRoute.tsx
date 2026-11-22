@@ -1,7 +1,7 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { findCampaign, isHeld, slotOf, type CampaignRecord, type World } from '../demo/world';
 import { paths } from '../routes';
-import { useSession } from '../session';
+import { homePath, useSession } from '../session';
 import { journeyOf, type Journey, type Screen } from '../ui/journey';
 import { Back } from './Back';
 import { Join } from './Join';
@@ -43,6 +43,10 @@ export function StackRoute() {
   const { world } = useSession();
   const record = findCampaign(world, campaignId);
   if (!record) return <NotFound />;
+  // The organizer and the maintainer have their own screens of the same stack.
+  if (world.viewerId === record.creatorId || world.viewerId === record.maintainerId) {
+    return <Navigate to={homePath(world.viewerId, campaignId)} replace />;
+  }
   const journey = journeyOf(world, record);
   const wanted = screen as Screen | undefined;
   if (!wanted || !(wanted in screens) || !allowed(wanted, journey, record, world.viewerId)) {

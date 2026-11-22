@@ -1,10 +1,9 @@
-import { Link } from 'react-router-dom';
 import { paths } from '../routes';
-import { useSession } from '../session';
+import { ORGANIZER, usePlayAs } from '../session';
 import { Brand, TestMint, useTitle } from '../ui/Frame';
 
 export function NotFound() {
-  const { stackId } = useSession();
+  const playAs = usePlayAs();
   useTitle('Not found');
   return (
     <div className="screen">
@@ -19,7 +18,9 @@ export function NotFound() {
         </div>
       </main>
       <footer className="actions">
-        <Link className="button" data-variant="primary" to={stackId ? paths.stack(stackId) : paths.splash()}>Go to the demo stack</Link>
+        <button type="button" className="button" data-variant="primary" onClick={() => playAs(ORGANIZER, paths.start())}>
+          Start a stack
+        </button>
       </footer>
     </div>
   );

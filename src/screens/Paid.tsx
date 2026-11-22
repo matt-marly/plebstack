@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { people, sats, type CampaignRecord } from '../demo/world';
+import { maintainerOf, people, sats, type CampaignRecord } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { formatWhen, listNames, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
@@ -41,7 +41,7 @@ export function Paid({ world, record, journey }: ScreenProps) {
   const payout = confirmedPayout(record);
   const playing = usePaidMoment(payout?.id);
   const { campaign } = record;
-  const maintainer = people[record.creatorId];
+  const maintainer = maintainerOf(record);
   const total = sats(campaign.contributionSat * campaign.backerCount);
   const backers = record.slots.map(slot => ({ slot, own: slot.backerId === world.viewerId, name: people[slot.backerId!].short }));
   const confirmedAt = payout?.settledAt ?? new Date().toISOString();
@@ -50,7 +50,7 @@ export function Paid({ world, record, journey }: ScreenProps) {
     ['Mint', campaign.mint],
     ...backers.map(({ slot, own, name }): [string, string] => [own ? 'Your quote' : `${name}’s quote`, slot.quote?.id ?? '']),
     ...(payout?.keysetId ? [['Keyset', payout.keysetId] as [string, string]] : []),
-    ['Locked to', `${maintainer.short}’s key · ${shortKey(campaign.beneficiaryPubkey)}`],
+    ['Locked to', `${maintainer.short}’s key · ${shortKey(campaign.beneficiaryPubkey)}${record.keyBy === 'pasted' ? ' · pasted, not confirmed by her' : ''}`],
     ['Confirmed', `${formatWhen(confirmedAt)} · ${formatWhen(confirmedAt, 'UTC')}`],
     ['Mint kind', 'Test mint, fake sats'],
   ];
@@ -74,7 +74,7 @@ export function Paid({ world, record, journey }: ScreenProps) {
           <Avatar name={maintainer.short} size="large" />
           <div>
             <p className="receipt-title">{maintainer.short} got {total}</p>
-            <p className="group-sub">{campaign.title}</p>
+            <p className="group-sub">Organized by {people[record.creatorId].short}</p>
           </div>
         </div>
         <div className="receipt-from">
@@ -82,6 +82,9 @@ export function Paid({ world, record, journey }: ScreenProps) {
           <p>{listNames(backers.map(({ own, name }) => (own ? 'you' : name)))} · {sats(campaign.contributionSat)} each</p>
         </div>
         <p className="receipt-when">Confirmed by the mint · {formatWhen(confirmedAt)}</p>
+        {record.closesAt && (
+          <p className="receipt-when">All three were in before {formatWhen(record.closesAt)}, so the close no longer applied.</p>
+        )}
       </section>
       <details className="disclosure">
         <summary>

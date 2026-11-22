@@ -6,6 +6,7 @@ import { createRecordStore, memoryStorage } from '../src/protocol/storage';
 import { createLiveActions } from '../src/live/actions';
 import { createActors, namespaces } from '../src/live/actors';
 import { mockMint } from './mock-mint';
+import { openStack } from './stack';
 
 const BACKERS = ['ishaan', 'tobi', 'maren'];
 
@@ -14,10 +15,8 @@ async function setup({ sign = true } = {}) {
   const storage = memoryStorage();
   const actors = createActors({ storage, fetch: mint.fetchFor('browser') });
   const actions = createLiveActions(actors);
-  const beneficiaryPubkey = actions.maintainerKey('ngozi');
-  const id = actions.createCampaign('ngozi', {
-    title: 'Fix daylight-saving drift', publicWorkUrl: 'https://git.example.org/issues/412', contributionSat: 21, beneficiaryPubkey,
-  });
+  const id = openStack(actions);
+  const beneficiaryPubkey = actions.draft(id)!.key!.pubkey;
   for (const person of BACKERS) {
     const quote = await actions.join(person, id);
     await actions.waitForDeposit(person, id, quote.id, {});

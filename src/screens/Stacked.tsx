@@ -1,9 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { groupComplete, people, sats } from '../demo/world';
+import { groupComplete, maintainerOf, sats } from '../demo/world';
 import { paths } from '../routes';
-import { formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { campaignGoal } from '../ui/journey';
+import { campaignGoal, closeLine } from '../ui/journey';
 import { ShareInvite, StateChip } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { Track } from '../ui/Track';
@@ -14,7 +13,7 @@ export function Stacked({ world, record }: ScreenProps) {
   const navigate = useNavigate();
   const landed = (useLocation().state as { landed?: boolean } | null)?.landed === true;
   const { campaign } = record;
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const each = sats(campaign.contributionSat);
   const full = groupComplete(record);
   const next = () => navigate(paths.stack(campaign.id));
@@ -32,7 +31,7 @@ export function Stacked({ world, record }: ScreenProps) {
         <h1 className="display">Stacked.</h1>
         <p>Your {each} are waiting at the mint, locked to your key. {maintainer} gets nothing unless all three sign.</p>
       </div>
-      <Stack goal={campaignGoal(record, world.viewerId)} meta={`opened ${formatWhen(record.log[0].at)}`} landing={landed} />
+      <Stack goal={campaignGoal(record, world.viewerId)} meta={closeLine(record)} landing={landed} />
       <Track stop="at-mint" from={landed ? 'to-mint' : undefined} maintainer={maintainer} amount={each} />
     </Frame>
   );

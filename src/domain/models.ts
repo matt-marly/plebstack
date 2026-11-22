@@ -92,7 +92,8 @@ export type OperationStatus = 'prepared' | 'dispatched' | 'unresolved' | 'confir
 export interface RecoveryOperation {
   version: 1;
   id: string;
-  kind: 'payout' | 'reclaim';
+  // swap: the maintainer spending the locked payout into her own unlocked ecash.
+  kind: 'payout' | 'reclaim' | 'swap';
   mint: MintUrl;
   quoteIds: string[];
   outputs: OutputConstruction[];

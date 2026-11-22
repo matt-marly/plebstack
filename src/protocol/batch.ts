@@ -192,6 +192,12 @@ export function payoutProofs(plan: Pick<BatchPlan, 'outputs' | 'keyset' | 'benef
   return proofs;
 }
 
+// The pubkey a proof's secret locks to, if it is a P2PK lock.
+export function p2pkData(secret: string): string | undefined {
+  const data = p2pkLock(secret)?.data;
+  return typeof data === 'string' ? data : undefined;
+}
+
 // The pubkey a saved payout locks to, read back from its first output.
 export function lockedTo(outputs: OutputConstruction[]): string | undefined {
   const data = outputs[0] && p2pkLock(secretText(outputs[0].secretHex))?.data;

@@ -1,16 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { people, type Person, type World } from './demo/world';
 import { liveActions } from './live/actions';
-import { PLEBS } from './ui/journey';
+import { paths } from './routes';
 
 const VIEWER_KEY = 'viewer';
 const INTRO_KEY = 'intro-seen';
-
-export const SEED = {
-  title: 'Fix DST drift in pocket-ical recurring events',
-  publicWorkUrl: 'https://git.example.org/ngozi/pocket-ical/issues/412',
-  contributionSat: 21,
-};
+export const ORGANIZER = 'ada';
+export const MAINTAINER = 'ngozi';
+// Longest wait setTimeout takes; a later close is checked again when this one fires.
+const MAX_WAIT = 2 ** 31 - 1;
 
 function read(key: string): string | null {
   try {
@@ -39,20 +38,21 @@ export function storageWorks(): boolean {
   }
 }
 
-// Ngozi makes her key in her own namespace, then opens the stack the plebs join.
-export function openStack(): string {
-  const beneficiaryPubkey = liveActions.maintainerKey('ngozi');
-  return liveActions.createCampaign('ngozi', { ...SEED, beneficiaryPubkey });
-}
-
-function currentStack(): string | undefined {
-  const campaigns = liveActions.world('ngozi').campaigns;
-  if (campaigns.length > 0) return campaigns[campaigns.length - 1].campaign.id;
+function newestStack(): string | undefined {
   try {
-    return openStack();
+    return liveActions.drafts().at(-1)?.id;
   } catch {
     return undefined;
   }
+}
+
+// Each person has one place to be on a stack: the organizer's, the maintainer's, or a pleb's.
+export function homePath(personId: string, stackId: string | undefined): string {
+  const draft = stackId ? liveActions.draft(stackId) : undefined;
+  if (!draft) return personId === ORGANIZER ? paths.start() : paths.splash();
+  if (personId === draft.organizerId) return paths.organize(draft.id);
+  if (personId === draft.maintainerId) return paths.maintain(draft.id);
+  return paths.stack(draft.id);
 }
 
 interface Session {
@@ -65,17 +65,16 @@ interface Session {
   refresh: (notice?: string) => World;
   announce: (notice: string) => void;
   viewAs: (personId: string) => void;
-  freshStack: () => string;
   finishIntro: () => void;
 }
 
 const SessionContext = createContext<Session | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [stackId, setStackId] = useState(currentStack);
+  const [stackId, setStackId] = useState(newestStack);
   const [viewerId, setViewerId] = useState(() => {
     const saved = read(VIEWER_KEY);
-    return saved && (PLEBS as readonly string[]).includes(saved) ? saved : PLEBS[0];
+    return saved && people[saved] ? saved : ORGANIZER;
   });
   const [world, setWorld] = useState(() => liveActions.world(viewerId));
   const [introSeen, setIntroSeen] = useState(() => read(INTRO_KEY) === '1');
@@ -84,6 +83,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback((notice = '') => {
     const next = liveActions.world(viewer.current, notice);
     setWorld(next);
+    setStackId(newestStack());
     return next;
   }, []);
 
@@ -94,13 +94,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setViewerId(personId);
     write(VIEWER_KEY, personId);
     refresh(`Playing as ${people[personId].short}.`);
-  }, [refresh]);
-
-  const freshStack = useCallback(() => {
-    const id = openStack();
-    setStackId(id);
-    refresh('A fresh stack is open. Nobody is in yet.');
-    return id;
   }, [refresh]);
 
   const finishIntro = useCallback(() => {
@@ -117,9 +110,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => removeEventListener('storage', onStorage);
   }, [refresh]);
 
+  // The close is a clock time, so the screens change when it passes even if nobody taps anything.
+  useEffect(() => {
+    const now = Date.now();
+    const next = world.campaigns.filter(record => record.close === 'open' && record.closesAt)
+      .map(record => Date.parse(record.closesAt!) - now).filter(wait => wait > 0).sort((a, b) => a - b)[0];
+    if (next === undefined) return;
+    const timer = setTimeout(() => refresh(), Math.min(next + 50, MAX_WAIT));
+    return () => clearTimeout(timer);
+  }, [world, refresh]);
+
   const session = useMemo<Session>(() => ({
-    world, viewer: people[viewerId], stackId, notice: world.notice, introSeen, refresh, announce, viewAs, freshStack, finishIntro,
-  }), [world, viewerId, stackId, introSeen, refresh, announce, viewAs, freshStack, finishIntro]);
+    world, viewer: people[viewerId], stackId, notice: world.notice, introSeen, refresh, announce, viewAs, finishIntro,
+  }), [world, viewerId, stackId, introSeen, refresh, announce, viewAs, finishIntro]);
 
   return <SessionContext.Provider value={session}>{children}</SessionContext.Provider>;
 }
@@ -128,4 +131,14 @@ export function useSession(): Session {
   const session = useContext(SessionContext);
   if (!session) throw new Error('useSession needs a SessionProvider above it.');
   return session;
+}
+
+// Switch who is playing and go to their screen in one step, so the old screen never redirects the new person.
+export function usePlayAs() {
+  const { viewAs } = useSession();
+  const navigate = useNavigate();
+  return useCallback((personId: string, path: string, replace = false) => startTransition(() => {
+    viewAs(personId);
+    navigate(path, { replace });
+  }), [viewAs, navigate]);
 }

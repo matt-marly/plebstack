@@ -1,7 +1,7 @@
-import { isHeld, people, sats, tally } from '../demo/world';
-import { formatWhen, listNames } from '../ui/format';
+import { isHeld, maintainerOf, people, sats, tally } from '../demo/world';
+import { listNames } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { campaignGoal, whoIsIn } from '../ui/journey';
+import { campaignGoal, closeLine, whoIsIn } from '../ui/journey';
 import { Avatar, ShareInvite, StateChip } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { TakeBack } from '../ui/TakeBack';
@@ -13,7 +13,7 @@ const counts = ['', 'One more pleb', 'Two more plebs', 'Three more plebs'];
 // P4: bring the last pleb in, or leave.
 export function Waiting({ world, record, journey }: ScreenProps) {
   const { campaign } = record;
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const each = sats(campaign.contributionSat);
   const missing = campaign.backerCount - tally(record).held;
   const others = whoIsIn(record, world.viewerId).filter(name => name !== 'you');
@@ -36,7 +36,7 @@ export function Waiting({ world, record, journey }: ScreenProps) {
           <p>{others.length ? `${listNames(others)} and you are in` : 'You’re the first one in'}</p>
         </div>
       </div>
-      <Stack goal={campaignGoal(record, world.viewerId)} meta={`opened ${formatWhen(record.log[0].at)}`} />
+      <Stack goal={campaignGoal(record, world.viewerId)} meta={closeLine(record)} />
       <Track stop={journey.stop} maintainer={maintainer} amount={each} />
     </Frame>
   );

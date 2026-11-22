@@ -2,6 +2,7 @@ import {
   groupComplete, isHeld, pendingOperation, people, sats, slotOf, statusOf, tally, viewerStep,
   type CampaignRecord, type ViewerStep, type World,
 } from '../demo/world';
+import { formatWhen } from './format';
 
 export const PLEBS = ['tobi', 'maren', 'ishaan'] as const;
 
@@ -12,6 +13,8 @@ export type Screen =
 export interface Rail {
   at: 0 | 1 | 2 | 3;
   paid: boolean;
+  // Organizer and maintainer have their own four steps.
+  steps?: readonly string[];
 }
 
 export type Stop = 'wallet' | 'to-mint' | 'at-mint' | 'signed' | 'to-maintainer' | 'with-maintainer' | 'to-you' | 'back';
@@ -147,4 +150,11 @@ export function signedCount(record: CampaignRecord): number {
 export function readyToSend(record: CampaignRecord): boolean {
   return signedCount(record) === record.slots.length && !pendingOperation(record, 'payout')
     && !record.operations.some(op => op.kind === 'payout' && op.status === 'confirmed');
+}
+
+// The close as the viewer reads it, in their own zone, from the time saved with the campaign.
+export function closeLine(record: CampaignRecord, timeZone?: string): string | undefined {
+  if (!record.closesAt) return undefined;
+  if (record.close === 'lifted') return 'all in · the close no longer applies';
+  return `${record.close === 'closed' ? 'closed' : 'closes'} ${formatWhen(record.closesAt, timeZone)}`;
 }

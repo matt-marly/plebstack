@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { pendingOperation, people, sats, slotOf } from '../demo/world';
+import { maintainerOf, pendingOperation, sats, slotOf } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
@@ -18,7 +18,7 @@ export function Back({ world, record, journey }: ScreenProps) {
   const viewerId = world.viewerId;
   const slot = slotOf(record, viewerId)!;
   const each = sats(campaign.contributionSat);
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const back = journey.step.kind === 'reclaimed';
   const op = pendingOperation(record, 'reclaim', slot.id);
   const key = keys.reclaim(campaign.id, viewerId);

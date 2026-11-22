@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { pendingOperation, people, sats } from '../demo/world';
+import { maintainerOf, pendingOperation, sats } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
@@ -38,7 +38,7 @@ export function Sending({ world, record, journey }: ScreenProps) {
         <p>The payout is with the mint as one batch. Nothing is paid until the mint confirms.</p>
       </div>
       <Stack goal={campaignGoal(record, world.viewerId)} />
-      <Track stop={journey.stop} maintainer={people[record.creatorId].short} amount={sats(campaign.contributionSat)} />
+      <Track stop={journey.stop} maintainer={maintainerOf(record).short} amount={sats(campaign.contributionSat)} />
       <p className="mono small muted" aria-live="polite">
         {checkedAt ? `Last checked ${formatClock(checkedAt)}` : op ? `Sent ${formatClock(op.savedAt)}` : ''}
       </p>

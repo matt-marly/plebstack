@@ -1,8 +1,9 @@
 import {
-  createBlindSignature, createDLEQProof, createNewMintKeys, pointFromHex, schnorrVerifyDigest,
+  Amount, createBlindSignature, createDLEQProof, createNewMintKeys, hasP2PKSignedProof, hashToCurve, pointFromHex, schnorrVerifyDigest,
 } from '@cashu/cashu-ts';
-import { bytesToHex } from '@noble/hashes/utils.js';
-import { TEST_MINT, type Authorization, type BlindedOutput, type RecoveryOperation } from '../src/domain/models';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { TEST_MINT, type Authorization, type BlindedOutput, type IssuedProof, type RecoveryOperation } from '../src/domain/models';
+import { p2pkData } from '../src/protocol/batch';
 import { createProtocolClient, type CampaignTerms } from '../src/protocol/client';
 import type { FetchLike } from '../src/protocol/mint';
 import { mintQuoteDigest } from '../src/protocol/signer';
@@ -13,6 +14,8 @@ export function json(body: unknown, status = 200) {
 }
 
 type Handler = (raw: string) => Response | Promise<Response>;
+
+const FEE_PPK = 100;
 
 // Verifies NUT-20 signatures, blind-signs with DLEQ and remembers each signature for NUT-09 restore, as testnut does.
 export function mockMint() {
@@ -64,19 +67,43 @@ export function mockMint() {
     return signature;
   }
 
+  // NUT-03 swap of P2PK-locked inputs: each needs a witness signature from its lock key, and the input fee is kept.
+  const spent = new Set<string>();
+  const Y = (secret: string) => hashToCurve(utf8ToBytes(secret)).toHex(true);
+  function honestSwap(raw: string): Response {
+    const { inputs, outputs } = JSON.parse(raw) as { inputs: IssuedProof[]; outputs: BlindedOutput[] };
+    if (inputs.some(input => spent.has(Y(input.secret)))) return json({ code: 11001, detail: 'Token already spent' }, 400);
+    const signed = inputs.every(input => {
+      const pubkey = p2pkData(input.secret);
+      return pubkey !== undefined && hasP2PKSignedProof(pubkey, { ...input, amount: Amount.from(input.amount) });
+    });
+    if (!signed) return json({ code: 10003, detail: 'Witness missing or invalid' }, 400);
+    const fee = Math.ceil(inputs.length * FEE_PPK / 1000);
+    const total = (list: { amount: number }[]) => list.reduce((sum, item) => sum + item.amount, 0);
+    if (total(outputs) !== total(inputs) - fee) return json({ code: 11002, detail: 'Inputs and outputs not balanced' }, 400);
+    for (const input of inputs) spent.add(Y(input.secret));
+    return json({ signatures: outputs.map(output => blindSign(output)) });
+  }
+
+  function checkstate(raw: string): Response {
+    const { Ys } = JSON.parse(raw) as { Ys: string[] };
+    return json({ states: Ys.map(y => ({ Y: y, state: spent.has(y) ? 'SPENT' : 'UNSPENT', witness: null })) });
+  }
+
   function restore(raw: string): Response {
     const found = (JSON.parse(raw) as { outputs: BlindedOutput[] }).outputs.flatMap(output => signed.get(output.B_) ?? []);
     return json({ outputs: found.map(entry => entry.output), signatures: found.map(entry => entry.signature) });
   }
 
   const mint = {
-    keysetId, keys, quotes, calls, batch: honest as Handler, single: honestSingle as Handler, honest, honestSingle, blindSign,
+    keysetId, keys, quotes, calls, batch: honest as Handler, single: honestSingle as Handler, swap: honestSwap as Handler,
+    honest, honestSingle, honestSwap, blindSign,
     fetchFor(role: string): FetchLike {
       return async (url, init) => {
         const path = url.slice(TEST_MINT.length);
         const body = init?.body === undefined ? undefined : String(init.body);
         calls.push({ role, method: init?.method ?? 'GET', path, body });
-        if (path === '/v1/keysets') return json({ keysets: [{ id: keysetId, unit: 'sat', active: true, input_fee_ppk: 100 }] });
+        if (path === '/v1/keysets') return json({ keysets: [{ id: keysetId, unit: 'sat', active: true, input_fee_ppk: FEE_PPK }] });
         if (path === `/v1/keys/${keysetId}`) return json({ keysets: [{ id: keysetId, unit: 'sat', active: true, keys }] });
         if (path === '/v1/mint/quote/bolt11') {
           const { amount, pubkey } = JSON.parse(body!) as { amount: number; pubkey: string };
@@ -90,11 +117,14 @@ export function mockMint() {
         if (path === '/v1/mint/bolt11/batch') return mint.batch(body!);
         if (path === '/v1/mint/bolt11') return mint.single(body!);
         if (path === '/v1/restore') return restore(body!);
+        if (path === '/v1/swap') return mint.swap(body!);
+        if (path === '/v1/checkstate') return checkstate(body!);
         return json({ code: 0, detail: 'not found' }, 404);
       };
     },
     batchCalls: () => calls.filter(call => call.path === '/v1/mint/bolt11/batch'),
     mintCalls: () => calls.filter(call => call.path === '/v1/mint/bolt11'),
+    swapCalls: () => calls.filter(call => call.path === '/v1/swap'),
   };
   return mint;
 }

@@ -1,9 +1,11 @@
 import type { Rail } from './journey';
 
-const steps = ['Join', 'Stack', 'Sign', 'Paid'];
+export const plebSteps = ['Join', 'Stack', 'Sign', 'Paid'] as const;
+export const organizerSteps = ['Who', 'Key', 'Terms', 'Share'] as const;
+export const maintainerSteps = ['Claim', 'Follow', 'Receive', 'Spend'] as const;
 
 // The goal line as a step bar: behind you solid, ahead dashed, lime only once paid.
-export function GoalRail({ at, paid, lighting }: Rail & { lighting?: boolean }) {
+export function GoalRail({ at, paid, steps = plebSteps, lighting }: Rail & { lighting?: boolean }) {
   return (
     <nav className="rail" aria-label="Steps" data-paid={paid || undefined} data-lighting={lighting || undefined}>
       <div className="rail-line" aria-hidden="true">

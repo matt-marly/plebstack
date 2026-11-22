@@ -1,17 +1,18 @@
-import { OutputData } from '@cashu/cashu-ts';
+import { OutputData, hashToCurve } from '@cashu/cashu-ts';
+import { utf8ToBytes } from '@noble/hashes/utils.js';
 import type {
   Authorization, BatchPlan, BlindedOutput, Campaign, IssuedProof, LockedQuote, MintUrl, PublicKeyset, RecoveryOperation,
   Settlement,
 } from '../domain/models';
 import { findRelease, saveRelease, storedStops, type ReleaseRecord } from './approvals';
 import {
-  PackageError, authorizationProblem, construction, issuedProofs, lockedTo, messages, outputsDigest, payoutOutputs,
-  payoutProofs, planTerms, signLockedProof, verifyPackage,
+  PackageError, authorizationProblem, construction, issuedProofs, lockedTo, messages, outputsDigest, p2pkData,
+  payoutOutputs, payoutProofs, planTerms, signLockedProof, verifyPackage,
 } from './batch';
 import { findDeposit, listDeposits, saveDeposit, type DepositRecord, type SavedQuote } from './deposits';
 import { enrollMaintainer, ensureKey, hasKey, isValidPubkey, secretKeyFor } from './keys';
 import {
-  MintError, activeSatKeyset, cashuRejection, keysetById, mintRequest, mintSend, parseQuote, type FetchLike,
+  MintError, activeSatKeyset, cashuRejection, keysetById, keysetFees, mintRequest, mintSend, parseQuote, type FetchLike,
   type MintQuoteResponse, type QuoteState,
 } from './mint';
 import { createRecoveryStore } from './recovery';
@@ -76,6 +77,7 @@ export interface ProtocolClient {
   findRelease(quoteId: string): ReleaseRecord | undefined;
   payout(plan: BatchPlan, authorizations: Authorization[], operationId: string): Promise<Settlement>;
   signLockedProofs(pubkey: string, proofs: IssuedProof[]): IssuedProof[];
+  spendLocked(request: { mint: MintUrl; pubkey: string; proofs: IssuedProof[] }, operationId: string): Promise<Settlement>;
   checkQuotes(mint: MintUrl, quoteIds: string[], signal?: AbortSignal): Promise<QuoteState[]>;
   reclaim(quoteId: string, operationId: string): Promise<Settlement>;
   recover(operationId: string): Promise<Settlement>;
@@ -101,6 +103,8 @@ export interface ClientOptions {
   now?: () => Date;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
+
+const paths: Record<RecoveryOperation['kind'], string> = { payout: '/v1/mint/bolt11/batch', reclaim: '/v1/mint/bolt11', swap: '/v1/swap' };
 
 function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -258,7 +262,7 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
     const { mint, kind, requestBody } = run.operation;
     let answer: unknown;
     try {
-      answer = await mintSend(fetch, `${mint}/v1/mint/bolt11${kind === 'payout' ? '/batch' : ''}`, requestBody);
+      answer = await mintSend(fetch, `${mint}${paths[kind]}`, requestBody);
     } catch (error) {
       const reason = cashuRejection(error);
       if (reason === undefined) return run.pending({ reason: (error as Error).message });
@@ -278,6 +282,49 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
         if (states.some(state => state !== 'ISSUED')) throw new Error(`The mint reports ${states.join(', ')} after the payout.`);
       },
     };
+  }
+
+  function swapHandling(outputs: RecoveryOperation['outputs'], keyset: PublicKeyset): Handling {
+    const expected = outputs.reduce((sum, output) => sum + output.message.amount, 0);
+    return {
+      destination: 'owner',
+      proofs(answer) {
+        const proofs = issuedProofs(outputs, keyset, answer);
+        const total = proofs.reduce((sum, proof) => sum + proof.amount, 0);
+        if (total !== expected) throw new Error(`The proofs add up to ${total} sats, not ${expected}.`);
+        return proofs;
+      },
+    };
+  }
+
+  // A swap with none of its outputs signed: resend the same saved body while every input is unspent.
+  async function recoverSwap(saved: RecoveryOperation, run: Run, handling: Handling): Promise<Settlement> {
+    let states: string[];
+    try {
+      const { inputs } = JSON.parse(saved.requestBody) as { inputs: IssuedProof[] };
+      const Ys = inputs.map(input => hashToCurve(utf8ToBytes(input.secret)).toHex(true));
+      const answer = await mintRequest(fetch, `${saved.mint}/v1/checkstate`, { Ys }) as { states?: { state?: unknown }[] };
+      states = (answer.states ?? []).map(entry => String(entry?.state));
+      if (states.length !== Ys.length) throw new Error('The mint reported on a different number of inputs.');
+    } catch (error) {
+      return run.pending({ reason: (error as Error).message });
+    }
+    if (states.every(state => state === 'UNSPENT')) return resend(saved, run, handling);
+    if (states.some(state => state === 'SPENT')) {
+      return run.rejected('The mint reports this ecash spent and signed none of this swap’s outputs.');
+    }
+    return run.pending({ reason: `The mint reports ${states.join(', ')}.` });
+  }
+
+  async function resend(saved: RecoveryOperation, run: Run, handling: Handling): Promise<Settlement> {
+    if (saved.status !== 'prepared') return send(run, handling);
+    const sent: RecoveryOperation = { ...saved, status: 'dispatched', dispatchedAt: now().toISOString() };
+    try {
+      await recovery.saveResult(sent);
+    } catch (error) {
+      return run.pending({ reason: (error as Error).message });
+    }
+    return send(tracker(sent), handling);
   }
 
   function reclaimHandling(record: DepositRecord, outputs: RecoveryOperation['outputs'], keyset: PublicKeyset): Handling {
@@ -531,6 +578,34 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
       return proofs.map(proof => signLockedProof(proof, secretKey));
     },
 
+    // Signs each locked input with the key in this browser, then swaps into fresh unlocked outputs, less the mint's input fee.
+    async spendLocked({ mint, pubkey, proofs }, operationId) {
+      const secretKey = secretKeyFor(store, pubkey);
+      if (!secretKey) throw new ProtocolError('invalid-key', 'This browser holds no key for that pubkey.');
+      if (proofs.length === 0 || proofs.some(proof => p2pkData(proof.secret) !== pubkey)) {
+        throw new ProtocolError('not-owner', 'This ecash is not locked to your key.');
+      }
+      let keyset: PublicKeyset;
+      let fee: number;
+      try {
+        keyset = await activeSatKeyset(fetch, mint);
+        const fees = await keysetFees(fetch, mint);
+        if (proofs.some(proof => !fees.has(proof.id))) throw new MintError('The mint doesn’t list the keyset this ecash is from.', 200);
+        fee = Math.ceil(proofs.reduce((sum, proof) => sum + fees.get(proof.id)!, 0) / 1000);
+      } catch (error) {
+        throw asProtocolError(error);
+      }
+      const gross = proofs.reduce((sum, proof) => sum + proof.amount, 0);
+      if (gross - fee <= 0) throw new ProtocolError('not-paid', 'The swap fee would take all of it.');
+      const outputs = OutputData.createRandomData(gross - fee, keyset).map(construction);
+      const inputs = proofs.map(proof => signLockedProof(proof, secretKey));
+      const run = await dispatching({
+        version: 1, id: operationId, kind: 'swap', mint, quoteIds: [], outputs, keysetId: keyset.id,
+        requestBody: JSON.stringify({ inputs, outputs: messages(outputs) }), createdAt: now().toISOString(), status: 'prepared',
+      });
+      return send(run, swapHandling(outputs, keyset));
+    },
+
     async checkQuotes(mint, quoteIds, signal) {
       const states: QuoteState[] = [];
       try {
@@ -587,6 +662,20 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
       if (saved.status === 'rejected') return { kind: 'rejected', operationId, reason: saved.reason ?? 'Rejected by the mint.' };
 
       const run = tracker(saved);
+      if (saved.kind === 'swap') {
+        let handling: Handling;
+        let restored: unknown;
+        try {
+          handling = swapHandling(saved.outputs, await keysetById(fetch, saved.mint, saved.keysetId));
+          restored = await mintRequest(fetch, `${saved.mint}/v1/restore`, { outputs: messages(saved.outputs) });
+        } catch (error) {
+          return run.pending({ reason: (error as Error).message });
+        }
+        const signatures = restoredSignatures(saved.outputs, restored);
+        if (signatures.every(signature => signature !== undefined)) return answered(run, handling, { signatures });
+        if (signatures.some(signature => signature !== undefined)) return run.pending({ reason: 'The mint signed only some of the saved outputs.' });
+        return recoverSwap(saved, run, handling);
+      }
       const record = saved.kind === 'reclaim' ? findDeposit(store, saved.quoteIds[0]) : undefined;
       const beneficiaryPubkey = lockedTo(saved.outputs);
       if (saved.kind === 'reclaim' ? !record : !beneficiaryPubkey) return run.pending({ reason: 'The saved request is incomplete.' });
@@ -613,16 +702,7 @@ export function createProtocolClient(options: ClientOptions): ProtocolClient {
       } catch (error) {
         return run.pending({ reason: (error as Error).message });
       }
-      if (states.every(state => state === 'PAID')) {
-        if (saved.status !== 'prepared') return send(run, handling);
-        const sent: RecoveryOperation = { ...saved, status: 'dispatched', dispatchedAt: now().toISOString() };
-        try {
-          await recovery.saveResult(sent);
-        } catch (error) {
-          return run.pending({ reason: (error as Error).message });
-        }
-        return send(tracker(sent), handling);
-      }
+      if (states.every(state => state === 'PAID')) return resend(saved, run, handling);
       const settlement = await run.rejected(`The mint reports ${states.join(', ')} and signed none of this request’s outputs.`);
       await handling.rejected?.().catch(() => {});
       return settlement;

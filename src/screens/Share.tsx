@@ -1,0 +1,40 @@
+import { useNavigate } from 'react-router-dom';
+import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
+import { paths } from '../routes';
+import { Frame } from '../ui/Frame';
+import { organizerSteps } from '../ui/GoalRail';
+import { CopyButton, ShareInvite } from '../ui/parts';
+import { Qr } from '../ui/Qr';
+import { organizerFacts } from '../ui/Really';
+
+// O4: get the invite out. The organizer can share and stop collecting, never move anyone's sats.
+export function Share({ record }: { record: CampaignRecord }) {
+  const navigate = useNavigate();
+  const { campaign } = record;
+  const maintainer = maintainerOf(record).short;
+  const url = `${location.origin}${paths.stack(campaign.id)}`;
+  return (
+    <Frame record={record} rail={{ at: 3, paid: false, steps: organizerSteps }} title="Your stack is open"
+      facts={organizerFacts(maintainer, sats(campaign.contributionSat))}
+      actions={(
+        <>
+          <ShareInvite campaignId={campaign.id} title={`Back ${maintainer}: ${campaign.title}`} />
+          <button type="button" className="button" data-variant="quiet" onClick={() => navigate(paths.organize(campaign.id, 'watch'))}>
+            Watch it fill
+          </button>
+        </>
+      )}>
+      <div className="lead rise">
+        <h1>Your stack is open.</h1>
+        <p>You organize this stack. You can share it and stop collecting, but you can’t move anyone’s sats.</p>
+      </div>
+      <div className="share-qr">
+        <Qr text={url} label={`QR code of the invite link for backing ${maintainer}`} />
+      </div>
+      <div className="link-card">
+        <p className="mono link-text">{url.replace(/^https?:\/\//, '')}</p>
+        <CopyButton text={url} label="Copy link" variant="outline" />
+      </div>
+    </Frame>
+  );
+}

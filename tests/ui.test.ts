@@ -14,7 +14,7 @@ import { GoalRail } from '../src/ui/GoalRail';
 import { GroupCard } from '../src/ui/GroupCard';
 import { campaignGoal, journeyOf, readyToSend, slabOffset, stopLabel, type Stop } from '../src/ui/journey';
 import { qrModules } from '../src/ui/Qr';
-import { reallyFacts } from '../src/ui/Really';
+import { maintainerFacts, organizerFacts, reallyFacts } from '../src/ui/Really';
 import { Stack } from '../src/ui/Stack';
 import { Track } from '../src/ui/Track';
 
@@ -22,6 +22,10 @@ const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.
 const record = (world: World, id = MAIN_CAMPAIGN) => findCampaign(world, id)!;
 const html = (element: ReturnType<typeof createElement>) => renderToStaticMarkup(element);
 const at = '2026-11-13T14:02:00Z';
+const SCREENS = [
+  'Join', 'Pay', 'Stacked', 'Waiting', 'Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back',
+  'Backing', 'PayoutKey', 'Terms', 'Share', 'Watch', 'Claim', 'Follow', 'Receive', 'Spent', 'Intro',
+];
 
 test('paid is the only state that takes the signal colour', () => {
   assert.deepEqual([...signalStates], ['paid']);
@@ -122,15 +126,30 @@ test('what’s really happening names the batch, the lock and the signature, and
   assert.doesNotMatch(text, /key methods|coordinator/i);
 });
 
-test('binding copy: intro key line, honest test mint, no made-up close time, no recovery file', () => {
+test('binding copy: intro key line, honest test mint, close time only from data, no recovery file', () => {
   const intro = source('src/screens/Intro.tsx');
   assert.match(intro, /Nobody else holds your key\./);
+  assert.match(intro, /Start a stack/);
   assert.doesNotMatch(intro, /holds them|tone="lit"|color-signal/);
   assert.match(source('src/screens/Pay.tsx'), /Test mint: it marks its own invoices paid\. Fake sats\./);
-  for (const screen of ['Join', 'Pay', 'Stacked', 'Waiting', 'Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back']) {
+  for (const screen of SCREENS) {
     const text = source(`src/screens/${screen}.tsx`);
-    assert.doesNotMatch(text, /closes|today|recovery file|24 Nov|26 Nov/i, screen);
+    assert.doesNotMatch(text, /\btoday\b|recovery file|\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b|\bWAT\b|GMT[+-]/i, screen);
   }
+  assert.match(source('src/screens/Follow.tsx'), /The payout will be locked to/);
+  assert.doesNotMatch(source('src/screens/Follow.tsx'), /payout is locked to your key/);
+  assert.match(source('src/screens/Watch.tsx'), /Signatures already released still count\./);
+  assert.match(source('src/screens/Watch.tsx'), /the last signature sends the payout to the mint/);
+  assert.match(source('src/screens/Share.tsx'), /You organize this stack\. You can share it and stop collecting, but you can’t move anyone’s sats\./);
+  assert.match(source('src/screens/Backing.tsx'), /received ecash, not that the work was done/);
+  assert.match(source('src/screens/Spent.tsx'), /Swap fee at the mint, \{sats\(fee\)\}\. Received, \{sats\(spend\.receivedSat!\)\}\./);
+});
+
+test('every fact sheet: the maintainer’s says the locked ecash only works with her key', () => {
+  const text = maintainerFacts('63 sats').map(fact => `${fact.text} ${fact.term}`).join('\n');
+  assert.match(text, /only works with your key/);
+  assert.match(text, /NUT-11/);
+  assert.doesNotMatch(organizerFacts('Ngozi', '21 sats').map(fact => fact.text).join(' '), /key methods/);
 });
 
 test('the invoice QR is a real code of the whole invoice', () => {

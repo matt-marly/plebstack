@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { people, sats, type CampaignRecord } from '../demo/world';
+import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from './background';
@@ -17,7 +17,7 @@ export function TakeBack({ record, viewerId, signed, variant = 'quiet' }: {
   const key = keys.reclaim(campaign.id, viewerId);
   const failure = failureOf(key);
   const each = sats(campaign.contributionSat);
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const asking = isRunning(key);
 
   function takeBack() {

@@ -74,6 +74,19 @@ export async function activeSatKeyset(fetch: FetchLike, mint: string, signal?: A
   return keysetById(fetch, mint, active.id as string, fee, signal);
 }
 
+// Each keyset's input fee in parts per thousand, as the mint lists them.
+export async function keysetFees(fetch: FetchLike, mint: string, signal?: AbortSignal): Promise<Map<string, number>> {
+  const list = await mintRequest(fetch, `${mint}/v1/keysets`, undefined, signal) as { keysets?: unknown };
+  const entries = Array.isArray(list?.keysets) ? list.keysets as Record<string, unknown>[] : [];
+  const fees = new Map<string, number>();
+  for (const entry of entries) {
+    const fee = entry.input_fee_ppk ?? 0;
+    if (typeof entry.id !== 'string' || typeof fee !== 'number' || !Number.isSafeInteger(fee) || fee < 0) continue;
+    fees.set(entry.id, fee);
+  }
+  return fees;
+}
+
 export async function keysetById(fetch: FetchLike, mint: string, id: string, inputFeePpk = 0, signal?: AbortSignal): Promise<PublicKeyset> {
   const answer = await mintRequest(fetch, `${mint}/v1/keys/${encodeURIComponent(id)}`, undefined, signal) as { keysets?: unknown };
   const found = (Array.isArray(answer?.keysets) ? answer.keysets as Record<string, unknown>[] : []).find(entry => entry.id === id);

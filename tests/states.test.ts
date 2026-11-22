@@ -101,8 +101,11 @@ test('each of the seven states keeps its plain word, with a pleb phrase and a se
 
 test('every route and every journey screen has a path that matches it', () => {
   for (const path of Object.values(routes)) {
-    assert.ok(matchPath(path, generatePath(path, { campaignId: 'campaign', page: '1', screen: 'pay' })), path);
+    assert.ok(matchPath(path, generatePath(path, { campaignId: 'campaign', page: '1', screen: 'pay', step: 'key' })), path);
   }
+  assert.equal(matchPath(routes.organizeStep, paths.organize('campaign', 'watch'))?.params.step, 'watch');
+  assert.equal(matchPath(routes.maintainStep, paths.maintain('campaign', 'spend'))?.params.step, 'spend');
+  assert.equal(matchPath(routes.claim, paths.claim('campaign'))?.params.campaignId, 'campaign');
   for (const screen of ['join', 'pay', 'stacked', 'waiting', 'sign', 'signed', 'sending', 'paid', 'race', 'unmet', 'back'] as const) {
     assert.equal(matchPath(routes.screen, paths.screen('campaign', screen))?.params.screen, screen);
   }

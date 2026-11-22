@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { people, sats, slotOf } from '../demo/world';
+import { maintainerOf, sats, slotOf } from '../demo/world';
 import { failureCopy, liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { formatClock } from '../ui/format';
@@ -56,7 +56,7 @@ export function Pay({ world, record, journey }: ScreenProps) {
           <button type="button" className="button" data-variant="quiet" onClick={() => setAttempt(count => count + 1)}>Check again</button>
         </Note>
       )}
-      <Track stop={journey.stop} maintainer={people[record.creatorId].short} amount={each} />
+      <Track stop={journey.stop} maintainer={maintainerOf(record).short} amount={each} />
     </Frame>
   );
 }

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { people, sats } from '../demo/world';
+import { maintainerOf, sats } from '../demo/world';
 import { paths } from '../routes';
 import { Frame } from '../ui/Frame';
 import { campaignGoal } from '../ui/journey';
@@ -12,7 +12,7 @@ import type { ScreenProps } from './StackRoute';
 export function Race({ world, record, journey }: ScreenProps) {
   const navigate = useNavigate();
   const { campaign } = record;
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const each = sats(campaign.contributionSat);
   return (
     <Frame record={record} rail={journey.rail} title="The payout got there first"

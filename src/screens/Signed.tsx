@@ -1,4 +1,4 @@
-import { people, sats } from '../demo/world';
+import { maintainerOf, sats } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
@@ -17,7 +17,7 @@ const counted = ['None', 'One', 'Two', 'Three'];
 export function Signed({ world, record, journey }: ScreenProps) {
   const { refresh } = useSession();
   const { campaign } = record;
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const each = sats(campaign.contributionSat);
   const waitingOn = journey.step.kind === 'approved' ? journey.step.waitingOn : [];
   const names = listNames(waitingOn);

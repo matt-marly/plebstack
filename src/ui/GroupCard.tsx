@@ -1,4 +1,4 @@
-import { people, sats, type CampaignRecord, type Slot } from '../demo/world';
+import { maintainerOf, people, sats, type CampaignRecord, type Slot } from '../demo/world';
 import { Icon } from './Icon';
 import { signedCount } from './journey';
 import { Avatar } from './parts';
@@ -13,7 +13,7 @@ function mark(slot: Slot, own: boolean): { label: string; tone: 'signed' | 'turn
 
 // One payout, three signatures: the card everyone signs, and who has.
 export function GroupCard({ record, viewerId }: { record: CampaignRecord; viewerId: string }) {
-  const maintainer = people[record.creatorId];
+  const maintainer = maintainerOf(record);
   const { contributionSat, backerCount } = record.campaign;
   const signed = signedCount(record);
   return (

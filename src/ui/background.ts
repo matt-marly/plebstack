@@ -6,6 +6,7 @@ const failures = new Map<string, string>();
 export const keys = {
   payout: (campaignId: string) => `payout:${campaignId}`,
   reclaim: (campaignId: string, personId: string) => `reclaim:${campaignId}:${personId}`,
+  spend: (campaignId: string) => `spend:${campaignId}`,
 };
 
 export const isRunning = (key: string) => running.has(key);

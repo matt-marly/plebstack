@@ -1,6 +1,8 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { findCampaign, statusOf } from '../demo/world';
 import { paths } from '../routes';
-import { useSession } from '../session';
+import { ORGANIZER, homePath, usePlayAs, useSession } from '../session';
+import { PLEBS } from '../ui/journey';
 import { Brand, useTitle } from '../ui/Frame';
 import { Slab } from '../ui/Slab';
 
@@ -74,17 +76,26 @@ const pages = [
 ];
 
 export function Intro() {
-  const { stackId, finishIntro } = useSession();
+  const { world, stackId, viewer, finishIntro } = useSession();
   const navigate = useNavigate();
+  const playAs = usePlayAs();
   const page = Number(useParams().page);
   const current = pages[page - 1];
   useTitle(current?.title ?? 'How it works');
-  if (!current || !stackId) return <Navigate to={paths.splash()} replace />;
+  if (!current) return <Navigate to={paths.splash()} replace />;
 
   const last = page === pages.length;
-  const done = () => {
+  // An invite only makes sense if there is a stack still collecting in this browser.
+  const invite = stackId && findCampaign(world, stackId);
+  const joinable = invite && statusOf(invite) === 'collecting' ? invite : undefined;
+  const start = () => {
     finishIntro();
-    navigate(paths.stack(stackId));
+    playAs(ORGANIZER, paths.start());
+  };
+  const join = () => {
+    finishIntro();
+    const pleb = (PLEBS as readonly string[]).includes(viewer.id) ? viewer.id : PLEBS[0];
+    playAs(pleb, homePath(pleb, joinable!.campaign.id));
   };
   const Art = current.art;
   return (
@@ -105,10 +116,11 @@ export function Intro() {
       </main>
       <footer className="actions">
         <button type="button" className="button" data-variant="primary"
-          onClick={() => (last ? done() : navigate(paths.intro(page + 1)))}>
-          {last ? 'Join the demo stack' : 'Next'}
+          onClick={() => (last ? start() : navigate(paths.intro(page + 1)))}>
+          {last ? 'Start a stack' : 'Next'}
         </button>
-        {!last && <button type="button" className="button" data-variant="quiet" onClick={done}>Skip</button>}
+        {!last && <button type="button" className="button" data-variant="quiet" onClick={() => navigate(paths.intro(pages.length))}>Skip</button>}
+        {last && joinable && <button type="button" className="button" data-variant="quiet" onClick={join}>I have an invite link</button>}
       </footer>
     </div>
   );

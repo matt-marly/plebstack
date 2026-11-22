@@ -5,6 +5,7 @@ import { createRecordStore, type RecordStore, type StorageLike } from '../protoc
 import { createBoard, type Board } from './board';
 
 // The coordinator relays public material and submits the batch. It has no way to make or hold a key.
+// Neither does the organizer: their screens only ever write to the public board.
 export type Coordinator = Pick<ProtocolClient, 'preparePayout' | 'payout' | 'recover' | 'checkQuotes'>;
 
 export interface Actors {

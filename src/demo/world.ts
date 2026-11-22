@@ -1,4 +1,5 @@
 import { TEST_MINT, type Campaign, type CampaignState, type Deposit, type DepositState, type LockedQuote, type MoneyState } from '../domain/models';
+import { closeState, type CloseState } from '../domain/close';
 import { campaignState, stateCopy, transitionDeposit, type DepositEvent, type StateTerms } from '../domain/states';
 import { formatWhen, listNames } from '../ui/format';
 
@@ -10,10 +11,12 @@ export interface Person {
   id: string;
   name: string;
   short: string;
-  pubkey: string;
+  // Stub worlds only; the live app never shows a made-up key.
+  pubkey?: string;
 }
 
 export const people: Record<string, Person> = {
+  ada: { id: 'ada', name: 'Ada Okafor', short: 'Ada' },
   ngozi: { id: 'ngozi', name: 'Ngozi Eze', short: 'Ngozi', pubkey: '02c41f7ab36e09d5582f6a1be7c0934d8e15fa2260b7c98d3e4a5f1067bd29e8a3' },
   tobi: { id: 'tobi', name: 'Tobi Adewale', short: 'Tobi', pubkey: '03917be20c5d4f8a61e37d09ab52c6f4018e7d3b95ac20f16e48d7b03c5a9e1f47' },
   maren: { id: 'maren', name: 'Maren Solheim', short: 'Maren', pubkey: '02e85a03d7c61b94f20a8e5d37c9b1460fd28e7a5c3916b04d8fe2a17c6b950d32' },
@@ -29,6 +32,9 @@ export interface Slot {
   backerId?: string;
   quote?: LockedQuote;
   deposit?: Deposit;
+  // Live records only: when the mint reported the deposit paid, and when its owner signed.
+  inAt?: string;
+  signedAt?: string;
 }
 
 // "Awaiting deposit" is quote setup, not one of the seven money states.
@@ -54,7 +60,15 @@ export interface LogEntry {
 
 export interface CampaignRecord {
   campaign: Campaign;
+  // The organizer. The maintainer is paid; in the stub world they are the same person.
   creatorId: string;
+  maintainerId: string;
+  // The name the organizer gave, which may differ from the demo person's.
+  maintainerName?: string;
+  // How the payout key arrived: made on the maintainer's own device, or pasted by the organizer.
+  keyBy?: 'maintainer' | 'pasted';
+  closesAt?: string;
+  close?: CloseState;
   project?: string;
   workLabel?: string;
   slots: Slot[];
@@ -89,6 +103,12 @@ export function findCampaign(world: World, campaignId: string | undefined): Camp
 
 export function findSlot(record: CampaignRecord, slotId: string | undefined): Slot | undefined {
   return record.slots.find(slot => slot.id === slotId);
+}
+
+export function maintainerOf(record: Pick<CampaignRecord, 'maintainerId' | 'maintainerName'>): Person {
+  const person = people[record.maintainerId];
+  const name = record.maintainerName?.trim();
+  return name ? { ...person, name, short: name.split(/\s+/)[0] } : person;
 }
 
 export function slotOf(record: CampaignRecord, personId: string): Slot | undefined {
@@ -128,6 +148,16 @@ export function groupComplete(record: CampaignRecord): boolean {
   return record.slots.every(isHeld);
 }
 
+export function closeOf(record: CampaignRecord, now: Date): CloseState {
+  return closeState(record.closesAt, groupComplete(record), now);
+}
+
+// The campaign's state at a moment: past the close with fewer than three in, it stops collecting.
+export function statusAt(record: CampaignRecord, now: Date): CampaignState {
+  if (closeOf(record, now) !== 'closed') return statusOf(record);
+  return statusOf({ ...record, campaign: { ...record.campaign, collectionStopped: true } });
+}
+
 export function pendingOperation(record: CampaignRecord, kind: SavedOperation['kind'], slotId?: string): SavedOperation | undefined {
   return record.operations.find(op => op.kind === kind && isPending(op) && (!slotId || op.slotIds.includes(slotId)));
 }
@@ -148,7 +178,7 @@ export function canApprove(record: CampaignRecord, slot: Slot): boolean {
 }
 
 export function termsOf(record: CampaignRecord): StateTerms {
-  return { maintainer: people[record.creatorId], amountSat: record.campaign.contributionSat };
+  return { maintainer: maintainerOf(record), amountSat: record.campaign.contributionSat };
 }
 
 export function stateSentence(record: CampaignRecord, state: MoneyState): string {
@@ -165,7 +195,7 @@ export interface Headline {
 
 export function headline(record: CampaignRecord): Headline {
   const state = statusOf(record);
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   const each = sats(record.campaign.contributionSat);
   if (state === 'collecting') {
     return tally(record).held > 0
@@ -214,7 +244,7 @@ export function viewerStep(world: World, record: CampaignRecord): ViewerStep {
   if (!slot) {
     if (state === 'paying out' || (state === 'reclaiming' && pendingOperation(record, 'payout'))) return { kind: 'payout-pending' };
     if (state === 'paid') return { kind: 'paid' };
-    if (world.viewerId === record.creatorId) return { kind: 'organize' };
+    if (world.viewerId === record.creatorId || world.viewerId === record.maintainerId) return { kind: 'organize' };
     return state === 'collecting' && record.slots.some(other => !other.backerId) ? { kind: 'join' } : { kind: 'watch' };
   }
   switch (slotStatus(slot)) {
@@ -255,13 +285,14 @@ export function roleLine(world: World, record: CampaignRecord): string {
       ? 'Your invoice is waiting. Not stacked until the mint reports it paid.'
       : `Your ${sats(record.campaign.contributionSat)}: ${stateCopy[status as DepositState].word.toLowerCase()}.`;
   }
-  return world.viewerId === record.creatorId ? 'You’re the maintainer. The payout is locked to your key.' : 'You have no deposit here.';
+  if (world.viewerId === record.maintainerId) return 'You’re the maintainer. The payout is locked to your key.';
+  return world.viewerId === record.creatorId ? 'You organize this stack.' : 'You have no deposit here.';
 }
 
 // Row sentences are the documented ones; someone else's row speaks of them, not you.
 export function rowSentence(record: CampaignRecord, status: SlotStatus, own: boolean): string {
   const each = sats(record.campaign.contributionSat);
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   if (status === 'open') return 'Open. No deposit yet.';
   if (status === 'awaiting') {
     return own ? `Pay this invoice to stack ${each}. Not stacked until the mint reports it paid.`
@@ -299,7 +330,7 @@ function stubQuote(campaign: Campaign, slotId: string, owner: Person): LockedQuo
   return {
     id,
     mint: campaign.mint,
-    ownerPubkey: owner.pubkey,
+    ownerPubkey: owner.pubkey!,
     amountSat: campaign.contributionSat,
     invoice: `lnbcrt${campaign.contributionSat * 10}n1p${stream(seed, BECH32, 196)}`,
     mintState: 'UNPAID',
@@ -367,6 +398,7 @@ export function createCampaign(world: World, draft: CampaignDraft, at: string): 
       collectionStopped: false, depositIds: slotIds,
     },
     creatorId: creator.id,
+    maintainerId: creator.id,
     slots: slotIds.map(slotId => ({ id: slotId })),
     outputsVerified: false,
     operations: [],
@@ -478,7 +510,7 @@ export function checkMint(world: World, campaignId: string, at: string, favour?:
   const winner = !payout ? 'owner' : reclaims.length === 0 ? 'creator' : favour ?? record.mintFavours;
   const settle = (op: SavedOperation, status: SavedOperation['status']): SavedOperation => ({ ...op, status, settledAt: at });
 
-  const maintainer = people[record.creatorId];
+  const maintainer = maintainerOf(record);
   const each = sats(record.campaign.contributionSat);
   const viewerReclaimed = reclaims.some(op => op.savedBy === world.viewerId);
 
@@ -523,9 +555,9 @@ export function recordSpend(world: World, campaignId: string, at: string): World
   const record = findCampaign(world, campaignId);
   const receivedSat = record ? tally(record).targetSat - SWAP_FEE_SAT : 0;
   const spent = record
-    ? `${people[record.creatorId].short} spent it. Swap fee at the mint, ${sats(SWAP_FEE_SAT)}. Received, ${sats(receivedSat)}.` : '';
+    ? `${maintainerOf(record).short} spent it. Swap fee at the mint, ${sats(SWAP_FEE_SAT)}. Received, ${sats(receivedSat)}.` : '';
   return update(world, campaignId, spent, current => {
-    if (world.viewerId !== current.creatorId) throw new Error('Only the creator can spend the payout.');
+    if (world.viewerId !== current.maintainerId) throw new Error('Only the maintainer can spend the payout.');
     if (statusOf(current) !== 'paid' || current.spend) throw new Error('There is no unspent payout.');
     return logged({ ...current, spend: { at, feeSat: SWAP_FEE_SAT, receivedSat } }, at, spent);
   });
@@ -552,10 +584,11 @@ function seed(id: string, title: string, issue: number, at: string): CampaignRec
   return {
     campaign: {
       id, title, publicWorkUrl: `https://git.example.org/ngozi/pocket-ical/issues/${issue}`, mint: TEST_MINT,
-      beneficiaryPubkey: people.ngozi.pubkey, backerCount: 3, contributionSat: DEPOSIT_SAT, collectionStopped: false,
+      beneficiaryPubkey: people.ngozi.pubkey!, backerCount: 3, contributionSat: DEPOSIT_SAT, collectionStopped: false,
       depositIds: slotIds,
     },
     creatorId: 'ngozi',
+    maintainerId: 'ngozi',
     project: 'pocket-ical',
     workLabel: `Issue #${issue}`,
     slots: slotIds.map(slotId => ({ id: slotId })),

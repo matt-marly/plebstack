@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { people, sats, slotOf } from '../demo/world';
+import { maintainerOf, sats, slotOf } from '../demo/world';
 import { failureCopy, liveActions, type LiveReview } from '../live/actions';
 import { useSession } from '../session';
 import { inBackground, keys } from '../ui/background';
@@ -25,7 +25,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
   const [signFailure, setSignFailure] = useState<string>();
   const { campaign } = record;
   const viewerId = world.viewerId;
-  const maintainer = people[record.creatorId];
+  const maintainer = maintainerOf(record);
   const total = sats(campaign.contributionSat * campaign.backerCount);
   const quote = slotOf(record, viewerId)!.quote!;
   const stopped = journey.step.kind === 'stopped';

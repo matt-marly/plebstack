@@ -35,6 +35,12 @@ export function formatClock(when: string | Date, timeZone = viewerTimeZone()): s
   return `${parts.hour}:${parts.minute}:${parts.second} ${parts.timeZoneName}`;
 }
 
+// A time of day for a list where the date and zone are already clear: "18:02".
+export function formatTime(when: string | Date, timeZone = viewerTimeZone()): string {
+  const parts = partsOf(new Date(when), timeZone, false);
+  return `${parts.hour}:${parts.minute}`;
+}
+
 export function shortKey(key: string, lead = 8, tail = 6): string {
   return key.length <= lead + tail + 1 ? key : `${key.slice(0, lead)}…${key.slice(-tail)}`;
 }

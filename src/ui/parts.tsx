@@ -3,7 +3,7 @@ import { stateColour, stateCopy, type ToneState } from '../domain/states';
 import { useSession } from '../session';
 
 const chipCopy: Partial<Record<ToneState, { word: string; phrase: string }>> = {
-  ...stateCopy, unmet: { word: 'Unmet', phrase: 'Didn’t fill' },
+  ...stateCopy, unmet: { word: 'Unmet', phrase: 'Didn’t fill' }, collecting: { word: 'Collecting', phrase: '' },
 };
 
 export function StateChip({ state, phrase }: { state: ToneState; phrase?: string }) {

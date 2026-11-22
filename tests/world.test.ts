@@ -97,9 +97,9 @@ test('the third signature sends one batch, and nothing is paid until the mint sa
   assert.equal(checkMint(world, MAIN_CAMPAIGN, at('14:08')), world);
 });
 
-test('the creator receives 62 sats of the 63 after the swap fee', () => {
+test('the maintainer receives 62 sats of the 63 after the swap fee', () => {
   const paid = checkMint(allApproved(), MAIN_CAMPAIGN, at('14:07'));
-  assert.throws(() => recordSpend(paid, MAIN_CAMPAIGN, at('14:09')), /Only the creator/);
+  assert.throws(() => recordSpend(paid, MAIN_CAMPAIGN, at('14:09')), /Only the maintainer/);
   const spent = recordSpend(as(paid, 'ngozi'), MAIN_CAMPAIGN, at('14:09'));
   assert.deepEqual(record(spent, MAIN_CAMPAIGN).spend, { at: at('14:09'), feeSat: 1, receivedSat: 62 });
   assert.throws(() => recordSpend(spent, MAIN_CAMPAIGN, at('14:10')), /no unspent payout/);
@@ -182,7 +182,7 @@ test('only the organizer can stop collecting, and it moves no money', () => {
 test('a new campaign belongs to whoever made it and starts with three open slots', () => {
   const draft = {
     title: '  Ship the 2.0 changelog  ', publicWorkUrl: 'https://git.example.org/ngozi/pocket-ical/issues/420',
-    contributionSat: 21, beneficiaryPubkey: people.ngozi.pubkey,
+    contributionSat: 21, beneficiaryPubkey: people.ngozi.pubkey!,
   };
   const world = createCampaign(as(initialWorld(), 'ngozi'), draft, at('15:00'));
   const made = record(world, 'ship-the-2-0-changelog');
@@ -252,17 +252,17 @@ test('format helpers', () => {
   setTimeZone('Africa/Lagos');
   assert.equal(formatWhen('2026-11-13T14:02:00Z'), '13 Nov, 15:02 GMT+1');
   setTimeZone('UTC');
-  assert.equal(shortKey(people.ngozi.pubkey), '02c41f7a…29e8a3');
+  assert.equal(shortKey(people.ngozi.pubkey!), '02c41f7a…29e8a3');
   assert.equal(shortKey('op-541d70ed'), 'op-541d70ed');
   assert.equal(plural(1, 'slot', 'slots'), '1 slot');
   assert.equal(plural(2, 'slot', 'slots'), '2 slots');
   assert.equal(plural(0, 'slot', 'slots'), '0 slots');
   assert.equal(listNames(['Maren']), 'Maren');
   assert.equal(listNames(['Tobi', 'Maren']), 'Tobi and Maren');
-  assert.ok(Object.values(people).every(person => isCompressedPubkey(person.pubkey)));
-  assert.equal(isCompressedPubkey(` ${people.tobi.pubkey} `), true);
-  assert.equal(isCompressedPubkey(`04${people.tobi.pubkey.slice(2)}`), false);
-  assert.equal(isCompressedPubkey(people.tobi.pubkey.slice(0, 60)), false);
+  assert.ok(Object.values(people).every(person => person.pubkey === undefined || isCompressedPubkey(person.pubkey)));
+  assert.equal(isCompressedPubkey(` ${people.tobi.pubkey!} `), true);
+  assert.equal(isCompressedPubkey(`04${people.tobi.pubkey!.slice(2)}`), false);
+  assert.equal(isCompressedPubkey(people.tobi.pubkey!.slice(0, 60)), false);
   assert.equal(isHttpUrl('https://git.example.org/ngozi/pocket-ical/issues/412'), true);
   assert.equal(isHttpUrl('git.example.org/issues/412'), false);
   assert.equal(isHttpUrl('mailto:ngozi@example.org'), false);

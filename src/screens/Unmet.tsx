@@ -1,7 +1,7 @@
-import { people, sats, type CampaignRecord } from '../demo/world';
-import { listNames } from '../ui/format';
+import { maintainerOf, people, sats, tally, type CampaignRecord } from '../demo/world';
+import { formatWhen, listNames } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { campaignGoal } from '../ui/journey';
+import { campaignGoal, closeLine } from '../ui/journey';
 import { StateChip } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { TakeBack } from '../ui/TakeBack';
@@ -15,6 +15,8 @@ export function whyUnmet(record: CampaignRecord, viewerId: string): string {
   const rejected = record.operations.some(op => op.kind === 'payout' && op.status === 'rejected');
   if (takers.length && rejected) return `${listNames(takers)} took theirs back first, so the payout didn’t go.`;
   if (takers.length) return `${listNames(takers)} took theirs back and the stack closed.`;
+  if (record.stoppedAt) return `${people[record.creatorId].short} stopped collecting.`;
+  if (record.close === 'closed') return `The stack closed at ${formatWhen(record.closesAt!)} with ${tally(record).held} of 3 in.`;
   if (record.campaign.collectionStopped) return `${people[record.creatorId].short} stopped collecting.`;
   return 'The mint turned down the payout. Nobody’s sats moved.';
 }
@@ -31,8 +33,8 @@ export function Unmet({ world, record, journey }: ScreenProps) {
         <h1>No payout this time.</h1>
         <p>{whyUnmet(record, world.viewerId)} That’s fine: your {each} are still at the mint, yours. Take them back. Nobody needs to approve it.</p>
       </div>
-      <Stack goal={campaignGoal(record, world.viewerId)} meta="closed" />
-      <Track stop={journey.stop} maintainer={people[record.creatorId].short} amount={each} />
+      <Stack goal={campaignGoal(record, world.viewerId)} meta={record.close === 'closed' ? closeLine(record) : 'closed'} />
+      <Track stop={journey.stop} maintainer={maintainerOf(record).short} amount={each} />
     </Frame>
   );
 }

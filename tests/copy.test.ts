@@ -71,7 +71,10 @@ test('no user-visible string in src or index.html uses the never-say words', () 
   const files = sourceFiles(new URL('../src/', import.meta.url));
   assert.ok(files.length > 20);
   const names = files.map(file => file.pathname.split('/').pop());
-  for (const screen of ['Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back', 'GroupCard', 'Checked', 'TakeBack']) {
+  for (const screen of [
+    'Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back', 'GroupCard', 'Checked', 'TakeBack',
+    'Backing', 'PayoutKey', 'Terms', 'Share', 'Watch', 'Claim', 'Follow', 'Receive', 'Spent', 'PlayingAs', 'Who',
+  ]) {
     assert.ok(names.includes(`${screen}.tsx`), screen);
   }
   for (const file of files) {

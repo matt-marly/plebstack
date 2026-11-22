@@ -1,4 +1,4 @@
-import { people, sats, type CampaignRecord } from '../demo/world';
+import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
 import type { LiveReview } from '../live/actions';
 import { shortKey } from './format';
 import { Icon } from './Icon';
@@ -11,7 +11,7 @@ export interface CheckResult {
 // Each line is something this browser worked out from the package itself, not something it was told.
 export function checkResults(record: CampaignRecord, review: LiveReview, ownQuoteId: string): CheckResult[] {
   const { campaign } = record;
-  const maintainer = people[record.creatorId].short;
+  const maintainer = maintainerOf(record).short;
   return [
     { text: `${sats(review.totalSat)} in total`, detail: review.amounts.join(' + ') },
     { text: `Every output locked to ${maintainer}’s key`, detail: `NUT-11 P2PK · ${shortKey(review.lockedTo)}` },
