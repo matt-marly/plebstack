@@ -9,6 +9,8 @@
 //   node scripts/stage-demo.mjs --shots         (saves stills of both layouts into docs/screens-live/stage-*.png)
 //   node scripts/stage-demo.mjs --pace=4000     (milliseconds between steps; 2500 by default)
 //   node scripts/stage-demo.mjs --calm          (the stage window asks for reduced motion)
+//   node scripts/stage-demo.mjs --miss          (the goal is missed: two pay, Ada stops collecting, both take theirs back;
+//                                                stills stay in .evidence, so --shots keeps the paid run's)
 
 import { mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,7 +26,8 @@ const TALL = { width: 390, height: 844 };
 const root = fileURLToPath(new URL('..', import.meta.url));
 const flag = name => process.argv.includes(`--${name}`);
 const video = flag('video');
-const shots = flag('shots');
+const miss = flag('miss');
+const shots = flag('shots') && !miss;
 const calm = flag('calm');
 const portrait = flag('portrait');
 const STAGE = portrait ? TALL : WIDE;
@@ -237,58 +240,8 @@ async function sign(name) {
   await told(`${name} signs the group card.`);
 }
 
-const summary = { started, base, pace, calm };
-try {
-  await stage.goto(`${base}/stage`);
-  await stage.locator('.stage-line').waitFor();
-  if (other) {
-    await other.goto(`${base}/stage`);
-    await other.locator('.stage-line').waitFor();
-  }
-  check('S0: an empty stage says how to start', (await caption()).startsWith('No stack yet.'));
-  check('S0b: the layout follows the window', await stage.locator('.stage[data-tall]').count() === (portrait ? 1 : 0)
-    && (!other || await other.locator('.stage[data-tall]').count() === (portrait ? 0 : 1)));
-  await stageA11y('S0 empty stage');
-  await stage.waitForTimeout(1500);
-
-  // Ada names the work; Ngozi confirms her key on her own side; Ada sets the terms.
-  await page.goto(`${base}/`);
-  await page.waitForURL(/\/intro\/1$/);
-  await page.getByRole('button', { name: 'Skip' }).click();
-  await page.getByRole('button', { name: 'Start a stack' }).click();
-  await heading('Who are you backing?').waitFor();
-  await beat();
-  await page.getByRole('button', { name: 'Next' }).click();
-  await heading('Get Ngozi’s key.').waitFor();
-  const id = summary.campaign = page.url().split('/o/')[1].split('/')[0];
-  await stage.locator('.stage-who', { hasText: 'for Ngozi Eze' }).waitFor();
-  check('S1: the stage follows the newest stack without a click', (await caption()).startsWith('Ada starts a stack for Ngozi.'));
-  await beat();
-  await playAs('Ngozi');
-  await page.getByRole('button', { name: 'Confirm my key' }).click();
-  await heading('Your key is confirmed.').waitFor();
-  await told('Ngozi confirms her payout key');
-  await beat();
-  await playAs('Ada');
-  await page.getByRole('button', { name: 'Next' }).click();
-  await heading('Set the terms.').waitFor();
-  await page.getByRole('button', { name: '48 hours', exact: true }).click();
-  await beat(pace / 2);
-  await page.getByRole('button', { name: 'Create stack' }).click();
-  await heading('Your stack is open.').waitFor();
-  await told('Ada opens the stack');
-  const board = await page.evaluate(campaignId => JSON.parse(localStorage.getItem(`plebstack:public/campaign:${campaignId}`)).value, id);
-  check('S2: the close on the stage is the one saved with the stack',
-    (await stage.locator('.stage-organizer').innerText()).includes(`closes ${await stage.evaluate(
-      async iso => (await import('/src/ui/format.ts')).formatWhen(iso), board.closesAt)}`));
-  const zone = await stage.evaluate(async () => (await import('/src/ui/format.ts')).zoneName(new Date()));
-  check('S2b: the caption log names the zone the way the app does',
-    (await stage.locator('.stage-history .mono').first().innerText()).endsWith(` ${zone}`), zone);
-  await beat();
-
-  await chipIn('Tobi');
-  check('S3: a slab lands only when the mint reports the deposit paid', (await goal()).startsWith('goal · 21 of 63 sats'));
-  await chipIn('Maren');
+// All three in, all three sign, one batch pays Ngozi, and she spends it.
+async function reachTheGoal(id) {
   await chipIn('Ishaan', {
     holdAt: async () => {
       if (wide) await wide.locator('.mini svg.qr').waitFor();
@@ -376,6 +329,115 @@ try {
   await still('stage-spent');
   await stageA11y('S15 spent');
   await stage.waitForTimeout(pace);
+}
+
+// With no payout this time, each pleb asks the mint for their own back. Nobody approves it.
+async function takeBack(name) {
+  await playAs(name);
+  await heading('No payout this time.').waitFor();
+  await beat();
+  await page.getByRole('button', { name: 'Take mine back' }).click();
+  await dialog().getByRole('button', { name: 'Take mine back' }).click();
+  await heading('Back to you.').waitFor({ timeout: 90_000 });
+  await told(`${name} takes their 21 sats back.`);
+  await settled();
+  await beat();
+}
+
+// Two in, the third never comes: Ada stops collecting, and Tobi and Maren each take their own 21 back.
+async function missTheGoal(id) {
+  check('M1: two of three in, still collecting', (await goal()).startsWith('goal · 42 of 63 sats'));
+  await playAs('Ada');
+  await heading('2 of 3 in.').waitFor();
+  await beat();
+  await page.getByRole('button', { name: 'Stop collecting' }).click();
+  await dialog().getByRole('button', { name: 'Stop collecting' }).click();
+  await told('Ada stops collecting.');
+  await settled();
+  await stage.waitForTimeout(1200);
+  check('M2: the stage shows the unmet state: no payout, 42 still at the mint',
+    await stage.locator('.pile[data-phase="unmet"]').count() === 1
+    && (await goal()).startsWith('goal · 42 of 63 sats · no payout')
+    && (await caption()).startsWith('Ada stops collecting. No payout this time.'));
+  check('M2b: Ishaan, never in, is told the stack didn’t fill, not that it is full',
+    await stage.getByText('This stack didn’t fill.').count() > 0 && await stage.getByText('This stack is full.').count() === 0);
+  check('M3: no lime when the goal is missed', await limePixels(await still('stage-unmet')) === 0);
+  await stageA11y('M3 unmet');
+  await beat();
+
+  await takeBack('Tobi');
+  await takeBack('Maren');
+  await stage.waitForTimeout(1500);
+  const events = (await page.evaluate(campaignId => JSON.parse(localStorage.getItem(`plebstack:public/campaign:${campaignId}`)).value, id)).events;
+  const confirmed = events.filter(event => event.type === 'settled' && event.status === 'confirmed').map(event => event.operationId);
+  const backBy = name => events.some(event => event.type === 'sent' && event.kind === 'reclaim'
+    && event.personId === name.toLowerCase() && confirmed.includes(event.operationId));
+  check('M4: the mint confirmed both take-backs, and no payout was ever sent',
+    backBy('Tobi') && backBy('Maren') && !events.some(event => event.type === 'sent' && event.kind === 'payout'));
+  check('M5: the stage says each one is back with its owner',
+    (await stage.locator('[data-pocket="tobi"]').innerText()).includes('back with Tobi')
+    && (await stage.locator('[data-pocket="maren"]').innerText()).includes('back with Maren'));
+  check('M5b: after both take-backs Ishaan still reads that the stack didn’t fill',
+    await stage.getByText('This stack didn’t fill.').count() > 0 && await stage.getByText('This stack is full.').count() === 0);
+  const back = await still('stage-taken-back');
+  check('M6: no lime on the stack after the take-backs', await limePixels(back) === 0);
+  await stageA11y('M6 taken back');
+  await stage.waitForTimeout(pace);
+}
+
+const summary = { started, base, pace, calm, miss };
+try {
+  await stage.goto(`${base}/stage`);
+  await stage.locator('.stage-line').waitFor();
+  if (other) {
+    await other.goto(`${base}/stage`);
+    await other.locator('.stage-line').waitFor();
+  }
+  check('S0: an empty stage says how to start', (await caption()).startsWith('No stack yet.'));
+  check('S0b: the layout follows the window', await stage.locator('.stage[data-tall]').count() === (portrait ? 1 : 0)
+    && (!other || await other.locator('.stage[data-tall]').count() === (portrait ? 0 : 1)));
+  await stageA11y('S0 empty stage');
+  await stage.waitForTimeout(1500);
+
+  // Ada names the work; Ngozi confirms her key on her own side; Ada sets the terms.
+  await page.goto(`${base}/`);
+  await page.waitForURL(/\/intro\/1$/);
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await page.getByRole('button', { name: 'Start a stack' }).click();
+  await heading('Who are you backing?').waitFor();
+  await beat();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await heading('Get Ngozi’s key.').waitFor();
+  const id = summary.campaign = page.url().split('/o/')[1].split('/')[0];
+  await stage.locator('.stage-who', { hasText: 'for Ngozi Eze' }).waitFor();
+  check('S1: the stage follows the newest stack without a click', (await caption()).startsWith('Ada starts a stack for Ngozi.'));
+  await beat();
+  await playAs('Ngozi');
+  await page.getByRole('button', { name: 'Confirm my key' }).click();
+  await heading('Your key is confirmed.').waitFor();
+  await told('Ngozi confirms her payout key');
+  await beat();
+  await playAs('Ada');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await heading('Set the terms.').waitFor();
+  await page.getByRole('button', { name: '48 hours', exact: true }).click();
+  await beat(pace / 2);
+  await page.getByRole('button', { name: 'Create stack' }).click();
+  await heading('Your stack is open.').waitFor();
+  await told('Ada opens the stack');
+  const board = await page.evaluate(campaignId => JSON.parse(localStorage.getItem(`plebstack:public/campaign:${campaignId}`)).value, id);
+  check('S2: the close on the stage is the one saved with the stack',
+    (await stage.locator('.stage-organizer').innerText()).includes(`closes ${await stage.evaluate(
+      async iso => (await import('/src/ui/format.ts')).formatWhen(iso), board.closesAt)}`));
+  const zone = await stage.evaluate(async () => (await import('/src/ui/format.ts')).zoneName(new Date()));
+  check('S2b: the caption log names the zone the way the app does',
+    (await stage.locator('.stage-history .mono').first().innerText()).endsWith(` ${zone}`), zone);
+  await beat();
+
+  await chipIn('Tobi');
+  check('S3: a slab lands only when the mint reports the deposit paid', (await goal()).startsWith('goal · 21 of 63 sats'));
+  await chipIn('Maren');
+  await (miss ? missTheGoal(id) : reachTheGoal(id));
 
   // Captions are read whole: nothing in the log is cut, at 1920x1080 and at 1280x720.
   if (wide) {
@@ -403,7 +465,9 @@ try {
   const secrets = await page.evaluate(() => Object.keys(localStorage).filter(key => /^plebstack:person:[^/]+\/key:/.test(key))
     .map(key => JSON.parse(localStorage.getItem(key)).value.secretKey));
   const html = await stage.content();
-  check('S16: no private key anywhere on the stage', secrets.length === 4 && secrets.every(secret => !html.includes(secret)));
+  // Ngozi and every pleb who chipped in made a key; Ishaan never does when the goal is missed.
+  check('S16: no private key anywhere on the stage', secrets.length === (miss ? 3 : 4) && secrets.every(secret => !html.includes(secret)),
+    `${secrets.length} keys`);
   check('S17: the stage was never clicked and no window had an error', errors.length === 0, errors.join(' | '));
   summary.pass = true;
 } catch (error) {
