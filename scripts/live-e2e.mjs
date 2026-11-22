@@ -540,7 +540,7 @@ try {
   await page.getByRole('button', { name: 'Copied' }).waitFor();
   const token = await page.evaluate(() => navigator.clipboard.readText());
   const decoded = getDecodedToken(token, keysets.map(keyset => keyset.id));
-  const amount = decoded.proofs.reduce((sum, proof) => sum + Number(proof.amount), 0);
+  const amount = decoded.proofs.reduce((sum, proof) => sum + proof.amount.toNumber(), 0);
   const keysNow = await secretKeys();
   check('M4: Copy ecash gives a real token for 62 sats with no private key in it',
     token.startsWith('cashuB') && decoded.mint === MINT && amount === 62
