@@ -63,7 +63,8 @@ The stage is the watchable view for a meetup screen or a demo video, at 16:9: th
 npm test
 npm run build
 PLEB_LIVE=1 npm run test:live   # against testnut.cashudevkit.org; writes .evidence/live-{deposit,payout,reclaim}-<time>/
-node scripts/live-e2e.mjs       # Ada, Ngozi and three plebs through every journey in headless Chromium; writes .evidence/live-e2e-<time>/
+node scripts/live-e2e.mjs       # Ada, Ngozi and three plebs through every journey in headless Chromium, with names, headings,
+                                # contrast, targets and focus checked on each screen; writes .evidence/live-e2e-<time>/
 node scripts/live-e2e.mjs --shots   # also retakes the stills in docs/screens-live/
 node scripts/stage-demo.mjs --video # the stage at 1920x1080 beside a second window playing everyone; records .evidence/stage-<time>/stage.webm
 node scripts/stage-demo.mjs --shots # retakes docs/screens-live/stage-*.png

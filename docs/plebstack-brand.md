@@ -503,7 +503,7 @@ Every brand-book claim I changed or struck. "BB" is the v1.0 brand book and buil
 
 ## 7. Mapping the existing product to Plebstack
 
-The 54 PNGs in `docs/screens/` fold to 35 layouts once light, dark and phone variants are merged. They are the clickable mockup on stub data. This is a reskin and a copy pass. No new screens.
+The first clickable mockup, on stub data, had 35 layouts once its light, dark and phone variants were merged. This is a reskin and a copy pass. No new screens.
 
 The plain state words in `src/domain/states.ts` stay, so tests that look for them keep working. The pleb phrase and new sentence sit under them. The `stateCopy.icon` names change to the slab glyphs.
 
