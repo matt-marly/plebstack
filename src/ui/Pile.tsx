@@ -1,5 +1,4 @@
 import type { CampaignRecord } from '../demo/world';
-import { Icon } from './Icon';
 import { campaignGoal, slabOffset, type GoalSlab } from './journey';
 import { Slab, type Tone } from './Slab';
 import type { Look } from './story';
@@ -8,16 +7,15 @@ import type { Look } from './story';
 export const SLAB = { w: 340, h: 54, dx: 64, dy: 36 } as const;
 const RISE = 74;
 const X0 = 112;
-const TOP = 52;
+const TOP = 104;
 const BASE = TOP + SLAB.dy + RISE * 2;
 const WIDTH = 584;
 const HEIGHT = BASE + SLAB.h + 40;
-const plane = (() => {
-  const y = BASE - RISE * 2;
-  const left = X0 - 20;
-  const right = X0 + 72 + SLAB.w + 24;
-  return `${left},${y} ${right},${y} ${right + SLAB.dx},${y - SLAB.dy} ${left + SLAB.dx},${y - SLAB.dy}`;
-})();
+// The goal line runs just above a full stack, end to end, with a tick at each end.
+const LINE = TOP - 14;
+const ENDS = [6, WIDTH - 6];
+const line = `M${ENDS[0]} ${LINE}H${ENDS[1]}`;
+const ticks = ENDS.map(x => `M${x} ${LINE - 10}V${LINE + 10}`).join('');
 
 export const slabBox = `0 0 ${SLAB.w + SLAB.dx} ${SLAB.h + SLAB.dy}`;
 
@@ -32,18 +30,15 @@ export function LoneSlab({ tone, className }: { tone: Tone; className?: string }
 
 interface Placed extends GoalSlab {
   who?: string;
-  signed: boolean;
 }
 
 function placed(record: CampaignRecord | undefined): Placed[] {
-  if (!record) return [0, 1, 2].map(() => ({ kind: 'open', signed: false }));
+  if (!record) return [0, 1, 2].map(() => ({ kind: 'open' }));
   const { slabs } = campaignGoal(record);
-  return record.slots.map((slot, index) => ({
-    ...slabs[index], who: slot.backerId, signed: slabs[index].kind === 'filled' && !!slot.deposit?.authorizationReleased,
-  }));
+  return record.slots.map((slot, index) => ({ ...slabs[index], who: slot.backerId }));
 }
 
-// The shared stack on the goal line, big. A slab still travelling in is held back; it keeps its place so
+// The shared stack under its goal line, big. A slab still travelling in is held back; it keeps its place so
 // the travelling one has somewhere to land. Lime is a second layer, only once paid, filled bottom to top.
 export function Pile({ record, look, away, moment }: {
   record?: CampaignRecord; look: Look; away: ReadonlySet<string>; moment?: boolean;
@@ -64,29 +59,32 @@ export function Pile({ record, look, away, moment }: {
         {!lit && slab.name && !hidden && (
           <text x={X0 - 22} y={y + SLAB.h / 2 + 7} textAnchor="end" className="pile-name">{slab.name}</text>
         )}
-        {!lit && slab.signed && !hidden && (
-          <g className="pile-nib">
-            <circle cx={x + SLAB.w - 30} cy={y + SLAB.h / 2} r="17" />
-            <svg x={x + SLAB.w - 42} y={y + SLAB.h / 2 - 12} width="24" height="24"><Icon name="nib" className="pile-nib-icon" /></svg>
-          </g>
-        )}
       </g>
     );
   });
 
+  const goal = (className: string) => (
+    <g className={className}>
+      <path d={line} strokeWidth="3" strokeDasharray={solid ? undefined : '12 9'} />
+      <path d={ticks} strokeWidth="3" strokeLinecap="round" />
+    </g>
+  );
+
   return (
     <div className="pile" data-phase={look.phase} data-paid={look.lit || undefined} data-moment={moment || undefined}>
+      <div className="pile-goal mono" style={{ bottom: `${((HEIGHT - LINE + 12) / HEIGHT) * 100}%` }}>
+        <p>{look.label}</p>
+        {look.note && <p className="pile-note">{look.note}</p>}
+      </div>
       <svg className="pile-base" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden="true" focusable="false">
         <ellipse cx={X0 + 36 + (SLAB.w + SLAB.dx) / 2} cy={BASE + SLAB.h + 16} rx={250} ry={18} fill="rgba(0,0,0,.6)" />
-        <g className="pile-stack">
-          {draw(false)}
-          <polygon className="pile-plane" points={plane} strokeWidth="2.5" strokeDasharray={solid ? undefined : '10 8'} />
-        </g>
+        <g className="pile-stack">{draw(false)}</g>
+        {goal('pile-line')}
       </svg>
       {look.lit && (
         <svg className="pile-lit" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden="true" focusable="false">
-          {draw(true)}
-          <polygon className="pile-plane" points={plane} strokeWidth="2.5" />
+          <g className="pile-stack">{draw(true)}</g>
+          {goal('pile-line')}
         </svg>
       )}
     </div>

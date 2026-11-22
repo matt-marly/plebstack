@@ -4,7 +4,10 @@ import { slabOffset, type Goal } from './journey';
 
 const BASE = 114;
 const RISE = 30;
-const plane = '74,38 318,38 348,22 104,22';
+// The goal line just above a full pile, with a tick at each end.
+const LINE = 28;
+const line = `M4 ${LINE}H346`;
+const ticks = `M4 ${LINE - 6}V${LINE + 6}M346 ${LINE - 6}V${LINE + 6}`;
 
 // Three slabs under the goal line, bottom up in join order. Dashed while collecting,
 // solid ink at the line, lime only once the mint confirmed the payout.
@@ -18,9 +21,11 @@ export function Stack({ goal, meta, landing, lighting }: { goal: Goal; meta?: st
         {meta && <span>{meta}</span>}
       </div>
       <svg className="stack-drawing" viewBox="0 0 350 150" aria-hidden="true" focusable="false">
-        <polygon className="stack-plane" points={plane}
-          style={{ fill: 'rgba(255,255,255,.015)', stroke: paid ? 'var(--color-signal)' : solid ? 'var(--color-ink)' : 'var(--color-dash)' }}
-          strokeWidth="1.6" strokeDasharray={solid ? undefined : '6 5'} />
+        <g className="stack-line" style={{ stroke: paid ? 'var(--color-signal)' : solid ? 'var(--color-ink)' : 'var(--color-dash)' }}
+          fill="none" strokeWidth="2">
+          <path d={line} strokeDasharray={solid ? undefined : '6 5'} />
+          <path d={ticks} strokeLinecap="round" />
+        </g>
         <ellipse cx="207" cy="142" rx="122" ry="11" fill="rgba(0,0,0,.55)" />
         {goal.phase === 'sending' && (
           <g className="stack-dashes" stroke="var(--color-state-paying-out)" strokeWidth="2.5" strokeLinecap="round">

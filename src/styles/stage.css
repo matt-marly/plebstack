@@ -16,25 +16,24 @@
 .stage-honest .pill-dot { width: 9px; height: 9px; }
 .stage-honest p { font-size: 17px; color: var(--color-muted); }
 
-/* Two plebs, the stack, one pleb, and the maintainer they are paying. */
-.stage-floor {
-  display: grid; grid-template-columns: 242px 242px 1fr 242px 279px; column-gap: 36px; align-items: start; align-content: center;
-}
-.stage-column { display: flex; flex-direction: column; gap: 18px; }
-.stage-for { padding-left: 36px; border-left: 1px solid var(--color-rule); }
-.stage-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* The three plebs together on the left, the stack they share in the middle, the maintainer they pay on the right. */
+.stage-floor { display: grid; grid-template-columns: auto 1fr auto; align-items: start; align-content: center; }
+.stage-plebs { display: grid; grid-template-columns: repeat(3, 228px); column-gap: 22px; padding-right: 40px; border-right: 1px solid var(--color-rule); }
+.stage-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.stage-for { width: 312px; padding-left: 40px; border-left: 1px solid var(--color-rule); }
+.stage-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; font: inherit; }
 .stage-who strong { font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
-.stage-who .mono { font-size: 14px; color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-who .mono { font-size: 16px; color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------------------------------------------------------------- phones */
 
-.mini { position: relative; width: 242px; height: 524px; }
+.mini { position: relative; width: 228px; height: 494px; }
 .mini-glass {
   position: absolute; inset: 0; overflow: hidden; border-radius: 30px; background: var(--color-canvas);
   border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 0 0 7px #141416, 0 0 0 8px rgba(255, 255, 255, .06);
 }
 .mini-screen {
-  width: 390px; height: 844px; transform: scale(.62); transform-origin: 0 0; pointer-events: none;
+  width: 390px; height: 844px; transform: scale(.585); transform-origin: 0 0; pointer-events: none;
   display: flex; flex-direction: column; gap: 20px; padding: 22px 24px 26px;
 }
 .mini-actions { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
@@ -48,33 +47,34 @@
 @keyframes pop { from { opacity: 0; transform: scale(.4); } }
 
 /* Where each person's sats are, under their phone. */
-.pocket { display: flex; align-items: center; gap: 12px; min-height: 40px; }
-.pocket-slab { flex: none; width: 64px; height: auto; overflow: visible; }
+.pocket { display: flex; align-items: center; gap: 10px; min-height: 46px; }
+.pocket-slab { flex: none; width: 44px; height: auto; overflow: visible; }
 .pocket-slab polygon, .pocket-slab path { vector-effect: non-scaling-stroke; }
-.pocket .mono { font-size: 14px; line-height: 1.35; color: var(--color-muted); }
+.pocket .mono { font-size: 15px; line-height: 1.35; color: var(--color-muted); }
 .pocket [data-moving] { animation: breathe 2.4s ease-in-out infinite; }
 .pocket[data-paid] .mono { color: var(--color-signal); }
 
 /* ---------------------------------------------------------------- the stack */
 
-.stage-centre { display: flex; flex-direction: column; align-items: center; gap: 18px; align-self: center; }
-.stage-goal { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 24px; color: var(--color-muted); transition: color var(--dur-fast) ease; }
-.stage-note { font-size: 17px; color: var(--color-muted); }
-.stage-goal[data-phase="at-line"] { color: var(--color-ink); }
-.stage-goal[data-phase="sending"] { color: var(--color-state-paying-out); }
-.stage-goal[data-paid] { color: var(--color-signal); }
+.stage-centre { display: flex; flex-direction: column; align-items: center; gap: 28px; align-self: center; }
 
-.pile { position: relative; width: 584px; }
+.pile { position: relative; width: 660px; }
 .pile svg { display: block; width: 100%; height: auto; overflow: visible; }
 .pile-lit { position: absolute; inset: 0; }
-.pile-plane { fill: rgba(255, 255, 255, .015); stroke: var(--color-dash); transition: stroke var(--dur-fast) ease; }
-.pile[data-phase="at-line"] .pile-plane, .pile[data-phase="sending"] .pile-plane { stroke: var(--color-ink); }
-.pile[data-paid] .pile-plane { stroke: var(--color-signal); }
-.pile-lit .pile-plane { fill: none; }
-.pile-name { font-size: 21px; fill: var(--color-muted); }
-.pile-nib { animation: pop 320ms var(--ease-settle) both; transform-box: fill-box; transform-origin: center; }
-.pile-nib circle { fill: var(--color-state-approved); }
-.pile-nib-icon { color: var(--color-on-ink); }
+.pile-name { font-size: 22px; fill: var(--color-muted); }
+
+/* The goal line: dashed while collecting, solid ink at the line, lime only once paid. Its label sits on it. */
+.pile-line { fill: none; stroke: var(--color-dash); transition: stroke var(--dur-fast) ease; }
+.pile[data-phase="at-line"] .pile-line, .pile[data-phase="sending"] .pile-line { stroke: var(--color-ink); }
+.pile[data-paid] .pile-line { stroke: var(--color-signal); }
+.pile-goal {
+  position: absolute; left: 6px; right: 6px; display: flex; flex-direction: column-reverse; gap: 4px;
+  font-size: 22px; color: var(--color-muted); transition: color var(--dur-fast) ease;
+}
+.pile-note { font-size: 17px; color: var(--color-muted); }
+.pile[data-phase="at-line"] .pile-goal { color: var(--color-ink); }
+.pile[data-phase="sending"] .pile-goal { color: var(--color-state-paying-out); }
+.pile[data-paid] .pile-goal { color: var(--color-signal); }
 
 /* Sending: the pile lifts and leans toward Ngozi, as one block. */
 .pile-stack { transition: transform var(--dur-reveal) var(--ease-settle); }
@@ -82,7 +82,9 @@
 
 /* The paid moment, on the mint's answer only: the pile closes up, the line turns, then one fill bottom to top. */
 .pile[data-moment] .pile-stack { transition-duration: 200ms; }
-.pile[data-paid][data-moment] .pile-base .pile-plane { animation: line-turns 120ms ease 160ms both; }
+.pile[data-paid][data-moment] .pile-base .pile-line { animation: line-turns 120ms ease 160ms both; }
+.pile[data-paid][data-moment] .pile-goal { animation: label-turns 120ms ease 160ms both; }
+@keyframes label-turns { from { color: var(--color-ink); } }
 .pile[data-moment] .pile-lit { animation: fill-up 480ms var(--ease-out) 240ms both; }
 @keyframes fill-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0); } }
 
@@ -96,16 +98,16 @@
 /* ---------------------------------------------------------------- captions */
 
 .stage-captions {
-  display: grid; grid-template-columns: 1fr 640px; gap: 64px; align-items: end;
+  display: grid; grid-template-columns: 1fr 720px; gap: 64px; align-items: end;
   min-height: 168px; padding-top: 28px; border-top: 1px solid var(--color-rule);
 }
 .stage-now { display: flex; flex-direction: column; gap: 12px; animation: rise var(--dur-reveal) var(--ease-out) both; }
 .stage-line { font-size: 38px; line-height: 1.15; font-weight: 650; letter-spacing: -.02em; text-wrap: balance; }
 .stage-term { font-size: 20px; color: var(--color-muted); }
 .stage-history { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.stage-history li { display: grid; grid-template-columns: 168px 1fr; gap: 12px; font-size: 16px; color: var(--color-faint); }
+.stage-history li { display: grid; grid-template-columns: 184px 1fr; gap: 12px; font-size: 18px; color: var(--color-faint); }
 .stage-history li > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stage-history .mono { font-size: 14px; line-height: 22px; }
+.stage-history .mono { font-size: 16px; line-height: 25px; }
 .stage-history li[data-now] { color: var(--color-ink); }
 
 .stage-ghosts { position: absolute; inset: 0; pointer-events: none; }

@@ -225,7 +225,7 @@ function StageView({ id }: { id: string | undefined }) {
     const held = inPocket.includes(stop) && !gone.has(id);
     return (
       <div key={id} className="stage-column">
-        <p className="stage-who"><strong>{people[id].name}</strong><span className="mono">pleb{each ? ` · ${each}` : ''}</span></p>
+        <h2 className="stage-who"><strong>{people[id].name}</strong><span className="mono">pleb{each ? ` · ${each}` : ''}</span></h2>
         <MiniPhone label={`${people[id].name}’s phone`} playing={people[id].short} rail={journey?.rail ?? { at: 0, paid: false }} view={view} tick={tick === id} />
         <p className="pocket" data-pocket={id}>
           <LoneSlab tone={held ? 'ink' : 'open'} className="pocket-slab" />
@@ -242,8 +242,9 @@ function StageView({ id }: { id: string | undefined }) {
   return (
     <div className="stage">
       <div ref={canvas} className="stage-canvas" style={{ '--fit': scale } as CSSProperties}>
+        <h1 className="visually-hidden">Plebstack stage</h1>
         <header className="stage-top">
-          <span className="stage-brand" role="img" aria-label="plebstack">
+          <span className="stage-brand">
             <Mark size="large" className="stage-mark" />
             <Wordmark className="stage-word" />
           </span>
@@ -253,14 +254,9 @@ function StageView({ id }: { id: string | undefined }) {
           </div>
         </header>
 
-        <main className="stage-floor" aria-label="Stage">
-          {plebColumn(PLEBS[0])}
-          {plebColumn(PLEBS[1])}
+        <main className="stage-floor">
+          <div className="stage-plebs">{PLEBS.map(plebColumn)}</div>
           <div className="stage-centre">
-            <div className="stage-goal mono" data-phase={look.phase} data-paid={look.lit || undefined}>
-              <p>{look.label}</p>
-              {look.note && <p className="stage-note">{look.note}</p>}
-            </div>
             <Pile record={record} look={look} away={away} moment={moment} />
             <p className="stage-organizer">
               <Avatar name={organizer.short} size="small" />
@@ -268,12 +264,11 @@ function StageView({ id }: { id: string | undefined }) {
               {close && <span className="mono">· {close}</span>}
             </p>
           </div>
-          {plebColumn(PLEBS[2])}
           <div className="stage-column stage-for">
-            <p className="stage-who">
+            <h2 className="stage-who">
               <strong>for {maintainer.name}</strong>
               <span className="mono">{draft ? fixing(draft.title).toLowerCase() : 'the maintainer'}</span>
-            </p>
+            </h2>
             <MiniPhone label={`${maintainer.name}’s phone`} playing={maintainer.short} rail={her.rail} view={her.view} />
             <p className="pocket" data-payout data-paid={paidHome || undefined}>
               <LoneSlab tone={paidHome ? 'lit' : wallet.spend?.status === 'confirmed' ? 'ink' : 'open'} className="pocket-slab" />
