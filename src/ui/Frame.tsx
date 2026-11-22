@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
 import { GoalRail } from './GoalRail';
 import type { Rail } from './journey';
@@ -10,6 +10,16 @@ export function useTitle(title: string) {
   useEffect(() => {
     document.title = `${title} · Plebstack`;
   }, [title]);
+}
+
+// A new step moves focus to its headline, so a screen reader hears the change whether a tap or the mint caused it.
+export function useHeadingFocus(main: RefObject<HTMLElement | null>, step: unknown) {
+  useEffect(() => {
+    const heading = main.current?.querySelector<HTMLElement>('h1');
+    if (!heading || document.querySelector('[role="dialog"]')) return;
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }, [step]);
 }
 
 export function Brand() {
@@ -35,6 +45,8 @@ export function Frame({ record, rail, title, children, actions, moment, facts }:
   record?: CampaignRecord; rail: Rail; title: string; children: ReactNode; actions?: ReactNode; moment?: boolean; facts?: Fact[];
 }) {
   useTitle(title);
+  const main = useRef<HTMLElement>(null);
+  useHeadingFocus(main, title);
   return (
     <div className="screen" data-moment={moment || undefined}>
       <header className="top">
@@ -48,7 +60,7 @@ export function Frame({ record, rail, title, children, actions, moment, facts }:
           <PlayingAs record={record} />
         </div>
       </header>
-      <main className="body" id="main">{children}</main>
+      <main ref={main} className="body" id="main">{children}</main>
       {actions && <footer className="actions">{actions}</footer>}
     </div>
   );

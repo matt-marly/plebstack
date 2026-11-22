@@ -98,9 +98,9 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
         <p>Waiting for {name} to confirm on her phone.</p>
       </div>
       <p className="demo-line">
-        One browser plays everyone for this demo, so {name}’s phone is her own part of this browser.{' '}
-        <button type="button" className="text-link" onClick={openAsMaintainer}>Open the link as {name}</button>
+        One browser plays everyone for this demo, so {name}’s phone is her own part of this browser.
       </p>
+      <button type="button" className="text-button" onClick={openAsMaintainer}>Open the link as {name}</button>
       <Sheet open={qr} onClose={() => setQr(false)} title="Claim link">
         <div className="invoice">
           <Qr text={link} label={`QR code of ${name}’s claim link`} />

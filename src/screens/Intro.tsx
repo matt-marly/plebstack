@@ -1,9 +1,10 @@
+import { useRef } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { findCampaign, statusOf } from '../demo/world';
 import { paths } from '../routes';
 import { ORGANIZER, homePath, usePlayAs, useSession } from '../session';
 import { PLEBS } from '../ui/journey';
-import { Brand, useTitle } from '../ui/Frame';
+import { Brand, useHeadingFocus, useTitle } from '../ui/Frame';
 import { Slab } from '../ui/Slab';
 
 function ChipIn() {
@@ -82,6 +83,8 @@ export function Intro() {
   const page = Number(useParams().page);
   const current = pages[page - 1];
   useTitle(current?.title ?? 'How it works');
+  const main = useRef<HTMLElement>(null);
+  useHeadingFocus(main, page);
   if (!current) return <Navigate to={paths.splash()} replace />;
 
   const last = page === pages.length;
@@ -104,7 +107,7 @@ export function Intro() {
         <Brand />
         <span className="mono muted small" aria-label={`Page ${page} of ${pages.length}`}>{page} / {pages.length}</span>
       </header>
-      <main className="body intro-body" key={page}>
+      <main ref={main} className="body intro-body" key={page}>
         <Art />
         <div className="lead rise">
           <h1>{current.title}</h1>

@@ -5,13 +5,12 @@
   --color-card: #141416;
   --color-ink: #f4f4f1;
   --color-muted: #a1a1aa;
-  /* 5.6:1 on canvas: small labels still read. */
+  /* Text pairs are measured in tests/contrast.test.ts: 4.5:1 for text, 3:1 for lines that carry meaning. */
   --color-faint: #8a8a93;
-  /* 3.67:1 on canvas, 3.37:1 on surface. */
   --color-border: #6a6a72;
   --color-hairline: rgba(255, 255, 255, .07);
   --color-wash: rgba(255, 255, 255, .05);
-  --color-dash: #55555c;
+  --color-dash: #66666e;
   --color-dash-dim: #3e3e44;
   --color-rule: #2a2a2e;
   --color-on-ink: #0b0b0c;
@@ -26,7 +25,7 @@
   --color-state-paying-out: #f5a524;
   --color-state-paid: var(--color-signal);
   --color-state-reclaiming: #c4a1ff;
-  --color-state-reclaimed: #85858e;
+  --color-state-reclaimed: #8e8e97;
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --ease-settle: cubic-bezier(.3, .8, .2, 1);
