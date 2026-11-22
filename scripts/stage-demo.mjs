@@ -5,7 +5,8 @@
 //   node scripts/stage-demo.mjs                 (starts its own dev server)
 //   node scripts/stage-demo.mjs http://localhost:5173
 //   node scripts/stage-demo.mjs --video         (records the stage window into .evidence/stage-<time>/stage.webm)
-//   node scripts/stage-demo.mjs --shots         (saves stills of the stage into docs/screens-live/stage-*.png)
+//   node scripts/stage-demo.mjs --video --portrait  (records the stage as a phone shows it, 390x844)
+//   node scripts/stage-demo.mjs --shots         (saves stills of both layouts into docs/screens-live/stage-*.png)
 //   node scripts/stage-demo.mjs --pace=4000     (milliseconds between steps; 2500 by default)
 //   node scripts/stage-demo.mjs --calm          (the stage window asks for reduced motion)
 
@@ -14,15 +15,19 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { axeViolations, reflowIssues } from './a11y.mjs';
 import { optimisePng } from './png.mjs';
 
 const MINT = 'https://testnut.cashudevkit.org';
-const STAGE = { width: 1920, height: 1080 };
+const WIDE = { width: 1920, height: 1080 };
+const TALL = { width: 390, height: 844 };
 const root = fileURLToPath(new URL('..', import.meta.url));
 const flag = name => process.argv.includes(`--${name}`);
 const video = flag('video');
 const shots = flag('shots');
 const calm = flag('calm');
+const portrait = flag('portrait');
+const STAGE = portrait ? TALL : WIDE;
 const pace = Number(process.argv.find(arg => arg.startsWith('--pace='))?.split('=')[1] ?? 2500);
 const shotsDir = join(root, 'docs', 'screens-live');
 const started = new Date().toISOString();
@@ -52,11 +57,18 @@ const browser = await chromium.launch().catch(() => chromium.launch({ channel: '
 const errors = [];
 // One context, so both windows share one browser's storage, as one browser plays everyone.
 const context = await browser.newContext({
-  viewport: STAGE, reducedMotion: calm ? 'reduce' : 'no-preference',
+  viewport: STAGE, deviceScaleFactor: portrait ? 2 : 1, reducedMotion: calm ? 'reduce' : 'no-preference',
   ...(video ? { recordVideo: { dir, size: STAGE } } : {}),
 });
 const stage = await context.newPage();
 stage.on('pageerror', error => errors.push(`stage: ${error.message}`));
+// Beside the recorded stage, the other layout follows the same board, so one run checks and shoots both.
+// A recording keeps to one window.
+const other = video ? undefined : await context.newPage();
+other?.on('pageerror', error => errors.push(`other stage: ${error.message}`));
+await other?.setViewportSize(portrait ? WIDE : TALL);
+const wide = portrait ? other : stage;
+const tall = portrait ? stage : other;
 const page = await context.newPage();
 page.on('pageerror', error => errors.push(`phone: ${error.message}`));
 await page.setViewportSize({ width: 390, height: 844 });
@@ -65,11 +77,41 @@ const scratch = await browser.newPage();
 const beat = (ms = pace) => page.waitForTimeout(ms);
 const heading = name => page.getByRole('heading', { level: 1, name });
 const dialog = () => page.getByRole('dialog');
-const caption = () => stage.locator('.stage-line').innerText();
-const goal = () => stage.locator('.pile-goal').innerText();
-const settled = () => stage.waitForFunction(() => !document.querySelector('.ghost'), undefined, { timeout: 30_000 });
-const told = text => stage.waitForFunction(want => [...document.querySelectorAll('.stage-history li')]
-  .some(item => item.textContent.includes(want)), text, { timeout: 90_000 });
+const caption = (on = stage) => on.locator('.stage-line').innerText();
+const goal = (on = stage) => on.locator('.pile-goal').innerText();
+const settledOn = on => on.waitForFunction(() => !document.querySelector('.ghost'), undefined, { timeout: 30_000 });
+const settled = async () => {
+  await settledOn(stage);
+  if (other) await settledOn(other);
+};
+const told = async text => {
+  for (const page of [stage, other].filter(Boolean)) {
+    await page.waitForFunction(want => [...document.querySelectorAll('.stage-history li')]
+      .some(item => item.textContent.includes(want)), text, { timeout: 90_000 });
+  }
+};
+
+// Every slab in flight stays on screen: it starts and lands inside the window, in either layout.
+const flown = [];
+async function watchFlights(page) {
+  await page.exposeFunction(`flew${page === wide ? 'Wide' : 'Tall'}`, box => flown.push({ layout: page === wide ? 'wide' : 'tall', ...box }));
+  await page.addInitScript(name => {
+    const report = window[name];
+    new MutationObserver(() => {
+      for (const ghost of document.querySelectorAll('.ghost:not([data-seen])')) {
+        ghost.setAttribute('data-seen', '');
+        const send = () => {
+          const box = ghost.getBoundingClientRect();
+          report({ top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: innerWidth, height: innerHeight });
+        };
+        // Where it lands, then where it starts once its animation has begun.
+        send();
+        requestAnimationFrame(() => requestAnimationFrame(send));
+      }
+    }).observe(document, { subtree: true, childList: true });
+  }, `flew${page === wide ? 'Wide' : 'Tall'}`);
+}
+for (const page of [stage, other].filter(Boolean)) await watchFlights(page);
 
 async function playAs(name) {
   await page.getByRole('button', { name: /^Playing as/ }).click();
@@ -111,15 +153,44 @@ async function shrink(png, width) {
 }
 
 const stills = [];
-async function still(name) {
-  const png = await stage.screenshot();
+// The wide stage is saved 1600 wide; the tall one as a phone shows it, 390x844 at 2x.
+async function stillOf(page, name) {
+  const png = await page.screenshot();
   writeFileSync(join(dir, `${name}.png`), png);
   if (shots) {
-    writeFileSync(join(shotsDir, `${name}.png`), optimisePng(await shrink(png, 1600)));
+    writeFileSync(join(shotsDir, `${name}.png`), optimisePng(page === wide ? await shrink(png, 1600) : png));
     stills.push(`${name}.png`);
   }
   console.log(`still ${name}`);
   return png;
+}
+
+// The recorded stage's still, and the other layout's beside it.
+async function still(name) {
+  const tallName = name.replace(/^stage-/, 'stage-portrait-');
+  const png = await stillOf(stage, stage === wide ? name : tallName);
+  if (other) {
+    const otherPng = await stillOf(other, other === wide ? name : tallName);
+    if (await limePixels(otherPng) > 0 !== await limePixels(png) > 0) check(`${name}: both layouts agree on lime`, false);
+  }
+  return png;
+}
+
+// axe against WCAG 2.2 AA, no sideways scroll and no clipped text, on each layout at this moment.
+async function stageA11y(where) {
+  for (const page of [stage, other].filter(Boolean)) {
+    const layout = page === wide ? 'wide' : 'tall';
+    const found = [...await axeViolations(page), ...await reflowIssues(page)];
+    check(`${where} (${layout}): axe WCAG 2.2 AA clean, no sideways scroll, no clipped text`, found.length === 0, found.join(' | '));
+  }
+}
+
+// The tall stage reads top to bottom: header, the stack, the three plebs, Ngozi, then the captions.
+async function tallOrder() {
+  if (!tall) return;
+  const tops = await tall.evaluate(() => ['.stage-top', '.pile', '.tiles', '.tile-for', '.stage-captions']
+    .map(selector => document.querySelector(selector)?.getBoundingClientRect().top ?? NaN));
+  check('T1: the tall stage reads header, stack, plebs, Ngozi, captions', tops.every((top, i) => i === 0 || top > tops[i - 1]), tops.join(','));
 }
 
 // Holds one kind of request to the mint until released, so the stage can be caught in that state.
@@ -170,7 +241,14 @@ const summary = { started, base, pace, calm };
 try {
   await stage.goto(`${base}/stage`);
   await stage.locator('.stage-line').waitFor();
+  if (other) {
+    await other.goto(`${base}/stage`);
+    await other.locator('.stage-line').waitFor();
+  }
   check('S0: an empty stage says how to start', (await caption()).startsWith('No stack yet.'));
+  check('S0b: the layout follows the window', await stage.locator('.stage[data-tall]').count() === (portrait ? 1 : 0)
+    && (!other || await other.locator('.stage[data-tall]').count() === (portrait ? 0 : 1)));
+  await stageA11y('S0 empty stage');
   await stage.waitForTimeout(1500);
 
   // Ada names the work; Ngozi confirms her key on her own side; Ada sets the terms.
@@ -213,13 +291,22 @@ try {
   await chipIn('Maren');
   await chipIn('Ishaan', {
     holdAt: async () => {
-      await stage.locator('.mini svg.qr').waitFor();
+      if (wide) await wide.locator('.mini svg.qr').waitFor();
+      if (tall) await tall.locator('.tile', { hasText: 'paying' }).waitFor();
       await settled();
       await stage.waitForTimeout(1200);
       check('S4: Ishaan’s phone shows the real invoice; still 2 of 3 until the mint says paid',
-        (await goal()).startsWith('goal · 42 of 63 sats') && (await stage.locator('.mini svg.qr').count()) === 1);
+        (await goal()).startsWith('goal · 42 of 63 sats') && (!wide || (await wide.locator('.mini svg.qr').count()) === 1));
+      if (tall) {
+        const tiles = await tall.locator('.tile:not(.tile-for)').allInnerTexts();
+        check('T2: the tiles say who is where, from the board', tiles.length === 3
+          && /Tobi\s+stacked\s+at the mint, locked to Tobi/.test(tiles[0]) && /Ishaan\s+paying\s+on the way to the mint/.test(tiles[2]),
+          tiles.map(text => text.replace(/\s+/g, ' ')).join(' | '));
+      }
+      await tallOrder();
       const png = await still('stage-collecting');
       check('S5: no lime while collecting', await limePixels(png) === 0);
+      await stageA11y('S5 collecting');
     },
   });
   check('S6: all three in, at the line', (await goal()).startsWith('at the line · 63 of 63 sats'));
@@ -228,6 +315,7 @@ try {
   await stage.waitForTimeout(1600);
   check('S7: the signed count follows the signatures', (await goal()).includes('signed 1 of 3'));
   check('S8: no lime at the line', await limePixels(await still('stage-at-the-line')) === 0);
+  await stageA11y('S8 at the line');
   await sign('Maren');
   await beat();
 
@@ -247,16 +335,20 @@ try {
     (await caption()).startsWith('The mint pays Ngozi in one batch.'));
   if (!calm && shots) {
     // A screenshot takes longer than the fill, so the still holds every animation 340ms into the moment.
-    await stage.evaluate(() => {
-      for (const animation of document.getAnimations()) {
-        animation.pause();
-        animation.currentTime = 340;
-      }
-    });
+    if (other) await other.locator('.pile[data-moment]').waitFor({ timeout: 10_000 });
+    for (const page of [stage, other].filter(Boolean)) {
+      await page.evaluate(() => {
+        for (const animation of document.getAnimations()) {
+          animation.pause();
+          animation.currentTime = 340;
+        }
+      });
+    }
     await still('stage-paid-moment');
-    await stage.evaluate(() => { for (const animation of document.getAnimations()) animation.play(); });
+    for (const page of [stage, other].filter(Boolean)) await page.evaluate(() => { for (const animation of document.getAnimations()) animation.play(); });
   }
   await stage.locator('[data-payout][data-paid]').waitFor({ timeout: 30_000 });
+  if (other) await other.locator('[data-payout][data-paid]').waitFor({ timeout: 30_000 });
   await settled();
   await stage.waitForTimeout(1200);
   const events = (await page.evaluate(campaignId => JSON.parse(localStorage.getItem(`plebstack:public/campaign:${campaignId}`)).value, id)).events;
@@ -266,6 +358,8 @@ try {
   check('S13: lime on Paid', await limePixels(paid) > 0);
   check('S14: Ngozi’s card holds the payout, locked to her key',
     (await stage.locator('[data-payout]').innerText()).includes('63 sats · locked to her key'));
+  await tallOrder();
+  await stageA11y('S14 paid');
   await beat();
 
   await playAs('Ngozi');
@@ -280,7 +374,26 @@ try {
     (await caption()) === 'Ngozi spends it. 1 sat swap fee, 62 sats received.'
     && (await stage.locator('[data-payout]').innerText()).includes('62 sats received · 1 sat swap fee'));
   await still('stage-spent');
+  await stageA11y('S15 spent');
   await stage.waitForTimeout(pace);
+
+  // Captions are read whole: nothing in the log is cut, at 1920x1080 and at 1280x720.
+  if (wide) {
+    for (const size of [WIDE, { width: 1280, height: 720 }]) {
+      await wide.setViewportSize(size);
+      await wide.waitForTimeout(300);
+      const cut = await wide.evaluate(() => [...document.querySelectorAll('.stage-captions *')]
+        .filter(element => getComputedStyle(element).textOverflow === 'ellipsis' || element.scrollWidth > element.clientWidth + 1)
+        .map(element => element.textContent.trim().slice(0, 40)));
+      check(`S19: every caption whole at ${size.width}x${size.height}`, cut.length === 0, cut.join(' | '));
+    }
+    await wide.setViewportSize(WIDE);
+  }
+  if (!calm) {
+    const off = flown.filter(box => box.top < -2 || box.left < -2 || box.bottom > box.height + 2 || box.right > box.width + 2);
+    check('S20: every travelling slab starts and lands on screen, in both layouts',
+      flown.length > 0 && off.length === 0, `${flown.length} flights${off.length ? `; off: ${JSON.stringify(off[0])}` : ''}`);
+  }
 
   const tree = await stage.locator('body').ariaSnapshot();
   check('S18: the stage has its h1, a name for every phone and image, and a live caption',
