@@ -32,7 +32,8 @@ export interface Slot {
   backerId?: string;
   quote?: LockedQuote;
   deposit?: Deposit;
-  // Live records only: when the mint reported the deposit paid, and when its owner signed.
+  // Live records only: when its owner asked for the invoice, when the mint reported it paid, and when they signed.
+  joinedAt?: string;
   inAt?: string;
   signedAt?: string;
 }

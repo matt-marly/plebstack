@@ -40,8 +40,13 @@ One browser plays everyone. “Playing as” in each screen switches between Ada
 | `/m/:campaignId/follow` · `receive` · `spend` | The maintainer's steps |
 | `/s/:campaignId` | Sends a pleb to their current step |
 | `/s/:campaignId/join` · `pay` · `stacked` · `waiting` · `sign` · `signed` · `sending` · `paid` · `race` · `unmet` · `back` | The pleb journey |
+| `/s/:campaignId/stage` · `/stage` | The stage, for a big screen; `/stage` follows the newest stack |
 
 Routes live in `src/routes.ts`; which screen a pleb may see is decided by `src/ui/journey.ts`, and each person only ever sees their own screens of a stack. Phone stills from the live run are in `docs/screens-live/`.
+
+## Stage
+
+The stage is the watchable view for a meetup screen or a demo video, at 16:9: the shared stack big on the goal line, each pleb's phone showing their own current screen, Ngozi's phone and her payout, and a caption bar that tells each real change in a plain sentence with the real term in mono. It never needs a click. Open it in one window (**Open the stage in a new window** under Playing as, or from O5), play the people in another, and it follows the board through the browser's storage event. A slab travels into the stack when the mint confirms that deposit, not on a tap; the pile lights up in lime only after the mint confirms the payout and the caption has said so. With Reduce Motion, nothing travels and the captions carry the story.
 
 ## Where things are
 
@@ -60,6 +65,8 @@ npm run build
 PLEB_LIVE=1 npm run test:live   # against testnut.cashudevkit.org; writes .evidence/live-{deposit,payout,reclaim}-<time>/
 node scripts/live-e2e.mjs       # Ada, Ngozi and three plebs through every journey in headless Chromium; writes .evidence/live-e2e-<time>/
 node scripts/live-e2e.mjs --shots   # also retakes the stills in docs/screens-live/
+node scripts/stage-demo.mjs --video # the stage at 1920x1080 beside a second window playing everyone; records .evidence/stage-<time>/stage.webm
+node scripts/stage-demo.mjs --shots # retakes docs/screens-live/stage-*.png
 ```
 
 ## Not in this pass

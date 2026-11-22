@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { maintainerOf, people, sats, statusOf, tally, type CampaignRecord, type Slot } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { failureCopy, liveActions } from '../live/actions';
+import { paths } from '../routes';
 import { useSession } from '../session';
 import { formatTime, formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
@@ -90,6 +91,7 @@ export function Watch({ record }: { record: CampaignRecord }) {
         ))}
       </dl>
       {failure && <Note><p>{failure}</p></Note>}
+      <a className="text-button" href={paths.stage(campaign.id)} target="_blank" rel="noopener">Open the stage for a big screen</a>
       <Sheet open={stopping} onClose={() => setStopping(false)} title="Stop collecting?">
         <p className="sheet-text">
           Nobody new can join, and there’s no payout. Everyone who’s in takes their own {each} back. Signatures already released still count.

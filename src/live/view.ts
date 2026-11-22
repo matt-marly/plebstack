@@ -39,7 +39,7 @@ export function campaignRecord(entry: BoardCampaign, now = new Date()): Campaign
       case 'joined': {
         const open = slots.find(slot => !slot.backerId);
         if (!open || slotOf(event.personId)) break;
-        Object.assign(open, { backerId: event.personId, quote: event.quote });
+        Object.assign(open, { backerId: event.personId, quote: event.quote, joinedAt: event.at });
         add(`${short(event.personId)} made a deposit invoice for ${each}.`);
         break;
       }

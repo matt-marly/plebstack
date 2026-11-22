@@ -48,8 +48,8 @@ test('night only: one token block, no state or test-mint colour equals lime or p
   assert.doesNotMatch(source('index.html'), /data-theme|prefers-color-scheme: light|fonts\.googleapis|Inter/);
 });
 
-test('in the stylesheet, lime only ever hangs off the paid rail', () => {
-  const css = source('src/styles/app.css');
+test('in the stylesheets, lime only ever hangs off the paid rail', () => {
+  const css = source('src/styles/app.css') + source('src/styles/stage.css');
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, , body]) => body.includes('--color-signal'));
   assert.ok(rules.length > 0);
   for (const [, selector] of rules) assert.match(selector, /data-paid/, selector.trim());

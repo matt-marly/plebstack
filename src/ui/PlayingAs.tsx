@@ -59,6 +59,8 @@ export function PlayingAs({ record }: { record?: CampaignRecord }) {
           ))}
         </ul>
         <button type="button" className="button" data-variant="quiet" onClick={startOver}>Start a new stack as Ada</button>
+        {/* The stage follows this window through storage, so the people can be played here while it shows. */}
+        <a className="text-button" href={paths.stage(id)} target="_blank" rel="noopener">Open the stage in a new window</a>
       </Sheet>
     </>
   );

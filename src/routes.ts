@@ -12,6 +12,8 @@ export const routes = {
   maintainStep: '/m/:campaignId/:step',
   stack: '/s/:campaignId',
   screen: '/s/:campaignId/:screen',
+  stage: '/s/:campaignId/stage',
+  newestStage: '/stage',
 } as const;
 
 export type OrganizeStep = 'key' | 'terms' | 'share' | 'watch';
@@ -28,4 +30,5 @@ export const paths = {
     step ? generatePath(routes.maintainStep, { campaignId, step }) : generatePath(routes.maintain, { campaignId }),
   stack: (campaignId: string) => generatePath(routes.stack, { campaignId }),
   screen: (campaignId: string, screen: Screen) => generatePath(routes.screen, { campaignId, screen }),
+  stage: (campaignId?: string) => (campaignId ? generatePath(routes.stage, { campaignId }) : routes.newestStage),
 };

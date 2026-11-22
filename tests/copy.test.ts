@@ -74,6 +74,7 @@ test('no user-visible string in src or index.html uses the never-say words', () 
   for (const screen of [
     'Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back', 'GroupCard', 'Checked', 'TakeBack',
     'Backing', 'PayoutKey', 'Terms', 'Share', 'Watch', 'Claim', 'Follow', 'Receive', 'Spent', 'PlayingAs', 'Who',
+    'Stage', 'Mini', 'Pile',
   ]) {
     assert.ok(names.includes(`${screen}.tsx`), screen);
   }
