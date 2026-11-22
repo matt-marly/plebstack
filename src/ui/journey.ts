@@ -5,7 +5,8 @@ import {
 
 export const PLEBS = ['tobi', 'maren', 'ishaan'] as const;
 
-export type Screen = 'join' | 'pay' | 'stacked' | 'waiting' | 'status';
+export type Screen =
+  | 'join' | 'pay' | 'stacked' | 'waiting' | 'sign' | 'signed' | 'sending' | 'paid' | 'race' | 'unmet' | 'back';
 
 // Join · Stack · Sign · Paid. The rail is lime only once the mint confirmed the payout.
 export interface Rail {
@@ -13,7 +14,7 @@ export interface Rail {
   paid: boolean;
 }
 
-export type Stop = 'wallet' | 'to-mint' | 'at-mint' | 'to-maintainer' | 'with-maintainer' | 'to-you' | 'back';
+export type Stop = 'wallet' | 'to-mint' | 'at-mint' | 'signed' | 'to-maintainer' | 'with-maintainer' | 'to-you' | 'back';
 
 export interface Journey {
   step: ViewerStep;
@@ -27,19 +28,41 @@ const railAt: Record<ViewerStep['kind'], Rail['at']> = {
   'payout-pending': 3, paid: 3, reclaiming: 1, reclaimed: 1,
 };
 
+// The viewer asked for their own back, but the batch was issued first.
+export function lostRace(record: CampaignRecord, viewerId: string): boolean {
+  return record.operations.some(op => op.kind === 'reclaim' && op.savedBy === viewerId && op.status === 'rejected')
+    && record.operations.some(op => op.kind === 'payout' && op.status === 'confirmed');
+}
+
+function screenOf(step: ViewerStep, record: CampaignRecord, viewerId: string): Screen {
+  if (!slotOf(record, viewerId)) return 'join';
+  switch (step.kind) {
+    case 'fund': return 'pay';
+    // Everyone is in but the batch can't go: the mint turned it down.
+    case 'wait': return step.missing === 0 ? 'unmet' : 'waiting';
+    case 'approve': case 'stopped': return 'sign';
+    case 'approved': return 'signed';
+    case 'payout-pending': return 'sending';
+    case 'paid': return lostRace(record, viewerId) ? 'race' : 'paid';
+    case 'take-back': return 'unmet';
+    case 'reclaiming': case 'reclaimed': return 'back';
+    default: return 'join';
+  }
+}
+
+const stopAt: Partial<Record<ViewerStep['kind'], Stop>> = {
+  fund: 'to-mint', approved: 'signed', 'payout-pending': 'to-maintainer', paid: 'with-maintainer', reclaiming: 'to-you',
+  reclaimed: 'back',
+};
+
 export function journeyOf(world: World, record: CampaignRecord): Journey {
   const step = viewerStep(world, record);
   const own = slotOf(record, world.viewerId);
-  const screen: Screen = step.kind === 'fund' ? 'pay'
-    : step.kind === 'wait' ? 'waiting'
-      : ['join', 'watch', 'organize'].includes(step.kind) || !own ? 'join' : 'status';
-  const stop: Stop = !own ? 'wallet'
-    : step.kind === 'fund' ? 'to-mint'
-      : step.kind === 'payout-pending' ? 'to-maintainer'
-        : step.kind === 'paid' ? 'with-maintainer'
-          : step.kind === 'reclaiming' ? 'to-you'
-            : step.kind === 'reclaimed' ? 'back' : 'at-mint';
-  return { step, screen, rail: { at: railAt[step.kind], paid: statusOf(record) === 'paid' }, stop };
+  return {
+    step, screen: screenOf(step, record, world.viewerId),
+    rail: { at: railAt[step.kind], paid: statusOf(record) === 'paid' },
+    stop: !own ? 'wallet' : stopAt[step.kind] ?? 'at-mint',
+  };
 }
 
 export function stopLabel(stop: Stop, maintainer: string): string {
@@ -47,6 +70,7 @@ export function stopLabel(stop: Stop, maintainer: string): string {
     case 'wallet': return 'in your wallet';
     case 'to-mint': return 'on the way to the mint';
     case 'at-mint': return 'at the mint, locked to you';
+    case 'signed': return `at the mint, signed for ${maintainer}`;
     case 'to-maintainer': return `on the way to ${maintainer}`;
     case 'with-maintainer': return `with ${maintainer}, locked to her key`;
     case 'to-you': return 'on the way back to you';
@@ -93,7 +117,7 @@ export function campaignGoal(record: CampaignRecord, viewerId?: string): Goal {
     const own = viewerId !== undefined && slot.backerId === viewerId;
     return {
       kind, key: slot.quote?.ownerPubkey, own: own && kind !== 'open',
-      ...(kind === 'filled' && slot.backerId ? { name: own ? 'You' : people[slot.backerId].short } : {}),
+      ...(kind !== 'open' && slot.backerId ? { name: own ? 'You' : people[slot.backerId].short } : {}),
     };
   });
   if (state === 'paid') {
@@ -103,7 +127,8 @@ export function campaignGoal(record: CampaignRecord, viewerId?: string): Goal {
   const text = `${held} of 3 deposits in, ${heldSat} of ${sats(targetSat)}.`;
   if (complete) {
     const sending = state === 'paying out' || pendingOperation(record, 'payout') !== undefined;
-    return { slabs, phase: sending ? 'sending' : 'at-line', label: `at the line · ${heldSat} of ${sats(targetSat)}`, text };
+    return { slabs, phase: sending ? 'sending' : 'at-line',
+      label: sending ? `at the line · signed ${signedCount(record)} of 3` : `at the line · ${heldSat} of ${sats(targetSat)}`, text };
   }
   return { slabs, phase: state === 'unmet' ? 'unmet' : 'collecting', label: `goal · ${heldSat} of ${sats(targetSat)}`,
     text: state === 'unmet' ? `${text} No payout this time.` : text };
@@ -112,4 +137,14 @@ export function campaignGoal(record: CampaignRecord, viewerId?: string): Goal {
 // Names of the plebs who are in, the viewer as "you", in join order.
 export function whoIsIn(record: CampaignRecord, viewerId: string): string[] {
   return record.slots.filter(isHeld).map(slot => (slot.backerId === viewerId ? 'you' : people[slot.backerId!].short));
+}
+
+export function signedCount(record: CampaignRecord): number {
+  return record.slots.filter(slot => slot.deposit?.authorizationReleased).length;
+}
+
+// Every deposit carries a released signature and no batch is on its way: the last signer sends it.
+export function readyToSend(record: CampaignRecord): boolean {
+  return signedCount(record) === record.slots.length && !pendingOperation(record, 'payout')
+    && !record.operations.some(op => op.kind === 'payout' && op.status === 'confirmed');
 }

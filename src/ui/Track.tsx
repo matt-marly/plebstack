@@ -4,7 +4,7 @@ import { stopLabel, type Stop } from './journey';
 
 // Where the chip sits along You (0) → Mint (1) → maintainer (2).
 const position: Record<Stop, number> = {
-  wallet: 0, 'to-mint': 0.5, 'at-mint': 1, 'to-maintainer': 1.5, 'with-maintainer': 2, 'to-you': 0.5, back: 0,
+  wallet: 0, 'to-mint': 0.5, 'at-mint': 1, signed: 1, 'to-maintainer': 1.5, 'with-maintainer': 2, 'to-you': 0.5, back: 0,
 };
 
 const moving = (stop: Stop) => position[stop] % 1 !== 0;
@@ -19,7 +19,7 @@ export function Track({ stop, from, maintainer, amount }: { stop: Stop; from?: S
   const label = stopLabel(stop, maintainer);
   const stops = [
     { name: 'You', icon: 'pleb', note: stop === 'back' ? 'your ecash' : 'your wallet' },
-    { name: 'Mint', icon: 'mint', note: stop === 'at-mint' ? 'locked to you' : 'testnut' },
+    { name: 'Mint', icon: 'mint', note: stop === 'at-mint' || stop === 'signed' ? 'locked to you' : 'testnut' },
     { name: maintainer, icon: 'maintainer', note: stop === 'with-maintainer' ? 'locked to her key' : 'the payout' },
   ];
   return (

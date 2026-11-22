@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { people, slotOf, slotStatus, type CampaignRecord } from '../demo/world';
+import { paths } from '../routes';
 import { useSession } from '../session';
 import { PLEBS } from './journey';
 import { Sheet } from './Sheet';
@@ -15,6 +17,13 @@ function standing(record: CampaignRecord | undefined, personId: string): string 
 export function PlayingAs({ record, onFresh }: { record?: CampaignRecord; onFresh?: (id: string) => void }) {
   const { viewer, viewAs, freshStack } = useSession();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  // Each pleb lands on their own step, not on the screen the last pleb had open.
+  function play(id: string) {
+    viewAs(id);
+    setOpen(false);
+    if (record) navigate(paths.stack(record.campaign.id), { replace: true });
+  }
   return (
     <>
       <button type="button" className="chip-button" onClick={() => setOpen(true)}>
@@ -27,7 +36,7 @@ export function PlayingAs({ record, onFresh }: { record?: CampaignRecord; onFres
           {PLEBS.map(id => (
             <li key={id}>
               <button type="button" className="person" aria-pressed={viewer.id === id}
-                onClick={() => { viewAs(id); setOpen(false); }}>
+                onClick={() => play(id)}>
                 <span className="avatar" aria-hidden="true">{people[id].short[0]}</span>
                 <span className="person-name">{people[id].name}</span>
                 <span className="person-note">{standing(record, id)}</span>

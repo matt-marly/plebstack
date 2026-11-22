@@ -70,6 +70,10 @@ test('state copy, notices, log lines and row sentences avoid the never-say words
 test('no user-visible string in src or index.html uses the never-say words', () => {
   const files = sourceFiles(new URL('../src/', import.meta.url));
   assert.ok(files.length > 20);
+  const names = files.map(file => file.pathname.split('/').pop());
+  for (const screen of ['Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back', 'GroupCard', 'Checked', 'TakeBack']) {
+    assert.ok(names.includes(`${screen}.tsx`), screen);
+  }
   for (const file of files) {
     for (const text of visibleText(readFileSync(file, 'utf8'))) assert.doesNotMatch(text, banned, `${file.pathname}: ${text}`);
   }

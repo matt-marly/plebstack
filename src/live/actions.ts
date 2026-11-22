@@ -1,3 +1,4 @@
+import { Amount, getEncodedToken } from '@cashu/cashu-ts';
 import { findCampaign, isPending, people, sats, slotOf, slugify, statusOf, type CampaignDraft } from '../demo/world';
 import { TEST_MINT, type BatchPlan, type Campaign, type LockedQuote, type Settlement } from '../domain/models';
 import { PackageError } from '../protocol/batch';
@@ -259,6 +260,19 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
 
     async checkReclaim(personId: string, campaignId: string, operationId: string): Promise<string> {
       return settleReclaim(campaignId, await recovered(campaignId, operationId, () => actors.person(personId).recover(operationId)));
+    },
+
+    // The pleb's own ecash from a confirmed take-back, read from their own saved request, to paste into a wallet.
+    async ecash(personId: string, campaignId: string): Promise<string | undefined> {
+      const op = record(campaignId, personId).operations
+        .find(saved => saved.kind === 'reclaim' && saved.savedBy === personId && saved.status === 'confirmed');
+      if (!op) return undefined;
+      const settlement = await actors.person(personId).recover(op.id);
+      if (settlement.kind !== 'confirmed' || settlement.proofs.length === 0) return undefined;
+      return getEncodedToken({
+        mint: entry(campaignId).campaign.mint, unit: 'sat',
+        proofs: settlement.proofs.map(proof => ({ ...proof, amount: Amount.from(proof.amount) })),
+      });
     },
 
     stopCollecting(personId: string, campaignId: string): string {

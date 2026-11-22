@@ -3,9 +3,9 @@ import type { Rail } from './journey';
 const steps = ['Join', 'Stack', 'Sign', 'Paid'];
 
 // The goal line as a step bar: behind you solid, ahead dashed, lime only once paid.
-export function GoalRail({ at, paid }: Rail) {
+export function GoalRail({ at, paid, lighting }: Rail & { lighting?: boolean }) {
   return (
-    <nav className="rail" aria-label="Steps" data-paid={paid || undefined}>
+    <nav className="rail" aria-label="Steps" data-paid={paid || undefined} data-lighting={lighting || undefined}>
       <div className="rail-line" aria-hidden="true">
         <div className="rail-done" style={{ width: `${paid ? 100 : (at / 3) * 100}%` }} />
       </div>

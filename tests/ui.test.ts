@@ -4,12 +4,15 @@ import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  MAIN_CAMPAIGN, RACE_CAMPAIGN, UNMET_CAMPAIGN, checkMint, confirmDeposit, findCampaign, initialWorld, requestQuote, setViewer,
-  type World,
+  MAIN_CAMPAIGN, RACE_CAMPAIGN, UNMET_CAMPAIGN, checkMint, confirmDeposit, findCampaign, initialWorld, releaseApproval, requestQuote,
+  requestReclaim, setViewer, type World,
 } from '../src/demo/world';
 import { isSignal, signalStates, stateColour, type ToneState } from '../src/domain/states';
+import { whyUnmet } from '../src/screens/Unmet';
+import { checkResults } from '../src/ui/Checked';
 import { GoalRail } from '../src/ui/GoalRail';
-import { campaignGoal, journeyOf, slabOffset, stopLabel, type Stop } from '../src/ui/journey';
+import { GroupCard } from '../src/ui/GroupCard';
+import { campaignGoal, journeyOf, readyToSend, slabOffset, stopLabel, type Stop } from '../src/ui/journey';
 import { qrModules } from '../src/ui/Qr';
 import { reallyFacts } from '../src/ui/Really';
 import { Stack } from '../src/ui/Stack';
@@ -91,7 +94,7 @@ test('the viewer’s step picks the screen, the rail position and where their sa
   const asked = requestQuote(setViewer(world, 'ishaan'), MAIN_CAMPAIGN, at);
   assert.deepEqual([as('ishaan', asked).screen, as('ishaan', asked).stop], ['pay', 'to-mint']);
   const full = confirmDeposit(asked, MAIN_CAMPAIGN, 'backer-3', at);
-  assert.equal(as('ishaan', full).screen, 'status');
+  assert.equal(as('ishaan', full).screen, 'sign');
   assert.equal(as('ngozi', full).screen, 'join');
   assert.equal(journeyOf(setViewer(world, 'tobi'), record(world, UNMET_CAMPAIGN)).step.kind, 'take-back');
 });
@@ -124,7 +127,7 @@ test('binding copy: intro key line, honest test mint, no made-up close time, no 
   assert.match(intro, /Nobody else holds your key\./);
   assert.doesNotMatch(intro, /holds them|tone="lit"|color-signal/);
   assert.match(source('src/screens/Pay.tsx'), /Test mint: it marks its own invoices paid\. Fake sats\./);
-  for (const screen of ['Join', 'Pay', 'Stacked', 'Waiting', 'Status']) {
+  for (const screen of ['Join', 'Pay', 'Stacked', 'Waiting', 'Sign', 'Signed', 'Sending', 'Paid', 'Race', 'Unmet', 'Back']) {
     const text = source(`src/screens/${screen}.tsx`);
     assert.doesNotMatch(text, /closes|today|recovery file|24 Nov|26 Nov/i, screen);
   }
@@ -138,4 +141,57 @@ test('the invoice QR is a real code of the whole invoice', () => {
   for (const [row, col] of [[0, 0], [0, modules.length - 7], [modules.length - 7, 0]]) {
     assert.ok(modules[row][col] && modules[row + 6][col + 6] && !modules[row + 1][col + 1] && modules[row + 3][col + 3]);
   }
+});
+
+test('sign, send, paid, and both orders of the race each have their own screen', () => {
+  const world = initialWorld();
+  const as = (id: string, from: World, campaign = RACE_CAMPAIGN) => journeyOf(setViewer(from, id), record(from, campaign));
+  const sending = as('tobi', world);
+  assert.deepEqual([sending.screen, sending.stop, sending.rail], ['sending', 'to-maintainer', { at: 3, paid: false }]);
+  assert.equal(campaignGoal(record(world, RACE_CAMPAIGN)).label, 'at the line · signed 3 of 3');
+
+  const paid = checkMint(world, RACE_CAMPAIGN, at, 'creator');
+  assert.deepEqual([as('tobi', paid).screen, as('tobi', paid).stop, as('tobi', paid).rail], ['paid', 'with-maintainer', { at: 3, paid: true }]);
+
+  const racing = requestReclaim(setViewer(world, 'tobi'), RACE_CAMPAIGN, 'backer-1', at);
+  assert.deepEqual([as('tobi', racing).screen, as('tobi', racing).stop], ['back', 'to-you']);
+  const payoutFirst = checkMint(racing, RACE_CAMPAIGN, at, 'creator');
+  assert.equal(as('tobi', payoutFirst).screen, 'race');
+  assert.equal(as('maren', payoutFirst).screen, 'paid');
+
+  const reclaimFirst = checkMint(racing, RACE_CAMPAIGN, at, 'owner');
+  assert.deepEqual([as('tobi', reclaimFirst).screen, as('tobi', reclaimFirst).stop], ['back', 'back']);
+  assert.deepEqual([as('maren', reclaimFirst).screen, as('maren', reclaimFirst).stop], ['unmet', 'at-mint']);
+  assert.equal(whyUnmet(record(reclaimFirst, RACE_CAMPAIGN), 'maren'), 'Tobi took theirs back first, so the payout didn’t go.');
+  assert.equal(whyUnmet(record(world, UNMET_CAMPAIGN), 'tobi'), 'Ngozi stopped collecting.');
+  assert.equal(as('tobi', world, UNMET_CAMPAIGN).screen, 'unmet');
+});
+
+test('the group card shows who signed, your turn, and not yet; the last signature is ready to send', () => {
+  let world = setViewer(initialWorld(), 'ishaan');
+  world = confirmDeposit(requestQuote(world, MAIN_CAMPAIGN, at), MAIN_CAMPAIGN, 'backer-3', at);
+  world = releaseApproval(setViewer(world, 'tobi'), MAIN_CAMPAIGN, 'backer-1', at);
+  const card = html(createElement(GroupCard, { record: record(world), viewerId: 'maren' }));
+  assert.match(card, /1 of 3 signed/);
+  assert.match(card, /to Ngozi Eze · only she can spend it/);
+  assert.deepEqual([...card.matchAll(/data-tone="(\w+)"/g)].map(([, tone]) => tone), ['signed', 'turn', 'later']);
+  assert.equal(journeyOf(setViewer(world, 'tobi'), record(world)).screen, 'signed');
+  assert.equal(journeyOf(setViewer(world, 'tobi'), record(world)).stop, 'signed');
+  assert.equal(readyToSend(record(world)), false);
+  world = releaseApproval(setViewer(world, 'maren'), MAIN_CAMPAIGN, 'backer-2', at);
+  assert.equal(readyToSend(record(world)), false);
+});
+
+test('what your phone checked comes from the review itself', () => {
+  const main = record(initialWorld());
+  const lockedTo = main.campaign.beneficiaryPubkey;
+  const lines = checkResults(main, {
+    totalSat: 63, keysetId: '00abc', lockedTo, amounts: [32, 16, 8, 4, 2, 1], quoteIds: ['q1', 'q2', 'q3'],
+    quoteStates: ['PAID', 'PAID', 'PAID'],
+  }, 'q2-own-quote-id').map(line => `${line.text} ${line.detail}`);
+  assert.deepEqual(lines.map(line => line.split(' ')[0]), ['63', 'Every', 'No', 'The', 'Your', 'All']);
+  assert.match(lines[0], /32 \+ 16 \+ 8 \+ 4 \+ 2 \+ 1/);
+  assert.match(lines[1], /Ngozi’s key NUT-11 P2PK/);
+  assert.match(lines[3], /keyset 00abc/);
+  assert.match(lines[5], /PAID · PAID · PAID/);
 });

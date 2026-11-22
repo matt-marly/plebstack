@@ -103,7 +103,7 @@ test('every route and every journey screen has a path that matches it', () => {
   for (const path of Object.values(routes)) {
     assert.ok(matchPath(path, generatePath(path, { campaignId: 'campaign', page: '1', screen: 'pay' })), path);
   }
-  for (const screen of ['join', 'pay', 'stacked', 'waiting', 'status'] as const) {
+  for (const screen of ['join', 'pay', 'stacked', 'waiting', 'sign', 'signed', 'sending', 'paid', 'race', 'unmet', 'back'] as const) {
     assert.equal(matchPath(routes.screen, paths.screen('campaign', screen))?.params.screen, screen);
   }
 });

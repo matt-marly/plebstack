@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { stateColour, stateCopy } from '../domain/states';
-import type { MoneyState } from '../domain/models';
+import { stateColour, stateCopy, type ToneState } from '../domain/states';
 import { useSession } from '../session';
 
-export function StateChip({ state }: { state: MoneyState }) {
-  const copy = stateCopy[state];
+const chipCopy: Partial<Record<ToneState, { word: string; phrase: string }>> = {
+  ...stateCopy, unmet: { word: 'Unmet', phrase: 'Didn’t fill' },
+};
+
+export function StateChip({ state, phrase }: { state: ToneState; phrase?: string }) {
+  const copy = chipCopy[state]!;
   return (
     <p className="state-chip" style={{ '--tone': stateColour[state] } as React.CSSProperties}>
       <span className="state-dot" aria-hidden="true" />
       <strong>{copy.word}</strong>
-      <span>{copy.phrase}</span>
+      <span>{phrase ?? copy.phrase}</span>
     </p>
   );
 }
@@ -54,31 +57,44 @@ export function CopyButton({ text, label, variant = 'quiet' }: { text: string; l
   );
 }
 
-// The invite is this stack's address. One browser plays everyone, so the notice says how to play the next pleb.
-export function ShareInvite({ campaignId, title }: { campaignId: string; title: string }) {
+// Web Share where there is one, otherwise the text and link go to the clipboard.
+export function ShareButton({ label, done, title, text, url, notice, variant = 'primary' }: {
+  label: string; done: string; title: string; text: string; url: string; notice?: string; variant?: string;
+}) {
   const { announce } = useSession();
   const [copied, setCopied] = useState(false);
   async function share() {
-    const url = `${location.origin}/s/${campaignId}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Plebstack', text: title, url });
+        await navigator.share({ title, text, url });
         return;
       }
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(`${text} ${url}`);
       setCopied(true);
-      announce('Invite link copied. To play the next pleb in this browser, switch who you’re playing as.');
+      if (notice) announce(notice);
     } catch {
       // A closed share sheet is not an error.
     }
   }
   return (
-    <button type="button" className="button" data-variant="primary" onClick={() => void share()}>
-      {copied ? 'Invite link copied' : 'Share invite'}
+    <button type="button" className="button" data-variant={variant} onClick={() => void share()}>
+      {copied ? done : label}
     </button>
   );
 }
 
-export function Avatar({ name, own, open }: { name?: string; own?: boolean; open?: boolean }) {
-  return <span className="avatar" data-own={own || undefined} data-open={open || undefined} aria-hidden="true">{name?.[0]}</span>;
+// The invite is this stack's address. One browser plays everyone, so the notice says how to play the next pleb.
+export function ShareInvite({ campaignId, title }: { campaignId: string; title: string }) {
+  return (
+    <ShareButton label="Share invite" done="Invite link copied" title="Plebstack" text={title} url={`${location.origin}/s/${campaignId}`}
+      notice="Invite link copied. To play the next pleb in this browser, switch who you’re playing as." />
+  );
+}
+
+export function Avatar({ name, own, open, size }: { name?: string; own?: boolean; open?: boolean; size?: 'small' | 'large' }) {
+  return (
+    <span className="avatar" data-size={size} data-own={own || undefined} data-open={open || undefined} aria-hidden="true">
+      {name?.[0]}
+    </span>
+  );
 }
