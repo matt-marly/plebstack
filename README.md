@@ -4,6 +4,8 @@ Three plebs, 21 sats each, one maintainer paid all at once or not at all.
 
 Plebstack is a small crowdfunding app on Cashu ecash. I wanted to back the people who keep my tools running without trusting anyone in the middle to hold the money. So: each backer locks their own deposit to their own key at a mint. When all three have signed, one batch pays the maintainer 63 sats, locked to her key. If the stack never fills, everyone takes their own sats back. The organizer never holds a key or a sat.
 
+**Try it:** https://plebstack-matts-projects-7a791133.vercel.app (open `/stage` in a second window for the big-screen view).
+
 It runs against the test mint `https://testnut.cashudevkit.org`, which pays its own invoices. The sats are fake; the protocol calls are real.
 
 ![The stage, paid](docs/screens-live/stage-paid.png)
