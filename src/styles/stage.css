@@ -1,4 +1,5 @@
-/* The stage is drawn at 1920 by 1080 and scaled to fit, so it reads the same on a meetup screen and in a video. */
+/* In a wide window the stage is drawn at 1920 by 1080 and scaled to fit, so it reads the same on a meetup screen
+   and in a video. A phone gets its own column, at the end of this file. */
 
 .stage { position: fixed; inset: 0; overflow: hidden; background: var(--color-canvas); }
 .stage-canvas {
@@ -23,7 +24,7 @@
 .stage-for { width: 312px; padding-left: 40px; border-left: 1px solid var(--color-rule); }
 .stage-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; font: inherit; }
 .stage-who strong { font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
-.stage-who .mono { font-size: 16px; color: var(--color-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-who .mono { font-size: 16px; color: var(--color-muted); text-wrap: balance; }
 
 /* ---------------------------------------------------------------- phones */
 
@@ -98,18 +99,80 @@
 /* ---------------------------------------------------------------- captions */
 
 .stage-captions {
-  display: grid; grid-template-columns: 1fr 720px; gap: 64px; align-items: end;
-  min-height: 168px; padding-top: 28px; border-top: 1px solid var(--color-rule);
+  display: grid; grid-template-columns: 1fr 780px; gap: 56px; align-items: end;
+  min-height: 168px; padding-top: 24px; border-top: 1px solid var(--color-rule);
 }
 .stage-now { display: flex; flex-direction: column; gap: 12px; animation: rise var(--dur-reveal) var(--ease-out) both; }
 .stage-line { font-size: 38px; line-height: 1.15; font-weight: 650; letter-spacing: -.02em; text-wrap: balance; }
 .stage-term { font-size: 20px; color: var(--color-muted); }
 .stage-history { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.stage-history li { display: grid; grid-template-columns: 184px 1fr; gap: 12px; font-size: 18px; color: var(--color-faint); }
-.stage-history li > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stage-history .mono { font-size: 16px; line-height: 25px; }
+/* Every line is read whole: a long one wraps to a second line rather than being cut. */
+.stage-history li { display: grid; grid-template-columns: 136px 1fr; gap: 16px; font-size: 20px; line-height: 1.3; color: var(--color-faint); }
+.stage-history li > span:last-child { text-wrap: pretty; }
+.stage-history .mono { font-size: 16px; line-height: 26px; }
 .stage-history li[data-now] { color: var(--color-ink); }
 
 .stage-ghosts { position: absolute; inset: 0; pointer-events: none; }
 .ghost { position: absolute; transform-origin: 0 0; will-change: transform; }
 .ghost svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* ---------------------------------------------------------------- tall windows and phones */
+
+/* One column at its own size that scrolls: header, the stack, the plebs as tiles, Ngozi, then the captions. */
+.stage[data-tall] { position: relative; inset: auto; overflow: visible; min-height: 100dvh; }
+.stage[data-tall] .stage-canvas {
+  position: relative; left: auto; top: auto; width: auto; max-width: 560px; height: auto; margin: 0 auto; transform: none;
+  display: flex; flex-direction: column; gap: 16px;
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+    calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+.stage[data-tall] .stage-top { flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.stage[data-tall] .stage-brand { gap: 10px; }
+.stage[data-tall] .stage-mark { width: 26px; height: 26px; }
+.stage[data-tall] .stage-word { height: 21px; }
+.stage[data-tall] .stage-honest { display: contents; }
+.stage[data-tall] .stage-honest .pill { padding: 5px 10px; font-size: 12px; gap: 7px; }
+.stage[data-tall] .stage-honest .pill-dot { width: 7px; height: 7px; }
+.stage[data-tall] .stage-honest p { flex-basis: 100%; font-size: 13px; }
+
+.stage[data-tall] .stage-floor { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+.stage[data-tall] .stage-centre { gap: 6px; align-self: stretch; }
+.stage[data-tall] .pile { width: 100%; max-width: 330px; }
+.stage[data-tall] .pile-goal { font-size: 15px; gap: 2px; }
+.stage[data-tall] .pile-note { font-size: 13px; }
+.stage[data-tall] .pile-name { font-size: 30px; }
+.stage[data-tall] .stage-organizer {
+  flex-wrap: wrap; justify-content: center; gap: 2px 8px; padding: 0; border: 0; background: none; font-size: 13px; text-align: center;
+}
+.stage[data-tall] .stage-organizer .avatar { width: 20px; height: 20px; font-size: 11px; }
+.stage[data-tall] .stage-organizer .mono { font-size: 12px; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tile {
+  position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px;
+  border: 1px solid var(--color-hairline); border-radius: 16px; background: var(--color-card);
+}
+.tile-who { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; }
+.tile-who .avatar { width: 24px; height: 24px; font-size: 12px; flex: none; }
+.tile-state { font-size: 14px; color: var(--color-ink); }
+.tile .pocket { flex-direction: column; align-items: flex-start; gap: 6px; min-height: 0; }
+.tile .pocket-slab { width: 32px; }
+.tile .pocket .mono { font-size: 12px; overflow-wrap: anywhere; }
+.tile .mini-tick { top: -10px; right: -6px; width: 32px; height: 32px; }
+.tile .mini-tick .icon { width: 18px; height: 18px; }
+.tile-for { padding: 12px 14px; gap: 4px; }
+.tile-for .stage-who strong { font-size: 17px; }
+.tile-for .stage-who .mono { font-size: 13px; }
+.tile-for .tile-state { font-size: 16px; font-weight: 600; }
+.tile-for .pocket { flex-direction: row; align-items: center; gap: 10px; }
+.tile-for .pocket .mono { font-size: 13px; }
+
+.stage[data-tall] .stage-captions { grid-template-columns: minmax(0, 1fr); gap: 14px; min-height: 0; padding-top: 14px; }
+.stage[data-tall] .stage-now { gap: 4px; }
+.stage[data-tall] .stage-line { font-size: 21px; line-height: 1.2; }
+.stage[data-tall] .stage-term { font-size: 13px; }
+.stage[data-tall] .stage-history { gap: 6px; }
+.stage[data-tall] .stage-history li { grid-template-columns: 1fr; gap: 0; font-size: 14px; }
+.stage[data-tall] .stage-history .mono { font-size: 12px; line-height: 18px; }
+/* The newest line is already the big caption above. */
+.stage[data-tall] .stage-history li[data-now] { display: none; }

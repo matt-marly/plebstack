@@ -6,7 +6,8 @@ import type { BoardDraft } from '../live/board';
 import { useSession } from '../session';
 import { formatClock, shortKey } from '../ui/format';
 import { useTitle } from '../ui/Frame';
-import { closeLine, PLEBS, type Stop } from '../ui/journey';
+import { Icon } from '../ui/Icon';
+import { closeLine, PLEBS, type Journey, type Stop } from '../ui/journey';
 import { Mark, Wordmark } from '../ui/Mark';
 import { MiniPhone, maintainerView, plebView } from '../ui/Mini';
 import { Avatar } from '../ui/parts';
@@ -37,15 +38,33 @@ interface Flight {
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-function useFit(): number {
-  const [scale, setScale] = useState(1);
+// A phone, or any window taller than wide, gets the stage as one column that scrolls, at its own size.
+const TALL = '(max-width: 699px), (max-aspect-ratio: 4/5)';
+
+interface Fit {
+  tall: boolean;
+  scale: number;
+}
+
+function measure(): Fit {
+  const tall = matchMedia(TALL).matches;
+  return { tall, scale: tall ? 1 : Math.min(innerWidth / WIDTH, innerHeight / HEIGHT) };
+}
+
+function useFit(): Fit {
+  const [fit, setFit] = useState(measure);
   useLayoutEffect(() => {
-    const fit = () => setScale(Math.min(innerWidth / WIDTH, innerHeight / HEIGHT));
-    fit();
-    addEventListener('resize', fit);
-    return () => removeEventListener('resize', fit);
+    const update = () => setFit(measure());
+    const query = matchMedia(TALL);
+    update();
+    addEventListener('resize', update);
+    query.addEventListener('change', update);
+    return () => {
+      removeEventListener('resize', update);
+      query.removeEventListener('change', update);
+    };
   }, []);
-  return scale;
+  return fit;
 }
 
 // One slab in flight between a phone and the stack, or from the stack to Ngozi.
@@ -56,11 +75,14 @@ function Ghost({ flight }: { flight: Flight }) {
     const dx = from.x - to.x;
     const dy = from.y - to.y;
     const scale = from.w / to.w;
-    const arc = Math.min(dy, 0) - 90;
+    // The arc and the bounce follow the stack's size, so they read the same in either layout.
+    const big = Math.max(from.h, to.h);
+    const arc = Math.min(dy, 0) - big * 0.9;
+    const lift = Math.round(big * 0.45);
     const animation = ref.current!.animate([
       { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
       { transform: `translate(${dx / 2}px, ${dy / 2 + arc / 2}px) scale(${(scale + 1) / 2})`, offset: drop ? 0.42 : 0.5 },
-      ...(drop ? [{ transform: 'translate(0, -46px)', offset: 0.74 }, { transform: 'translate(0, 3px)', offset: 0.9 }] : []),
+      ...(drop ? [{ transform: `translate(0, -${lift}px)`, offset: 0.74 }, { transform: 'translate(0, 3px)', offset: 0.9 }] : []),
       { transform: 'none' },
     ], { duration: drop ? 1500 : 1000, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' });
     animation.onfinish = flight.done;
@@ -92,7 +114,7 @@ function payoutLine(record: CampaignRecord | undefined, draft: BoardDraft | unde
 
 function StageView({ id }: { id: string | undefined }) {
   const { world } = useSession();
-  const scale = useFit();
+  const { tall, scale } = useFit();
   const canvas = useRef<HTMLDivElement>(null);
   const draft = id ? liveActions.draft(id) : undefined;
   const record = findCampaign(world, id);
@@ -126,6 +148,8 @@ function StageView({ id }: { id: string | undefined }) {
     if (!frame || !found) return undefined;
     const base = frame.getBoundingClientRect();
     const box = found.getBoundingClientRect();
+    // A slab never flies in from somewhere scrolled out of sight; it appears in place instead.
+    if (box.bottom < 0 || box.top > innerHeight) return undefined;
     const s = fitted.current;
     return { x: (box.left - base.left) / s, y: (box.top - base.top) / s, w: box.width / s, h: box.height / s };
   }
@@ -219,29 +243,70 @@ function StageView({ id }: { id: string | undefined }) {
   const her = maintainerView(draft, record, wallet, arrived);
   const close = record && closeLine(record);
 
+  const pocket = (pleb: string, stop: Stop) => {
+    const held = inPocket.includes(stop) && !gone.has(pleb);
+    return (
+      <p className="pocket" data-pocket={pleb}>
+        <LoneSlab tone={held ? 'ink' : 'open'} className="pocket-slab" />
+        <span className="mono" data-moving={stop === 'to-mint' || stop === 'to-you' || undefined}>
+          {pocketLabel(stop, people[pleb].short, maintainer.short)}
+        </span>
+      </p>
+    );
+  };
+
   const plebColumn = (id: string) => {
     const { journey, view } = plebView(record, id, draft);
-    const stop = journey?.stop ?? 'wallet';
-    const held = inPocket.includes(stop) && !gone.has(id);
     return (
       <div key={id} className="stage-column">
         <h2 className="stage-who"><strong>{people[id].name}</strong><span className="mono">pleb{each ? ` · ${each}` : ''}</span></h2>
         <MiniPhone label={`${people[id].name}’s phone`} playing={people[id].short} rail={journey?.rail ?? { at: 0, paid: false }} view={view} tick={tick === id} />
-        <p className="pocket" data-pocket={id}>
-          <LoneSlab tone={held ? 'ink' : 'open'} className="pocket-slab" />
-          <span className="mono" data-moving={stop === 'to-mint' || stop === 'to-you' || undefined}>
-            {pocketLabel(stop, people[id].short, maintainer.short)}
-          </span>
-        </p>
+        {pocket(id, journey?.stop ?? 'wallet')}
       </div>
+    );
+  };
+
+  // In a tall window each pleb is a small tile: who, where they are, and where their sats are.
+  const plebTile = (id: string) => {
+    const { journey, view } = plebView(record, id, draft);
+    return (
+      <section key={id} className="tile" aria-label={`${people[id].name}’s phone: ${view.title}`}>
+        <h2 className="tile-who"><Avatar name={people[id].short} size="small" />{people[id].short}</h2>
+        <p className="tile-state">{stateWord(journey)}</p>
+        {pocket(id, journey?.stop ?? 'wallet')}
+        {tick === id && <span className="mini-tick" aria-hidden="true"><Icon name="nib" /></span>}
+      </section>
     );
   };
 
   // Lime holds the payout from the mint's answer until she spends it; spent ecash is just hers.
   const paidHome = look.lit && arrived && wallet.spend?.status !== 'confirmed';
+  const payout = (
+    <p className="pocket" data-payout data-paid={paidHome || undefined}>
+      <LoneSlab tone={paidHome ? 'lit' : wallet.spend?.status === 'confirmed' ? 'ink' : 'open'} className="pocket-slab" />
+      <span className="mono">{payoutLine(record, draft, wallet, arrived)}</span>
+    </p>
+  );
+  const herWho = (
+    <h2 className="stage-who">
+      <strong>for {maintainer.name}</strong>
+      <span className="mono">{draft ? fixing(draft.title).toLowerCase() : 'the maintainer'}</span>
+    </h2>
+  );
+  const centre = (
+    <div className="stage-centre">
+      <Pile record={record} look={look} away={away} moment={moment} />
+      <p className="stage-organizer">
+        <Avatar name={organizer.short} size="small" />
+        <span>Organized by {organizer.short}</span>
+        {close && <span className="mono">{tall ? close : `· ${close}`}</span>}
+      </p>
+    </div>
+  );
+
   return (
-    <div className="stage">
-      <div ref={canvas} className="stage-canvas" style={{ '--fit': scale } as CSSProperties}>
+    <div className="stage" data-tall={tall || undefined}>
+      <div ref={canvas} className="stage-canvas" style={tall ? undefined : { '--fit': scale } as CSSProperties}>
         <h1 className="visually-hidden">Plebstack stage</h1>
         <header className="stage-top">
           <span className="stage-brand">
@@ -254,28 +319,27 @@ function StageView({ id }: { id: string | undefined }) {
           </div>
         </header>
 
-        <main className="stage-floor">
-          <div className="stage-plebs">{PLEBS.map(plebColumn)}</div>
-          <div className="stage-centre">
-            <Pile record={record} look={look} away={away} moment={moment} />
-            <p className="stage-organizer">
-              <Avatar name={organizer.short} size="small" />
-              <span>Organized by {organizer.short}</span>
-              {close && <span className="mono">· {close}</span>}
-            </p>
-          </div>
-          <div className="stage-column stage-for">
-            <h2 className="stage-who">
-              <strong>for {maintainer.name}</strong>
-              <span className="mono">{draft ? fixing(draft.title).toLowerCase() : 'the maintainer'}</span>
-            </h2>
-            <MiniPhone label={`${maintainer.name}’s phone`} playing={maintainer.short} rail={her.rail} view={her.view} />
-            <p className="pocket" data-payout data-paid={paidHome || undefined}>
-              <LoneSlab tone={paidHome ? 'lit' : wallet.spend?.status === 'confirmed' ? 'ink' : 'open'} className="pocket-slab" />
-              <span className="mono">{payoutLine(record, draft, wallet, arrived)}</span>
-            </p>
-          </div>
-        </main>
+        {tall ? (
+          <main className="stage-floor">
+            {centre}
+            <div className="tiles">{PLEBS.map(plebTile)}</div>
+            <section className="tile tile-for" aria-label={`${maintainer.name}’s phone: ${her.view.title}`}>
+              {herWho}
+              <p className="tile-state">{her.view.title}</p>
+              {payout}
+            </section>
+          </main>
+        ) : (
+          <main className="stage-floor">
+            <div className="stage-plebs">{PLEBS.map(plebColumn)}</div>
+            {centre}
+            <div className="stage-column stage-for">
+              {herWho}
+              <MiniPhone label={`${maintainer.name}’s phone`} playing={maintainer.short} rail={her.rail} view={her.view} />
+              {payout}
+            </div>
+          </main>
+        )}
 
         <footer className="stage-captions">
           <div key={`${current.kind}/${current.at}/${current.who ?? ''}`} className="stage-now">
@@ -298,6 +362,22 @@ function StageView({ id }: { id: string | undefined }) {
       <p className="visually-hidden" aria-live="polite">{current.text} {current.term}</p>
     </div>
   );
+}
+
+// One word for where a pleb is, as their own phone has it.
+function stateWord(journey: Journey | undefined): string {
+  switch (journey?.screen) {
+    case undefined: return 'not open yet';
+    case 'join': return journey.step.kind === 'watch' ? 'stack is full' : 'not in yet';
+    case 'pay': return 'paying';
+    case 'stacked': case 'waiting': return 'stacked';
+    case 'sign': return journey.step.kind === 'stopped' ? 'stopped signing' : 'to sign';
+    case 'signed': return 'signed';
+    case 'sending': return 'sending';
+    case 'paid': case 'race': return 'paid';
+    case 'unmet': return 'no payout';
+    case 'back': return journey.step.kind === 'reclaimed' ? 'back' : 'taking back';
+  }
 }
 
 // The stage for a meetup screen or a demo video. It never needs a click: another window plays the people,
