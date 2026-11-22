@@ -7,8 +7,12 @@
 //   D. the same race, and the take-back lands first.
 //   E. the close passes with two of three in: No payout, and each takes theirs back. Time is moved with the
 //      browser's own clock control, so nothing in the app has a test switch.
+//   F. journey A again by keyboard alone (Tab, Shift+Tab, Enter, Space, Escape): the focus is always visible and
+//      lands on the new headline, or in the sheet, after every change.
 // On every checked screen: each control named, headings in order, AA contrast from the computed colours, 44px targets,
 // a live region and a focus ring that is never lime; the sheets trap focus; Reduce Motion shows Paid at once.
+// On every checked or captured screen: axe against WCAG 2.2 AA, and reflow at 320px wide and at 200% zoom
+// (1280x800 seen as 640x400) with no sideways scroll and no clipped text.
 // The races are produced by holding one request to the mint until the other one has its answer. Nothing is faked:
 // every answer is the mint's.
 //
@@ -25,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { getDecodedToken } from '@cashu/cashu-ts';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { axeViolations, focused, reflowIssues } from './a11y.mjs';
 import { optimisePng } from './png.mjs';
 
 const MINT = 'https://testnut.cashudevkit.org';
@@ -62,6 +67,10 @@ const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, per
 async function phonePage(context) {
   const opened = await context.newPage();
   opened.on('pageerror', error => errors.push(error.message));
+  // A library deprecation printed in the page counts as an error too.
+  opened.on('console', message => {
+    if (message.type() === 'warning' && /deprecated/i.test(message.text())) errors.push(`console: ${message.text()}`);
+  });
   return opened;
 }
 let page = await phonePage(await browser.newContext(phone));
@@ -204,6 +213,30 @@ async function a11y(where) {
     !unnamed.length && ordered && !found.contrast.length && !found.small.length && found.live > 0 && !ring,
     [unnamed[0], ordered ? '' : `headings ${levels.join(',')}`, found.contrast[0], found.small[0], found.live ? '' : 'no live region', ring]
       .filter(Boolean).join(' | ') || undefined);
+  await deep(where);
+}
+
+// axe, then the same screen at 320px wide and at 200% zoom: no sideways scroll, no clipped text. Each screen once.
+const deepChecked = [];
+const deepSeen = new Set();
+const REFLOW = [['320px wide', { width: 320, height: 640 }], ['200% zoom', { width: 640, height: 400 }]];
+async function deep(where) {
+  const seen = await page.evaluate(() => [location.pathname, document.querySelector('h1')?.textContent,
+    document.querySelector('[role="dialog"] h2')?.textContent ?? ''].join('|'));
+  if (deepSeen.has(seen)) return;
+  deepSeen.add(seen);
+  const found = await axeViolations(page);
+  const size = page.viewportSize();
+  const scrolled = await page.evaluate(() => scrollY);
+  for (const [label, view] of REFLOW) {
+    await page.setViewportSize(view);
+    await page.waitForTimeout(150);
+    found.push(...(await reflowIssues(page)).map(issue => `${label}: ${issue}`));
+  }
+  await page.setViewportSize(size);
+  await page.evaluate(y => scrollTo(0, y), scrolled);
+  deepChecked.push(where);
+  check(`${where}: axe WCAG 2.2 AA clean; reflows at 320px and 200% zoom with nothing clipped`, found.length === 0, found.join(' | '));
 }
 
 // A sheet keeps focus inside it, Escape closes it, and focus goes back to the button that opened it.
@@ -225,9 +258,10 @@ async function sheetTrap(where, opener) {
 
 const shotFiles = [];
 const shotLeaks = [];
-async function shoot(name, wait = 1200) {
+async function shoot(name, wait = 1200, { checked = true } = {}) {
+  await page.waitForTimeout(shots || checked ? wait : 0);
+  if (checked) await deep(name);
   if (!shots) return;
-  await page.waitForTimeout(wait);
   const html = await page.content();
   if ((await secretKeys()).some(secret => html.includes(secret))) shotLeaks.push(name);
   const file = `${name}.png`;
@@ -391,11 +425,63 @@ async function takeBack({ confirmText } = {}) {
   await dialog().getByRole('button', { name: 'Take mine back' }).click();
 }
 
+// ---------------------------------------------------------------- the keyboard alone
+
+const keyWalk = [];
+// The focused control as a screen reader names it: role and name, from the accessibility tree.
+async function focusName() {
+  const tree = await page.locator(':focus').ariaSnapshot().catch(() => '');
+  const [, role = '', name = ''] = tree.split('\n')[0].match(/^- (\w+)(?: "((?:[^"\\]|\\.)*)")?/) ?? [];
+  return { role, name };
+}
+
+// Tab (or Shift+Tab) to the control with this name; every stop on the way must show its ring, in view.
+async function tabTo(name, { back = false, limit = 30 } = {}) {
+  const want = typeof name === 'string' ? found => found === name : found => name.test(found);
+  for (let i = 0; i < limit; i += 1) {
+    await page.keyboard.press(back ? 'Shift+Tab' : 'Tab');
+    const state = await focused(page);
+    const { name: found } = await focusName();
+    if (state.tag !== 'body' && !(state.ring && !state.lime && state.inView)) {
+      check(`F: the focus on “${found || state.name}” is visible`, false, JSON.stringify(state));
+    }
+    if (want(found)) return;
+  }
+  check(`F: Tab reaches “${name}” from ${new URL(page.url()).pathname}`, false);
+}
+
+// Enter (or Space) on the named control, then the next screen's headline, or the sheet, holds the focus.
+async function press(name, { key = 'Enter', back = false, then } = {}) {
+  await tabTo(name, { back });
+  await page.keyboard.press(key);
+  const label = typeof name === 'string' ? name : name.source.replace(/^\^|\\/g, '').trim();
+  keyWalk.push(`${key} ${label}`);
+  if (!then) return;
+  await then();
+  await page.waitForTimeout(300);
+  const lands = await page.evaluate(() => {
+    const element = document.activeElement;
+    const dialog = document.querySelector('[role="dialog"]');
+    if (dialog) return dialog.contains(element) ? '' : `sheet open, focus on ${element?.tagName}`;
+    return element?.matches('main h1') ? '' : `focus on ${element?.tagName.toLowerCase()} “${element?.textContent.trim().slice(0, 30)}”`;
+  });
+  check(`F: after ${key} on “${label}” the focus lands on the new headline or in the sheet`, !lands, lands || undefined);
+}
+
+const toHeading = name => () => heading(name).waitFor({ timeout: 90_000 });
+const toSheet = () => dialog().waitFor();
+
+async function keyPlayAs(name) {
+  await press(/^Playing as /, { back: true, then: toSheet });
+  await press(new RegExp(`^${name}`), { then: () => page.getByRole('button', { name: `Playing as ${name}` }).waitFor() });
+}
+
 const summary = { started, base, campaigns: {} };
 try {
   // ---------------------------------------------------------------- A: the stack fills and pays
   await page.goto(`${base}/`);
-  await shoot('splash', 250);
+  // The splash moves on by itself; journey F checks it on a page of its own.
+  await shoot('splash', 250, { checked: false });
   await page.waitForURL(/\/intro\/1$/);
   await shoot('intro-1');
   await page.getByRole('button', { name: 'Next' }).click();
@@ -684,6 +770,72 @@ try {
   await heading('Back to you.').waitFor({ timeout: 60_000 });
   check('E4: Maren took hers back after the close', (await board(e)).events.some(event => event.type === 'settled' && event.status === 'confirmed'));
 
+  // ---------------------------------------------------------------- F: the paid journey by keyboard alone
+  // The splash moves on after a moment, so it is checked on a page of its own where that moment is a minute.
+  const held = await browser.newContext(phone);
+  page = await phonePage(held);
+  await page.addInitScript(() => {
+    const later = window.setTimeout;
+    window.setTimeout = (run, ms, ...args) => later(run, ms === 900 ? 60_000 : ms, ...args);
+  });
+  await page.goto(`${base}/`);
+  await page.locator('.splash').waitFor();
+  await deep('Splash');
+  await held.close();
+  page = await phonePage(await browser.newContext(phone));
+  await page.goto(`${base}/`);
+  await page.waitForURL(/\/intro\/1$/);
+  await page.waitForFunction(() => document.activeElement?.matches('main h1'));
+  await press('Next', { then: toHeading(/./) });
+  await press('Next', { then: () => page.waitForURL(/\/intro\/3$/) });
+  await press('Start a stack', { then: toHeading('Who are you backing?') });
+  await press('Next', { then: toHeading('Get Ngozi’s key.') });
+  const f = summary.campaigns.keyboard = campaignOf();
+  await keyPlayAs('Ngozi');
+  await heading('Ada is starting a stack for you.').waitFor();
+  await press('Confirm my key', { then: toHeading('Your key is confirmed.') });
+  await keyPlayAs('Ada');
+  await heading('Ngozi confirmed her key.').waitFor();
+  await press('Next', { then: toHeading('Set the terms.') });
+  await press('48 hours', { key: 'Space' });
+  check('F: Space picks the close', await page.getByRole('button', { name: '48 hours', exact: true }).getAttribute('aria-pressed') === 'true');
+  await press('Create stack', { then: toHeading('Your stack is open.') });
+  await press('Watch it fill', { then: toHeading('Nobody’s in yet.') });
+  // A sheet by keyboard: open it, Escape closes it, and the focus is back on its button.
+  await press('What’s really happening', { back: true, then: toSheet });
+  await page.keyboard.press('Escape');
+  await dialog().waitFor({ state: 'detached' });
+  check('F: Escape closes the sheet and the focus is back on its button', (await focusName()).name === 'What’s really happening');
+  for (const name of ['Tobi', 'Maren', 'Ishaan']) {
+    await keyPlayAs(name);
+    await heading('Ada is getting 3 plebs to back Ngozi.').waitFor();
+    await press('Chip in 21 sats', { then: toHeading('Pay 21 sats to stack.') });
+    await heading('Stacked.').waitFor({ timeout: 90_000 });
+    await page.waitForTimeout(300);
+    check(`F: ${name}: when the mint says paid, the focus moves to the new headline`,
+      await page.evaluate(() => document.activeElement?.matches('main h1')));
+  }
+  await press('Continue', { then: toHeading('Everyone’s in. Sign the group card.') });
+  for (const name of ['Ishaan', 'Tobi', 'Maren']) {
+    if (name !== 'Ishaan') {
+      await keyPlayAs(name);
+      await heading('Everyone’s in. Sign the group card.').waitFor();
+    }
+    await page.getByText('What your phone checked').waitFor({ timeout: 30_000 });
+    await press('Sign for the 63-sat payout', { then: toSheet });
+    await press('Sign', { then: toHeading(name === 'Maren' ? /^(All three signed\. Sending\.|Stacked\. Paid\.)$/ : /^Signed\. Waiting for/) });
+  }
+  await heading('Stacked. Paid.').waitFor({ timeout: 60_000 });
+  check('F: Paid by keyboard, once the mint confirmed',
+    (await board(f)).events.some(event => event.type === 'settled' && event.status === 'confirmed'));
+  await keyPlayAs('Ngozi');
+  await heading('63 sats for you.').waitFor();
+  await press('Spend', { then: toHeading(/^Yours\./) });
+  await press('Copy ecash');
+  await page.getByRole('button', { name: 'Copied' }).waitFor();
+  check('F: Copy ecash by keyboard gives a real token', (await page.evaluate(() => navigator.clipboard.readText())).startsWith('cashuB'));
+  summary.keyWalk = keyWalk;
+
   // ---------------------------------------------------------------- everywhere
   const leaked = await page.evaluate(keys => {
     const shared = Object.keys(localStorage).filter(key => /^plebstack:(public|coordinator)\//.test(key))
@@ -695,6 +847,7 @@ try {
   check('Z3: no page errors', errors.length === 0, errors.join(' | '));
   summary.limeChecked = limeChecked;
   summary.a11yChecked = a11yChecked;
+  summary.deepChecked = deepChecked;
   summary.shots = shotFiles;
   summary.pass = true;
 } catch (error) {
