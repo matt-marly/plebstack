@@ -1,77 +1,84 @@
 # Plebstack
 
-Crowdfunding on Cashu ecash. Three plebs each deposit 21 sats at one mint, locked to their own key. The maintainer is paid all 63 in one payment once all three sign, or not at all, and keeps 62 after a 1-sat fee. Until then every backer can take their own deposit back. The organizer never holds a key.
+Three plebs, 21 sats each, one maintainer paid all at once or not at all.
 
-This is a mobile-first web app of that flow, formerly called All Together. It always runs against the test mint `https://testnut.cashudevkit.org`, which marks its own invoices paid, so the sats are fake. `src/protocol/README.md` says exactly what is real. (`?live=1` from earlier links still works; it no longer changes anything.)
+Plebstack is a small crowdfunding app on Cashu ecash. I wanted to back the people who keep my tools running without trusting anyone in the middle to hold the money. So: each backer locks their own deposit to their own key at a mint. When all three have signed, one batch pays the maintainer 63 sats, locked to her key. If the stack never fills, everyone takes their own sats back. The organizer never holds a key or a sat.
+
+It runs against the test mint `https://testnut.cashudevkit.org`, which pays its own invoices. The sats are fake; the protocol calls are real.
+
+![The stage, paid](docs/screens-live/stage-paid.png)
+
+## How it works
+
+In plain words:
+
+1. **Ada starts a stack.** She names who it's for (Ngozi, a maintainer), what the work is, and a close time. Ngozi opens a claim link and confirms her key on her own device. Only the public half goes on the board.
+2. **Three plebs join and pay.** Each one pays a real invoice for 21 sats at the mint. The deposit is locked to that pleb's key, so nobody else can mint it.
+3. **Everyone checks and signs.** Each pleb sees the same payout: 63 sats to Ngozi's key. The last signature sends it.
+4. **Ngozi is paid.** The mint issues the 63 sats locked to Ngozi's key. She spends them with her key and keeps 62 after the mint's 1-sat fee, as ecash she can paste into any Cashu wallet.
+5. **If it doesn't fill by the close time,** collecting stops and each pleb takes their own 21 back.
+
+In NUT terms:
+
+- **NUT-20** locked mint quotes: each deposit is a quote signed by the backer's key, so only they can mint it.
+- **NUT-29** batch mint: the three quotes are minted together in one request carrying all three signatures. All or nothing.
+- **NUT-11** P2PK: the batch's outputs are locked to Ngozi's public key.
+- **NUT-03** swap: Ngozi unlocks and swaps the payout (the 1-sat fee is the keyset's `input_fee_ppk`).
+- **NUT-09** restore and **NUT-07** state checks bring things back after a reload and settle races.
+
+`src/protocol/README.md` goes through every call, what it guarantees, and what is real. The rules I held to: save before sending anything to the mint, only call it Paid once the mint has confirmed and the proofs are saved, and never retry a pending request with new outputs.
 
 ## Run it
 
-Use Node 22.12 or later.
+Node 22.12 or later.
 
 ```sh
-npm install
+npm i
 npm run dev
 ```
 
-Open the address Vite prints (usually `http://localhost:5173`) in a phone-sized window. On a desktop the app is a phone column centred on the night ground. It can be installed to a home screen (`public/manifest.webmanifest`, icons in `public/icons/`, rendered from the slab mark by `node scripts/icons.mjs`).
+Open the address Vite prints (usually `http://localhost:5173`) in a phone-sized window. Tap **Start a stack** and you're Ada. "Playing as" at the top of each screen switches between Ada, Ngozi and the three plebs (Tobi, Maren, Ishaan), so one browser can play the whole thing. `?live=1` from older links still works; the app always talks to testnut now.
 
-After the splash and three intro screens, **Start a stack** makes you Ada, the organizer:
+### The stage
 
-1. **Who** (O1): name the maintainer, the work and a public link. Paid means the maintainer received ecash, not that the work was done.
-2. **Key** (O2): Ada gets a claim link. Ngozi opens it on her side (here: “Playing as Ngozi”), and **Confirm my key** (M1) makes her key in her own storage and puts only the public half on the board. Ada then sees “Key confirmed” with the short key. Ada can paste a pubkey instead; it must be a valid point and is marked as not confirmed by Ngozi’s device everywhere it shows. Nothing can be joined until there is a key.
-3. **Terms** (O3): three plebs, 21 sats, this mint, Ngozi’s key, and a close time (24 hours, 48 hours, 1 week or a custom time, rounded to the hour, shown in your zone).
-4. **Share** (O4) and **Watch** (O5): the invite link and QR, who is in and who signed, and **Stop collecting**.
+Open `/stage` in a second window (or **Open the stage in a new window** under Playing as). It's a 16:9 view for a meetup screen or a demo: the shared stack on the goal line, each pleb's phone, Ngozi's phone, and a caption that says what just happened at the mint. It follows the other window by itself, no clicks. A slab only travels into the stack when the mint confirms the deposit. On a tall screen it stacks into a portrait layout. With Reduce Motion on, nothing moves and the captions carry it.
 
-Then each pleb (Tobi, Maren, Ishaan) joins, pays the real locked invoice, checks the payout and signs; the last signature sends one batch, and Paid shows once the mint confirms. Ngozi follows the stack (M2), receives the payout locked to her key in her own storage (M3), and **Spend** (M4) swaps it at the mint with her key: 63 sats in, the mint’s swap fee out, the rest as ecash she can copy into any Cashu wallet.
+## Tests
 
-The close is an app rule. Before it, collecting goes on and anyone can take theirs back. At it, with fewer than three in, collecting stops and each pleb sees No payout with **Take mine back**. Once all three are in it no longer applies. It never moves sats.
+```sh
+npm test                         # unit tests: states, close rule, roles, copy, contrast
+npm run build                    # type check and production build
+PLEB_LIVE=1 npm run test:live    # deposit, payout and reclaim against testnut
+node scripts/live-e2e.mjs        # every journey in headless Chromium, with accessibility checks
+node scripts/stage-demo.mjs      # drives the stage; --shots retakes stills, --video records it
+```
 
-One browser plays everyone. “Playing as” in each screen switches between Ada, Ngozi and the three plebs, and can start a new stack. Each person, and the coordinator, has their own namespace in local storage, so one person's code never reads another's key; Ada has none. Drafts, campaigns, quotes and results sit in a shared public namespace standing in for a relay. Reloading rebuilds everything from storage; clearing storage loses the keys. “What's really happening” on every screen gives the real terms (NUT-20, NUT-11, NUT-29, NUT-03).
+The browser runs use Playwright and axe, and check names, contrast, focus, 320px reflow and a keyboard-only walk. They write their output to `.evidence/`.
 
-## Screens
+## Honest limits
 
-| Route | Screen |
-| --- | --- |
-| `/` | Splash |
-| `/intro/:page` | Three intro screens |
-| `/new` | O1, who are you backing |
-| `/o/:campaignId/key` · `terms` · `share` · `watch` | The organizer's steps |
-| `/claim/:campaignId` | M1, the maintainer's claim link |
-| `/m/:campaignId/follow` · `receive` · `spend` | The maintainer's steps |
-| `/s/:campaignId` | Sends a pleb to their current step |
-| `/s/:campaignId/join` · `pay` · `stacked` · `waiting` · `sign` · `signed` · `sending` · `paid` · `race` · `unmet` · `back` | The pleb journey |
-| `/s/:campaignId/stage` · `/stage` | The stage, for a big screen; `/stage` follows the newest stack |
+- **Test mint only.** testnut pays its own invoices. Nothing here has been near real sats.
+- **One browser plays everyone.** Each person has their own namespace in local storage, and no one's code reads another's key, but they all live in one browser.
+- **No relay.** A shared "public board" in local storage stands in for one (Nostr would be the obvious fit). Open the stage in the same browser.
+- **No key backup.** Clear your storage and the keys are gone, along with any sats locked to them.
+- **A signature can't be taken back,** and a take-back can race the payout. The app shows whichever one the mint accepted.
+- **Paid means Ngozi received ecash,** not that the work got done.
 
-Routes live in `src/routes.ts`; which screen a pleb may see is decided by `src/ui/journey.ts`, and each person only ever sees their own screens of a stack. Phone stills from the live run are in `docs/screens-live/`.
+## Screenshots
 
-## Stage
+Phone stills from a live run are in [`docs/screens-live/`](docs/screens-live/).
 
-The stage is the watchable view for a meetup screen or a demo video, at 16:9: the shared stack big on the goal line, each pleb's phone showing their own current screen, Ngozi's phone and her payout, and a caption bar that tells each real change in a plain sentence with the real term in mono. It never needs a click. Open it in one window (**Open the stage in a new window** under Playing as, or from O5), play the people in another, and it follows the board through the browser's storage event. A slab travels into the stack when the mint confirms that deposit, not on a tap; the pile lights up in lime only after the mint confirms the payout and the caption has said so. With Reduce Motion, nothing travels and the captions carry the story.
+| Join | Sign | Paid | Spent |
+| --- | --- | --- | --- |
+| ![](docs/screens-live/p1-join.png) | ![](docs/screens-live/p5-sign.png) | ![](docs/screens-live/p8-paid.png) | ![](docs/screens-live/m4-spent.png) |
 
 ## Where things are
 
-- `src/domain/` — the seven money states, their words and the allowed transitions, and the close rule.
-- `src/demo/world.ts` — the campaign record and viewer-step logic the live view is built on, plus a stub world the domain tests use.
-- `src/live/` — one namespaced client per person, the shared public board, and the campaign view rebuilt from it.
-- `src/session.tsx` — who is playing, the current stack, and the world rebuilt after each action.
-- `src/screens/`, `src/ui/` — screens and shared parts (rail, stack, track, sheets). Plain CSS in `src/styles/`, night only.
-- `src/protocol/README.md` — what is real at the mint and what each call guarantees.
+- `src/protocol/` — the mint calls, keys, per-person storage, batch signing and recovery.
+- `src/live/` — one client per person, the public board, and the view rebuilt from it.
+- `src/domain/` — the money states and the close rule.
+- `src/screens/`, `src/ui/`, `src/styles/` — the phone app and the stage. Plain CSS, night only.
 
-## Checks
+## License
 
-```sh
-npm test
-npm run build
-PLEB_LIVE=1 npm run test:live   # against testnut.cashudevkit.org; writes .evidence/live-{deposit,payout,reclaim}-<time>/
-node scripts/live-e2e.mjs       # Ada, Ngozi and three plebs through every journey in headless Chromium, with names, headings,
-                                # contrast, targets and focus checked on each screen; writes .evidence/live-e2e-<time>/
-node scripts/live-e2e.mjs --shots   # also retakes the stills in docs/screens-live/
-node scripts/stage-demo.mjs --video # the stage at 1920x1080 beside a second window playing everyone; records .evidence/stage-<time>/stage.webm
-node scripts/stage-demo.mjs --shots # retakes docs/screens-live/stage-*.png
-```
-
-## Not in this pass
-
-Real integration will use only `https://testnut.cashudevkit.org`, a test mint that credits fake sats. The spike used 21-sat deposits with cashu-ts pinned to 4.13.1. A released signature cannot be taken back, and a reclaim can race the payout. Nothing here claims production backup safety or that the creator delivers the work.
-
-Start review at `docs/brief.md`, then the PRD, people, design system, flows and moodboard.
+MIT. See [LICENSE](LICENSE).
