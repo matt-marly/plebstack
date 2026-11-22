@@ -35,7 +35,8 @@ const dir = join(root, '.evidence', `live-e2e-${started.replace(/[:.]/g, '-')}`)
 mkdirSync(dir, { recursive: true });
 if (shots) {
   mkdirSync(shotsDir, { recursive: true });
-  for (const file of readdirSync(shotsDir)) if (file.endsWith('.png')) rmSync(join(shotsDir, file));
+  // The stage stills come from scripts/stage-demo.mjs and stay.
+  for (const file of readdirSync(shotsDir)) if (file.endsWith('.png') && !file.startsWith('stage-')) rmSync(join(shotsDir, file));
 }
 
 const checks = {};
