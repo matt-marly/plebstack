@@ -66,7 +66,7 @@ const beat = (ms = pace) => page.waitForTimeout(ms);
 const heading = name => page.getByRole('heading', { level: 1, name });
 const dialog = () => page.getByRole('dialog');
 const caption = () => stage.locator('.stage-line').innerText();
-const goal = () => stage.locator('.stage-goal').innerText();
+const goal = () => stage.locator('.pile-goal').innerText();
 const settled = () => stage.waitForFunction(() => !document.querySelector('.ghost'), undefined, { timeout: 30_000 });
 const told = text => stage.waitForFunction(want => [...document.querySelectorAll('.stage-history li')]
   .some(item => item.textContent.includes(want)), text, { timeout: 90_000 });
@@ -201,11 +201,11 @@ try {
   await told('Ada opens the stack');
   const board = await page.evaluate(campaignId => JSON.parse(localStorage.getItem(`plebstack:public/campaign:${campaignId}`)).value, id);
   check('S2: the close on the stage is the one saved with the stack',
-    (await stage.locator('.stage-organizer').innerText()).includes(`closes ${await stage.evaluate(iso => {
-      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-        hourCycle: 'h23', timeZoneName: 'short' }).formatToParts(new Date(iso)).map(part => [part.type, part.value]));
-      return `${parts.day} ${parts.month}, ${parts.hour}:${parts.minute} ${parts.timeZoneName}`;
-    }, board.closesAt)}`));
+    (await stage.locator('.stage-organizer').innerText()).includes(`closes ${await stage.evaluate(
+      async iso => (await import('/src/ui/format.ts')).formatWhen(iso), board.closesAt)}`));
+  const zone = await stage.evaluate(async () => (await import('/src/ui/format.ts')).zoneName(new Date()));
+  check('S2b: the caption log names the zone the way the app does',
+    (await stage.locator('.stage-history .mono').first().innerText()).endsWith(` ${zone}`), zone);
   await beat();
 
   await chipIn('Tobi');
@@ -281,6 +281,11 @@ try {
     && (await stage.locator('[data-payout]').innerText()).includes('62 sats received · 1 sat swap fee'));
   await still('stage-spent');
   await stage.waitForTimeout(pace);
+
+  const tree = await stage.locator('body').ariaSnapshot();
+  check('S18: the stage has its h1, a name for every phone and image, and a live caption',
+    /- heading "Plebstack stage" \[level=1\]/.test(tree) && !/^\s*- (img|button|link)\s*:?$/m.test(tree)
+    && (tree.match(/region "[^"]+’s phone: /g) ?? []).length === 4 && await stage.locator('[aria-live]').count() > 0);
 
   const secrets = await page.evaluate(() => Object.keys(localStorage).filter(key => /^plebstack:person:[^/]+\/key:/.test(key))
     .map(key => JSON.parse(localStorage.getItem(key)).value.secretKey));

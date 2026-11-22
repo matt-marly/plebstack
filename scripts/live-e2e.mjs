@@ -7,6 +7,8 @@
 //   D. the same race, and the take-back lands first.
 //   E. the close passes with two of three in: No payout, and each takes theirs back. Time is moved with the
 //      browser's own clock control, so nothing in the app has a test switch.
+// On every checked screen: each control named, headings in order, AA contrast from the computed colours, 44px targets,
+// a live region and a focus ring that is never lime; the sheets trap focus; Reduce Motion shows Paid at once.
 // The races are produced by holding one request to the mint until the other one has its answer. Nothing is faked:
 // every answer is the mint's.
 //
@@ -112,6 +114,113 @@ async function noLime(where) {
   const pixels = await limePixels(await page.screenshot({ animations: 'disabled' }));
   limeChecked.push(where);
   check(`${where}: no lime before Paid`, styles.length === 0 && pixels === 0, styles[0] ?? (pixels ? `${pixels} lime pixels` : undefined));
+  await a11y(where);
+}
+
+// Accessibility on every checked screen, with no extra tools: Playwright's aria snapshot for names and headings,
+// and the computed colours for contrast.
+const a11yChecked = [];
+async function a11y(where) {
+  const tree = await page.locator('body').ariaSnapshot();
+  const unnamed = tree.split('\n').filter(line => /^\s*- (button|link|textbox|checkbox|radio|combobox|switch|img|slider)(\s*\[[^\]]*\])?:?\s*$/.test(line));
+  const levels = [...tree.matchAll(/- heading "[^"]*" \[level=(\d)\]/g)].map(match => Number(match[1]));
+  const ordered = levels[0] === 1 && levels.filter(level => level === 1).length === 1 && levels.every((level, i) => i === 0 || level <= levels[i - 1] + 1);
+  const found = await page.evaluate(() => {
+    const parse = value => {
+      const rgb = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+      if (rgb) return [+rgb[1], +rgb[2], +rgb[3], rgb[4] === undefined ? 1 : +rgb[4]];
+      const srgb = value.match(/^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)$/);
+      if (srgb) return [srgb[1] * 255, srgb[2] * 255, srgb[3] * 255, srgb[4] === undefined ? 1 : +srgb[4]];
+      return undefined;
+    };
+    const mix = (top, ground) => top.slice(0, 3).map((value, i) => value * top[3] + ground[i] * (1 - top[3]));
+    const lum = rgb => {
+      const [r, g, b] = rgb.map(value => {
+        const c = value / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => {
+      const [light, dark] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (light + 0.05) / (dark + 0.05);
+    };
+    const ground = element => {
+      const layers = [];
+      for (let node = element; node; node = node.parentElement) {
+        const colour = parse(getComputedStyle(node).backgroundColor);
+        if (colour && colour[3] > 0) layers.push(colour);
+        if (colour?.[3] === 1) break;
+      }
+      return layers.reverse().reduce((under, layer) => mix(layer, under), [11, 11, 12]);
+    };
+    const visible = element => {
+      const box = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return box.width > 0 && box.height > 0 && style.visibility !== 'hidden' && !element.closest('[aria-hidden="true"], [inert], .visually-hidden');
+    };
+    const contrast = [];
+    for (const element of document.querySelectorAll('body *')) {
+      if (!visible(element) || element.closest('[aria-disabled="true"]')) continue;
+      if (![...element.childNodes].some(node => node.nodeType === 3 && node.textContent.trim())) continue;
+      const style = getComputedStyle(element);
+      const colour = parse(style.color);
+      if (!colour) continue;
+      const under = ground(element);
+      const measured = ratio(mix(colour, under), under);
+      const size = parseFloat(style.fontSize);
+      const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
+      if (measured < (large ? 3 : 4.5)) contrast.push(`${element.textContent.trim().slice(0, 40)} ${measured.toFixed(2)}`);
+    }
+    const small = [...document.querySelectorAll('button, a[href], summary, input, select, [role="button"]')]
+      .filter(element => visible(element) && !element.closest('.mini'))
+      .filter(element => {
+        const box = element.getBoundingClientRect();
+        return box.height < 44 || box.width < 44;
+      })
+      .map(element => `${element.textContent.trim().slice(0, 30) || element.getAttribute('aria-label')} ${Math.round(element.getBoundingClientRect().width)}x${Math.round(element.getBoundingClientRect().height)}`);
+    const live = document.querySelectorAll('[aria-live], [role="status"], [role="alert"]').length;
+    return { contrast, small, live };
+  });
+  // The first control a keyboard reaches after the headline (or round the page) shows a focus ring, never lime.
+  await page.evaluate(() => {
+    const heading = document.querySelector('main h1');
+    if (heading && !heading.hasAttribute('tabindex')) heading.tabIndex = -1;
+    heading?.focus();
+  });
+  await page.keyboard.press('Tab');
+  if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Tab');
+  const ring = await page.evaluate(() => {
+    const element = document.activeElement;
+    if (!element || element === document.body) return 'nothing focused';
+    const style = getComputedStyle(element);
+    const shown = style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2 || style.boxShadow !== 'none';
+    const colour = style.outlineColor;
+    element.blur();
+    return shown && colour !== 'rgb(200, 241, 53)' ? '' : `${element.textContent.trim().slice(0, 30)}: ${style.outlineStyle} ${colour}`;
+  });
+  a11yChecked.push(where);
+  check(`${where}: every control named, headings in order, AA contrast, 44px targets, a live region, a visible focus ring`,
+    !unnamed.length && ordered && !found.contrast.length && !found.small.length && found.live > 0 && !ring,
+    [unnamed[0], ordered ? '' : `headings ${levels.join(',')}`, found.contrast[0], found.small[0], found.live ? '' : 'no live region', ring]
+      .filter(Boolean).join(' | ') || undefined);
+}
+
+// A sheet keeps focus inside it, Escape closes it, and focus goes back to the button that opened it.
+async function sheetTrap(where, opener) {
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await dialog().waitFor();
+  let inside = true;
+  for (let i = 0; i < 8; i += 1) {
+    await page.keyboard.press(i % 3 === 2 ? 'Shift+Tab' : 'Tab');
+    inside &&= await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'));
+  }
+  const behind = await page.evaluate(() => document.getElementById('root')?.hasAttribute('inert'));
+  await page.keyboard.press('Escape');
+  await dialog().waitFor({ state: 'detached' });
+  const back = await opener.evaluate(element => element === document.activeElement);
+  check(`${where}: the sheet traps focus, Escape closes it, focus returns`, inside && behind && back);
 }
 
 const shotFiles = [];
@@ -310,6 +419,8 @@ try {
     ['NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => facts.includes(term)) && !/key methods/.test(facts));
   await shoot('wrh-sheet', 700);
   await dialog().getByRole('button', { name: 'Got it' }).click();
+  await dialog().waitFor({ state: 'detached' });
+  await sheetTrap('WRH', page.getByRole('button', { name: 'What’s really happening' }));
 
   await chipIn('Maren');
   await page.reload();
@@ -367,6 +478,7 @@ try {
   check('A7: the receipt says who got what, confirmed by the mint',
     (await page.locator('.receipt').innerText()).includes('Ngozi got 63 sats')
     && (await page.locator('.receipt').innerText()).includes('Confirmed by the mint ·'));
+  await a11y('P8 paid');
   await shoot('p8-paid');
   await page.getByText('Proof details').click();
   const proof = await page.locator('.proof').innerText();
@@ -386,6 +498,13 @@ try {
   check('A11: the receipt names the organizer and says the close no longer applied',
     (await page.locator('.receipt').innerText()).includes('Organized by Ada')
     && (await page.locator('.receipt').innerText()).includes('so the close no longer applied'));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await heading('Stacked. Paid.').waitFor();
+  check('A11b: with Reduce Motion, Paid shows its end state at once: nothing animating, the stack already lit',
+    await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === 'running').length) === 0
+    && await limePixels(await page.screenshot()) > 0);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
 
   await playAs('Ngozi');
   await heading('63 sats for you.').waitFor();
@@ -396,6 +515,7 @@ try {
     && received.proofs.reduce((sum, proof) => sum + proof.amount, 0) === 63
     && received.proofs.every(proof => JSON.parse(proof.secret)[1].data === received.pubkey));
   check('M3: lime only now, on Paid', (await limeStyles()).length > 0);
+  await a11y('M3 receive');
   await shoot('m3-receive');
   await page.getByRole('button', { name: 'What’s really happening' }).click();
   check('M3: the sheet says the locked ecash only works with her key', (await dialog().innerText()).includes('it only works with your key'));
@@ -574,6 +694,7 @@ try {
   check('Z2: no private key on any screenshotted page', shotLeaks.length === 0, shotLeaks.join(', '));
   check('Z3: no page errors', errors.length === 0, errors.join(' | '));
   summary.limeChecked = limeChecked;
+  summary.a11yChecked = a11yChecked;
   summary.shots = shotFiles;
   summary.pass = true;
 } catch (error) {
