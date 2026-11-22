@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
-import { beats } from '../src/demo/beats';
 import {
   MAIN_CAMPAIGN, RACE_CAMPAIGN, checkMint, headline, initialWorld, progressLine, recordSpend, requestReclaim, roleLine,
   rowSentence, setViewer, slotStatus, stopCollecting, termsOf, type World,
 } from '../src/demo/world';
 import { stateCopy } from '../src/domain/states';
 
-const banned = /preimage|block height|locktime|refund|revok|\btokens?\b|self-custodial|non-custodial/i;
+const banned = /preimage|block height|locktime|refund|revok|\btokens?\b|self-custod(ial|y)|non-custodial/i;
 const at = (time: string) => `2026-11-13T${time}:00Z`;
 
 function sourceFiles(dir: URL): URL[] {
@@ -57,13 +56,13 @@ test('state copy, notices, log lines and row sentences avoid the never-say words
   const texts = Object.values(stateCopy).flatMap(copy => [copy.word, copy.phrase, copy.sentence(terms)]);
   const racing = requestReclaim(start, RACE_CAMPAIGN, 'backer-3', at('14:12'));
   const worlds = [
-    ...beats.map(beat => beat.world()),
+    start,
     stopCollecting(setViewer(start, 'ngozi'), MAIN_CAMPAIGN, at('15:00')),
     checkMint(racing, RACE_CAMPAIGN, at('14:13'), 'owner'),
     setViewer(checkMint(setViewer(racing, 'tobi'), RACE_CAMPAIGN, at('14:13'), 'owner'), 'tobi'),
     recordSpend(checkMint(setViewer(start, 'ngozi'), RACE_CAMPAIGN, at('14:20')), RACE_CAMPAIGN, at('14:21')),
   ];
-  texts.push(...beats.flatMap(beat => [beat.title, beat.line]), ...worlds.flatMap(worldText));
+  texts.push(...worlds.flatMap(worldText));
   for (const text of texts) assert.doesNotMatch(text, banned, text);
   assert.ok(texts.some(text => text.includes('Stacked. Paid.')));
 });
@@ -76,6 +75,7 @@ test('no user-visible string in src or index.html uses the never-say words', () 
   }
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
   assert.doesNotMatch(html, banned);
+  assert.doesNotMatch(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'), banned);
 });
 
 test('the scan catches a banned word in a string or in JSX text, and skips comments', () => {

@@ -2,19 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Plebstack: crowdfunding on Cashu ecash. Three plebs stack 21 sats each and pay one maintainer together, or not at all. The organizer never holds your key." />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Plebstack" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>Plebstack</title>
-    <script>
-      // Set the theme before first paint: a saved choice wins, then a system request for light; night otherwise.
-      (function () {
-        var saved = null;
-        try { saved = localStorage.getItem('theme'); } catch (error) {}
-        var light = saved ? saved === 'light' : matchMedia('(prefers-color-scheme: light)').matches;
-        document.documentElement.dataset.theme = light ? 'light' : 'dark';
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

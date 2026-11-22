@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { matchPath } from 'react-router-dom';
-import { beats, findBeat } from '../src/demo/beats';
 import {
   MAIN_CAMPAIGN, RACE_CAMPAIGN, UNMET_CAMPAIGN, canApprove, checkMint, confirmDeposit, createCampaign, findCampaign,
   headline, initialWorld, latestOperation, pendingOperation, people, progressLine, recordSpend, releaseApproval,
@@ -9,7 +7,6 @@ import {
   stopCollecting, tally, termsOf, viewerStep, type World,
 } from '../src/demo/world';
 import { stateCopy } from '../src/domain/states';
-import { routes } from '../src/routes';
 import { formatClock, formatWhen, isCompressedPubkey, isHttpUrl, listNames, plural, setTimeZone, shortKey } from '../src/ui/format';
 
 // Notices carry times; pin the zone so the expected text doesn't depend on the machine.
@@ -243,34 +240,6 @@ test('progress and row sentences use the documented words', () => {
   assert.match(rowSentence(main, 'awaiting', true), /Not stacked until the mint reports it paid/);
   assert.equal(sats(1), '1 sat');
   assert.equal(sats(63), '63 sats');
-});
-
-test('every beat of the script builds and opens a documented route', () => {
-  assert.equal(new Set(beats.map(beat => beat.id)).size, beats.length);
-  const seen = new Set<string>();
-  for (const beat of beats) {
-    const world = beat.world();
-    assert.ok(people[world.viewerId], beat.id);
-    assert.ok(Object.values(routes).some(route => matchPath(route, beat.path)), `${beat.id}: ${beat.path}`);
-    assert.ok(beat.title && beat.line, beat.id);
-    assert.equal(findBeat(beat.id), beat);
-    for (const campaign of world.campaigns) {
-      seen.add(statusOf(campaign));
-      campaign.slots.forEach(slot => seen.add(slotStatus(slot)));
-    }
-  }
-  for (const state of Object.keys(stateCopy)) assert.ok(seen.has(state), `no beat shows "${state}"`);
-  assert.ok(seen.has('unmet') && seen.has('collecting') && seen.has('awaiting'));
-  assert.equal(findBeat('nope'), undefined);
-});
-
-test('the fifteen-second beats end on a confirmed payout, then a confirmed reclaim', () => {
-  const main = (id: string) => statusOf(record(findBeat(id)!.world(), MAIN_CAMPAIGN));
-  assert.deepEqual(['two-of-three', 'joining', 'ready', 'approved', 'paying-out', 'paid'].map(main),
-    ['collecting', 'collecting', 'ready', 'ready', 'paying out', 'paid']);
-  assert.equal(record(findBeat('paid')!.world(), MAIN_CAMPAIGN).spend?.receivedSat, 62);
-  const unmet = (id: string) => states(findBeat(id)!.world(), UNMET_CAMPAIGN)[1];
-  assert.deepEqual(['unmet', 'reclaiming', 'reclaimed'].map(unmet), ['deposited', 'reclaiming', 'reclaimed']);
 });
 
 test('format helpers', () => {

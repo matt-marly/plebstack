@@ -1,16 +1,25 @@
 :root {
+  color-scheme: dark;
   --color-canvas: #0b0b0c;
   --color-surface: #161618;
+  --color-card: #141416;
   --color-ink: #f4f4f1;
   --color-muted: #a1a1aa;
+  /* 5.6:1 on canvas: small labels still read. */
+  --color-faint: #8a8a93;
   /* 3.67:1 on canvas, 3.37:1 on surface. */
   --color-border: #6a6a72;
+  --color-hairline: rgba(255, 255, 255, .07);
+  --color-wash: rgba(255, 255, 255, .05);
+  --color-dash: #55555c;
+  --color-dash-dim: #3e3e44;
   --color-rule: #2a2a2e;
   --color-on-ink: #0b0b0c;
   --color-signal: #c8f135;
   --color-on-signal: #0b0b0c;
-  --color-success: var(--color-signal);
   --color-error: #f0908a;
+  /* Its own neutral, so the test-mint dot never reads as a money state. */
+  --color-test-mint: #d4d4d8;
   --color-state-deposited: #b4b4bc;
   --color-state-ready: #2dd4bf;
   --color-state-approved: #8fa8ff;
@@ -19,52 +28,17 @@
   --color-state-reclaiming: #c4a1ff;
   --color-state-reclaimed: #85858e;
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
-  --text-small: .875rem;
-  --text-body: 1rem;
-  --text-heading: 1.125rem;
-  --text-title: 1.75rem;
-  --text-amount: 2rem;
-  --space-1: .25rem;
-  --space-2: .5rem;
-  --space-3: .75rem;
-  --space-4: 1rem;
-  --space-5: 1.5rem;
-  --space-6: 2rem;
-  --radius-control: 4px;
-  --radius-panel: 6px;
-  --target-size: 44px;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --ease-settle: cubic-bezier(.3, .8, .2, 1);
   --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --ease-sheet: cubic-bezier(.2, .85, .2, 1);
   --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --dur-reveal: 280ms;
-  --measure: 40rem;
-  --margin-column: 10rem;
-  --gutter: 1.25rem;
-}
-
-/* Paper: the same roles, measured again on the light canvas. Set by the theme script in index.html. */
-:root[data-theme="light"] {
-  --color-canvas: #f4f4f1;
-  --color-surface: #ffffff;
-  --color-ink: #0b0b0c;
-  --color-muted: #55555c;
-  /* 3.56:1 on canvas, 3.92:1 on surface. */
-  --color-border: #808087;
-  --color-rule: #dcdcd6;
-  --color-on-ink: #f4f4f1;
-  --color-signal: #4a6b00;
-  --color-on-signal: #ffffff;
-  --color-error: #a12622;
-  --color-state-deposited: #52525b;
-  --color-state-ready: #0f766e;
-  --color-state-approved: #2944c2;
-  --color-state-paying-out: #8a5a00;
-  --color-state-reclaiming: #7e3fb8;
-  --color-state-reclaimed: #66666e;
-}
-
-@media (min-width: 40rem) {
-  :root { --gutter: 2rem; }
+  --dur-base: 220ms;
+  --dur-reveal: 460ms;
+  --column: 430px;
+  --pad: 24px;
+  --radius-button: 18px;
+  --radius-card: 22px;
+  --radius-sheet: 32px;
+  --target-size: 44px;
 }

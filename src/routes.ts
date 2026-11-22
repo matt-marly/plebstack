@@ -1,25 +1,16 @@
 import { generatePath } from 'react-router-dom';
+import type { Screen } from './ui/journey';
 
 export const routes = {
-  home: '/',
-  create: '/campaigns/new',
-  campaign: '/campaigns/:campaignId',
-  back: '/campaigns/:campaignId/back',
-  deposit: '/campaigns/:campaignId/deposits/:depositId',
-  approve: '/campaigns/:campaignId/deposits/:depositId/approve',
-  reclaim: '/campaigns/:campaignId/deposits/:depositId/reclaim',
-  payout: '/campaigns/:campaignId/payout',
-  recovery: '/recovery',
+  splash: '/',
+  intro: '/intro/:page',
+  stack: '/s/:campaignId',
+  screen: '/s/:campaignId/:screen',
 } as const;
 
 export const paths = {
-  home: () => routes.home,
-  create: () => routes.create,
-  campaign: (campaignId: string) => generatePath(routes.campaign, { campaignId }),
-  back: (campaignId: string) => generatePath(routes.back, { campaignId }),
-  deposit: (campaignId: string, depositId: string) => generatePath(routes.deposit, { campaignId, depositId }),
-  approve: (campaignId: string, depositId: string) => generatePath(routes.approve, { campaignId, depositId }),
-  reclaim: (campaignId: string, depositId: string) => generatePath(routes.reclaim, { campaignId, depositId }),
-  payout: (campaignId: string) => generatePath(routes.payout, { campaignId }),
-  recovery: () => routes.recovery,
+  splash: () => routes.splash,
+  intro: (page: number) => generatePath(routes.intro, { page: String(page) }),
+  stack: (campaignId: string) => generatePath(routes.stack, { campaignId }),
+  screen: (campaignId: string, screen: Screen) => generatePath(routes.screen, { campaignId, screen }),
 };

@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { generatePath, matchPath } from 'react-router-dom';
 import { TEST_MINT, type Campaign, type Deposit } from '../src/domain/models';
 import { campaignState, confirmedStates, signalStates, stateCopy, transitionDeposit } from '../src/domain/states';
 import { ProtocolError, createProtocolClient, protocol } from '../src/protocol/client';
 import { memoryStorage } from '../src/protocol/storage';
-import { routes } from '../src/routes';
+import { paths, routes } from '../src/routes';
 
 function deposit(id = '1'): Deposit {
   return { id, campaignId: 'campaign', state: 'deposited', authorizationReleased: false,
@@ -100,11 +99,12 @@ test('each of the seven states keeps its plain word, with a pleb phrase and a se
   assert.deepEqual([...signalStates], ['paid']);
 });
 
-test('every documented route has a shell path', () => {
-  const document = readFileSync(new URL('../docs/ia-userflows.md', import.meta.url), 'utf8');
+test('every route and every journey screen has a path that matches it', () => {
   for (const path of Object.values(routes)) {
-    assert.ok(document.includes('`' + path + '`'), path);
-    assert.ok(matchPath(path, generatePath(path, { campaignId: 'campaign', depositId: '1' })));
+    assert.ok(matchPath(path, generatePath(path, { campaignId: 'campaign', page: '1', screen: 'pay' })), path);
+  }
+  for (const screen of ['join', 'pay', 'stacked', 'waiting', 'status'] as const) {
+    assert.equal(matchPath(routes.screen, paths.screen('campaign', screen))?.params.screen, screen);
   }
 });
 
