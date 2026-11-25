@@ -7,6 +7,8 @@ import { Icon } from './Icon';
 const statusCopy: Partial<Record<ToneState, { word: string; phrase: string }>> = {
   ...stateCopy, unmet: { word: 'Unmet', phrase: 'Didn’t fill' }, collecting: { word: 'Collecting', phrase: '' },
   open: { word: 'Not open yet', phrase: '' }, awaiting: { word: 'Invoice', phrase: 'not paid yet' },
+  swapping: { word: 'Swapping', phrase: 'Waiting for the mint' }, 'not swapped': { word: 'Not swapped', phrase: 'Turned down by the mint' },
+  swapped: { word: 'Swapped', phrase: 'Yours to copy' },
 };
 
 // Where the money is, as a dot and a word. Paid takes its lime from the stylesheet, under data-paid only.

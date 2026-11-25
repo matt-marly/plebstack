@@ -38,8 +38,11 @@ export const confirmedStates: readonly MoneyState[] = ['paid', 'reclaimed'];
 // Signal lime has one meaning: the mint confirmed the payout.
 export const signalStates: readonly MoneyState[] = ['paid'];
 
-// Every state a chip, row or block can show: the seven, the campaign-level ones, and quote setup.
-export type ToneState = MoneyState | CampaignState | 'awaiting' | 'open';
+// Ngozi's swap has its own words, so spending is never shown as a take-back.
+export type SwapState = 'swapping' | 'not swapped' | 'swapped';
+
+// Every state a chip, row or block can show: the seven, the campaign-level ones, quote setup and the swap.
+export type ToneState = MoneyState | CampaignState | SwapState | 'awaiting' | 'open';
 
 // Each state's colour, always paired with its glyph and word. Only signalStates take the signal colour.
 export const stateColour: Record<ToneState, string> = {
@@ -54,6 +57,9 @@ export const stateColour: Record<ToneState, string> = {
   unmet: 'var(--color-state-reclaimed)',
   awaiting: 'var(--color-muted)',
   open: 'var(--color-muted)',
+  swapping: 'var(--color-state-paying-out)',
+  'not swapped': 'var(--color-muted)',
+  swapped: 'var(--color-ink)',
 };
 
 export function isSignal(state: ToneState): boolean {

@@ -53,7 +53,7 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
             </>
           )}>
         <div className="lead rise">
-          <Status state="reclaiming" phrase={rejected ? 'Turned down' : 'Waiting for the mint'} />
+          <Status state={rejected ? 'not swapped' : 'swapping'} />
           <h1>{rejected ? 'The mint turned down the swap.' : 'Swapping at the mint.'}</h1>
           <p>{rejected
             ? `Nothing was swapped. Your ${sats(spend.grossSat)} are still locked to your key.`

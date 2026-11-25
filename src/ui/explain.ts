@@ -155,8 +155,8 @@ export function mapOf(record: CampaignRecord, viewerId: string, role: Role, { sp
 
 // ---------------------------------------------------------------- the whole story
 
-const testMint = (each: string): Fact => ({
-  icon: 'info', text: `This is a test mint. It marks its own invoices paid, so the ${each} are fake sats.`, term: 'testnut.cashudevkit.org',
+const testMint = (what: string): Fact => ({
+  icon: 'info', text: `This is a test mint. It marks its own invoices paid, so ${what} are fake sats.`, term: 'testnut.cashudevkit.org',
 });
 
 type PlebWhere = 'wallet' | 'invoice' | 'mint' | 'returning' | 'back' | 'paid';
@@ -191,7 +191,7 @@ export function organizerFacts(her: string, each: string): Fact[] {
     { icon: 'swap', text: `The last signature sends one batch to the mint, locked to ${her}’s key. Paid shows only once the mint confirms.`,
       term: 'NUT-29 batch mint · NUT-11 P2PK' },
     { icon: 'info', text: 'The close is a rule in this app. It stops collecting; it never moves anyone’s sats.', term: 'app rule, not a lock at the mint' },
-    testMint(each),
+    testMint(`the ${each}`),
   ];
 }
 
@@ -221,7 +221,7 @@ export function maintainerFacts({ total, org, keyHere, pasted, paid }: Maintaine
       ? { icon: 'nib', text: `All three plebs paid ${total} in one batch, or none of it would have come.`, term: 'NUT-29 batch mint' }
       : { icon: 'nib', text: `All three plebs’ deposits go in one batch: ${total} for you, or none of it.`, term: 'NUT-29 batch mint' },
     { icon: 'mint', text: 'Spending swaps the payout at the mint for ecash only you hold. The mint keeps its swap fee.', term: 'NUT-03 swap, signed with your key' },
-    testMint(total),
+    testMint(`the ${total}`),
   ];
 }
 
@@ -459,20 +459,20 @@ function maintainer({ at, record, organizer: org, keyBy, spend }: Extract<Seen, 
       },
     };
     case 'swapping': return {
-      ...base, status: { state: 'reclaiming', phrase: 'Waiting for the mint' },
+      ...base, status: { state: 'swapping' },
       now: { lead: 'Your swap is with the mint.', text: `Nothing is yours to copy until it answers. Until then your ${sats(spend?.grossSat ?? 0)} stay locked to your key.`,
         term: 'NUT-03 swap · waiting for the mint', map },
       next: { steps: [{ text: 'The mint answers the swap.' }, { text: 'Copy your ecash into any Cashu wallet.' }], current: 0 },
     };
     case 'turned-down': return {
-      ...base, status: { state: 'reclaiming', phrase: 'Turned down' },
+      ...base, status: { state: 'not swapped' },
       now: { lead: 'The mint turned down the swap.', text: `Nothing was swapped. Your ${sats(spend?.grossSat ?? 0)} are still locked to your key.`, term: 'NUT-03 swap rejected', map },
       next: { steps: [{ text: 'Try the swap again. It asks for the same swap, never a new one.', term: T_SWAP }], current: 0 },
     };
     case 'spent': {
       const got = spend?.receivedSat ?? 0;
       return {
-        ...base, status: { state: 'reclaimed', phrase: 'Swapped' },
+        ...base, status: { state: 'swapped' },
         now: { lead: `${sats(got)} of ecash only you hold.`, text: `The mint kept a ${sats((spend?.grossSat ?? got) - got)} swap fee.`, term: 'NUT-03 swap', map },
         next: { steps: [{ text: 'Copy it into any Cashu wallet.' }], current: 0 },
       };

@@ -179,3 +179,31 @@ test('the map only names slabs that are someone’s, and keeps the open spot ano
   const open = reallyContext({ role: 'organizer', at: 'share', record: empty, maintainer: 'Ngozi' }).now.map!;
   assert.deepEqual(open.slabs.map(slab => slab.name), ['3 open spots', undefined, undefined]);
 });
+
+test('Ngozi’s swap reads as a swap, never as a take-back', () => {
+  const swap = { swapping: 'swapping', 'turned-down': 'not swapped', spent: 'swapped' } as const;
+  for (const [stage, state] of Object.entries(swap) as [keyof typeof swap, string][]) {
+    const context = reallyContext({ role: 'maintainer', at: stage, organizer: 'Ada' });
+    assert.equal(context.status.state, state, stage);
+    assert.doesNotMatch(said(context), /reclaim|take(n)? back/i, stage);
+  }
+});
+
+test('no sentence doubles a word or puts "the" before a possessive', () => {
+  const world = initialWorld();
+  const own = record(world);
+  const contexts = [
+    ...PLEBS.map(pleb => {
+      const seen = setViewer(world, pleb);
+      const { step, screen } = journeyOf(seen, record(seen));
+      return reallyContext({ role: 'pleb', at: screen, step, record: record(seen), viewerId: pleb });
+    }),
+    reallyContext({ role: 'organizer', at: 'watch', record: own, maintainer: 'Ngozi' }),
+    reallyContext({ role: 'maintainer', at: 'follow', record: own, organizer: 'Ada' }),
+  ];
+  for (const context of contexts) {
+    const text = said(context);
+    assert.doesNotMatch(text, /\bthe (your|her|his|their|my|our)\b/i);
+    assert.doesNotMatch(text, /\b(\w+) \1\b/i);
+  }
+});

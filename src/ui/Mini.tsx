@@ -256,7 +256,7 @@ export function maintainerView(draft: BoardDraft | undefined, record: CampaignRe
     const rejected = spend.status === 'rejected';
     const title = rejected ? 'The mint turned down the swap.' : 'Swapping at the mint.';
     return { rail: rail(3), view: { title, body: (
-      <Lead chip={<Status state="reclaiming" phrase={rejected ? 'Turned down' : 'Waiting for the mint'} />} title={title}
+      <Lead chip={<Status state={rejected ? 'not swapped' : 'swapping'} />} title={title}
         text={rejected ? `Nothing was swapped. Your ${total} are still locked to your key.` : 'Your swap is saved in this browser. Nothing is yours to copy until the mint answers.'} />
     ) } };
   }
