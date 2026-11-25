@@ -17,7 +17,7 @@ import {
   campaignGoal, journeyOf, maintainerJourney, organizerJourney, readyToSend, slabOffset, stopLabel, type Stop,
 } from '../src/ui/journey';
 import { qrModules } from '../src/ui/Qr';
-import { maintainerFacts, organizerFacts, reallyFacts } from '../src/ui/Really';
+import { maintainerFacts, organizerFacts, plebFacts } from '../src/ui/explain';
 import { Stack } from '../src/ui/Stack';
 import { Track } from '../src/ui/Track';
 import { Who } from '../src/ui/Who';
@@ -120,7 +120,7 @@ test('the track label follows the state, never a fixed “locked to you”', () 
 });
 
 test('what’s really happening names the batch, the lock and the signature, and drops the code-speak', () => {
-  const text = reallyFacts('Ngozi', '21 sats', '63 sats').map(fact => `${fact.text} ${fact.term}`).join('\n');
+  const text = plebFacts('Ngozi', '21 sats', '63 sats').map(fact => `${fact.text} ${fact.term}`).join('\n');
   assert.match(text, /NUT-20 locked mint quote/);
   assert.match(text, /signature over this exact batch\. It sends nothing by itself/);
   assert.match(text, /NUT-20 signature/);
@@ -150,7 +150,8 @@ test('binding copy: intro key line, honest test mint, close time only from data,
 });
 
 test('every fact sheet: the maintainer’s says the locked ecash only works with her key', () => {
-  const text = maintainerFacts('63 sats').map(fact => `${fact.text} ${fact.term}`).join('\n');
+  const text = maintainerFacts({ total: '63 sats', org: 'Ada', keyHere: true, pasted: false, paid: true })
+    .map(fact => `${fact.text} ${fact.term}`).join('\n');
   assert.match(text, /only works with your key/);
   assert.match(text, /NUT-11/);
   assert.doesNotMatch(organizerFacts('Ngozi', '21 sats').map(fact => fact.text).join(' '), /key methods/);

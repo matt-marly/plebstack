@@ -8,10 +8,10 @@ import type { BoardDraft } from '../live/board';
 import { paths } from '../routes';
 import { useSession } from '../session';
 import { formatWhen, shortKey } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { organizerJourney } from '../ui/journey';
 import { Note } from '../ui/parts';
-import { organizerFacts } from '../ui/Really';
 
 const EACH = 21;
 
@@ -49,7 +49,7 @@ export function Terms({ draft }: { draft: BoardDraft }) {
 
   return (
     <Frame {...organizerJourney('terms', maintainer.short)} back={{ to: paths.organize(draft.id, 'key'), label: 'Key' }} title="Set the terms"
-      facts={organizerFacts(maintainer.short, sats(EACH))}
+      really={reallyContext({ role: 'organizer', at: 'terms', maintainer: maintainer.short, keyBy: key.by })}
       actions={(
         <button type="button" className="button" data-variant="primary" aria-disabled={!future || undefined}
           onClick={() => { if (future) create(); }}>

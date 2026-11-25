@@ -5,11 +5,11 @@ import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { useSession } from '../session';
 import { formatTime, formatWhen } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, closeLine, organizerJourney, signedCount } from '../ui/journey';
 import { Icon } from '../ui/Icon';
 import { NewStack, Note, ShareButton, ShareInvite, Status } from '../ui/parts';
-import { organizerFacts } from '../ui/Really';
 import { Sheet } from '../ui/Sheet';
 import { Stack } from '../ui/Stack';
 import { Who } from '../ui/Who';
@@ -69,7 +69,7 @@ export function Watch({ record }: { record: CampaignRecord }) {
   const over = state === 'unmet' || state === 'reclaimed';
   return (
     <Frame record={record} {...organizerJourney('watch', maintainer.short, record)} back={{ to: paths.organize(campaign.id, 'share'), label: 'Share' }}
-      title={words.title} facts={organizerFacts(maintainer.short, each)}
+      title={words.title} really={reallyContext({ role: 'organizer', at: 'watch', record, maintainer: maintainer.short })}
       actions={state === 'paid' ? (
         <>
           <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={url}

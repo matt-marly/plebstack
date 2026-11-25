@@ -376,6 +376,13 @@ async function chipIn(person, { shotPrefix } = {}) {
       && (await page.locator('.stack-name').count()) === 0);
     await noLime('P1 join');
     await shoot('p1-join');
+    await page.getByRole('button', { name: 'What’s really happening' }).click();
+    await dialog().getByText('The whole story').click();
+    const sheet = await dialog().innerText();
+    check('P1: before chipping in, the sheet says the sats are still in the wallet, never at the mint',
+      sheet.includes(`Your 21 sats are still in your wallet.`) && !/Your (21 )?sats are at the mint|You made a key/.test(sheet), sheet.split('\n').slice(0, 6).join(' | '));
+    await dialog().getByRole('button', { name: 'Close', exact: true }).click();
+    await dialog().waitFor({ state: 'detached' });
   }
   await page.getByRole('button', { name: 'Chip in 21 sats' }).click();
   await page.getByRole('link', { name: 'Open in wallet' }).waitFor({ timeout: 30_000 });
@@ -503,9 +510,17 @@ try {
   await noLime('P4 waiting');
   await shoot('p4-waiting');
   await page.getByRole('button', { name: 'What’s really happening' }).click();
-  const facts = await dialog().innerText();
-  check('WRH: the sheet names the signature, the lock and the batch, not the coordinator',
-    ['NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => facts.includes(term)) && !/key methods/.test(facts));
+  const now = await dialog().innerText();
+  check('WRH: right now Tobi’s 21 sats are at the mint and Ngozi has nothing; next names the signature, the lock and the batch',
+    now.includes('Your 21 sats are at the mint, locked to your key.') && now.includes('Ngozi has nothing yet.')
+    && ['NUT-20 locked mint quote', 'NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => now.includes(term))
+    && !/reached you|went to Ngozi|plebs paid/.test(now), now.split('\n').slice(0, 6).join(' | '));
+  check('WRH: the whole story stays folded until asked', !now.includes('Signing is a signature over this exact batch'));
+  await dialog().getByText('The whole story').click();
+  const story = (await dialog().innerText()).split('The whole story')[1] ?? '';
+  check('WRH: the whole story names the signature, the lock and the batch, not the coordinator',
+    ['NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => story.includes(term)) && !/key methods/.test(story));
+  await noLime('WRH sheet');
   await shoot('wrh-sheet', 700);
   await dialog().getByRole('button', { name: 'Close', exact: true }).click();
   await dialog().waitFor({ state: 'detached' });
@@ -615,6 +630,8 @@ try {
   await a11y('M3 receive');
   await shoot('m3-receive');
   await page.getByRole('button', { name: 'What’s really happening' }).click();
+  check('M3: right now the sheet says 63 sats reached her, locked to her key', (await dialog().innerText()).includes('63 sats reached you, locked to your key.'));
+  await dialog().getByText('The whole story').click();
   check('M3: the sheet says the locked ecash only works with her key', (await dialog().innerText()).includes('it only works with your key'));
   await dialog().getByRole('button', { name: 'Close', exact: true }).click();
   await dialog().waitFor({ state: 'detached' });

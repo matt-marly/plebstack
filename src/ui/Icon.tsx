@@ -11,6 +11,7 @@ const paths: Record<string, string> = {
   chevron: 'M9.5 6L15.5 12L9.5 18',
   back: 'M14.5 6L8.5 12L14.5 18',
   ring: 'M12 5.5a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13',
+  undo: 'M9 14L4.5 9.5L9 5M4.5 9.5H14a5 5 0 0 1 0 10H11',
 };
 
 // A dashed ring says "not confirmed", without borrowing a money colour.

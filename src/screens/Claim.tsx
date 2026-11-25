@@ -5,11 +5,12 @@ import { TEST_MINT } from '../domain/models';
 import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { homePath, storageWorks, useSession } from '../session';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { maintainerJourney } from '../ui/journey';
 import { Icon } from '../ui/Icon';
 import { Note } from '../ui/parts';
-import { maintainerFacts } from '../ui/Really';
+import { Steps } from '../ui/Really';
 import { fixing } from '../ui/Who';
 import { NotFound } from './NotFound';
 
@@ -26,6 +27,7 @@ export function Claim() {
   if (liveActions.claimOf(world.viewerId, campaignId)) return <Navigate to={paths.maintain(campaignId)} replace />;
   const organizer = people[draft.organizerId].short;
   const opened = world.campaigns.some(record => record.campaign.id === campaignId);
+  const really = reallyContext({ role: 'maintainer', at: opened ? 'claim-pasted' : 'claim', organizer });
 
   function confirm() {
     try {
@@ -38,7 +40,7 @@ export function Claim() {
   }
 
   return (
-    <Frame {...maintainerJourney(opened ? 'claim-pasted' : 'claim', organizer)} title="Confirm your key" facts={maintainerFacts('63 sats')}
+    <Frame {...maintainerJourney(opened ? 'claim-pasted' : 'claim', organizer)} title="Confirm your key" really={really}
       actions={opened ? (
         <button type="button" className="button" data-variant="primary" onClick={() => navigate(paths.maintain(campaignId))}>
           Follow the stack<Icon name="chevron" />
@@ -59,6 +61,10 @@ export function Claim() {
         <p className="card-title">{fixing(draft.title)}</p>
         <p className="small muted">3 plebs · 21 sats each · {TEST_MINT.replace('https://', '')}</p>
         <p className="small muted">For {maintainerOf(draft).name} · a link to the work: {draft.publicWorkUrl.replace(/^https?:\/\//, '')}</p>
+      </div>
+      <div className="part">
+        <h2>What happens next</h2>
+        <Steps {...really.next} />
       </div>
       {!canSave && <Note><p>This browser can’t save anything, so it couldn’t keep your key. Nothing was shared.</p></Note>}
       {failure && <Note><p>{failure}</p></Note>}

@@ -1,13 +1,14 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
-import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
+import type { CampaignRecord, World } from '../demo/world';
 import { MAINTAINER, ORGANIZER, useSession } from '../session';
 import { GoalRail } from './GoalRail';
 import { Icon } from './Icon';
-import type { Here, Rail } from './journey';
+import { reallyContext, type ReallyContext } from './explain';
+import { journeyOf, type Here, type Rail } from './journey';
 import { Mark, Wordmark } from './Mark';
 import { PlayingAs } from './PlayingAs';
-import { Really, reallyFacts, type Fact } from './Really';
+import { Really } from './Really';
 
 export function useTitle(title: string) {
   useEffect(() => {
@@ -39,11 +40,6 @@ export function TestMint() {
   return <span className="env">Test mint · fake sats</span>;
 }
 
-export function plebFacts(record: CampaignRecord): Fact[] {
-  const { contributionSat, backerCount } = record.campaign;
-  return reallyFacts(maintainerOf(record).short, sats(contributionSat), sats(contributionSat * backerCount));
-}
-
 export interface BackTo {
   to: string;
   label: string;
@@ -72,11 +68,18 @@ export function StepHeader({ rail, here, back, lighting }: { rail: Rail; here: H
   );
 }
 
+function plebContext(world: World, record: CampaignRecord): ReallyContext {
+  const { step, screen } = journeyOf(world, record);
+  return reallyContext({ role: 'pleb', at: screen, step, record, viewerId: world.viewerId });
+}
+
 // Every screen: the brand bar, the two honest helpers, the step header, one job, the action pinned at the bottom.
-export function Frame({ record, rail, here, back, title, children, actions, moment, facts }: {
+// The organizer's and the maintainer's screens say where they are; a pleb's is read from their own step.
+export function Frame({ record, rail, here, back, title, children, actions, moment, really }: {
   record?: CampaignRecord; rail: Rail; here: Here; back?: BackTo; title: string; children: ReactNode; actions?: ReactNode;
-  moment?: boolean; facts?: Fact[];
+  moment?: boolean; really?: ReallyContext;
 }) {
+  const { world } = useSession();
   useTitle(title);
   const main = useRef<HTMLElement>(null);
   useHeadingFocus(main, title);
@@ -89,7 +92,7 @@ export function Frame({ record, rail, here, back, title, children, actions, mome
         </div>
         <div className="helpers">
           <PlayingAs record={record} />
-          <Really facts={facts ?? (record ? plebFacts(record) : [])} />
+          <Really context={really ?? plebContext(world, record!)} />
         </div>
         <StepHeader rail={rail} here={here} back={back} lighting={moment} />
       </header>

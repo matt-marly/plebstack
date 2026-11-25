@@ -6,11 +6,11 @@ import type { BoardDraft } from '../live/board';
 import { paths } from '../routes';
 import { MAINTAINER, usePlayAs, useSession } from '../session';
 import { formatWhen } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { organizerJourney } from '../ui/journey';
 import { Avatar, CopyButton, Note, Quiet, ShareButton } from '../ui/parts';
 import { Qr } from '../ui/Qr';
-import { organizerFacts } from '../ui/Really';
 import { Sheet } from '../ui/Sheet';
 import { Who } from '../ui/Who';
 import { Field } from './Backing';
@@ -27,7 +27,6 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
   const maintainer = maintainerOf(draft);
   const name = maintainer.short;
   const link = `${location.origin}${paths.claim(draft.id)}`;
-  const facts = organizerFacts(name, '21 sats');
   const opened = liveActions.world(draft.organizerId).campaigns.some(record => record.campaign.id === draft.id);
 
   function paste() {
@@ -45,7 +44,8 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
   if (draft.key) {
     const confirmed = draft.key.by === 'maintainer';
     return (
-      <Frame {...organizerJourney(confirmed ? 'confirmed' : 'pasted', name)} title={confirmed ? 'Key confirmed' : 'Key pasted'} facts={facts}
+      <Frame {...organizerJourney(confirmed ? 'confirmed' : 'pasted', name)} title={confirmed ? 'Key confirmed' : 'Key pasted'}
+        really={reallyContext({ role: 'organizer', at: confirmed ? 'confirmed' : 'pasted', maintainer: name })}
         actions={(
           <button type="button" className="button" data-variant="primary"
             onClick={() => navigate(paths.organize(draft.id, opened ? 'watch' : 'terms'))}>
@@ -68,7 +68,8 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
   }
 
   return (
-    <Frame {...organizerJourney('key', name)} title={`Get ${name}’s key`} facts={facts}
+    <Frame {...organizerJourney('key', name)} title={`Get ${name}’s key`}
+      really={reallyContext({ role: 'organizer', at: 'key', maintainer: name })}
       actions={(
         <>
           <ShareButton label="Share claim link" done="Claim link copied" title="Plebstack" url={link}

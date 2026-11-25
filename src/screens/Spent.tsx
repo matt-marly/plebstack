@@ -4,11 +4,11 @@ import { liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatClock } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { maintainerJourney } from '../ui/journey';
 import { CopyButton, NewStack, Note, Pending, Status } from '../ui/parts';
 import { PayoutTrack } from '../ui/Track';
-import { maintainerFacts } from '../ui/Really';
 
 // M4: after the swap. The ecash is hers alone now; until the mint answers, Check again asks about the same swap.
 export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: string }) {
@@ -20,8 +20,8 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
   const key = keys.spend(campaign.id);
   const done = spend.status === 'confirmed';
   const fee = done ? spend.grossSat - spend.receivedSat! : 0;
-  const facts = maintainerFacts(sats(spend.grossSat));
   const organizer = people[record.creatorId].short;
+  const really = (at: 'swapping' | 'turned-down' | 'spent') => reallyContext({ role: 'maintainer', at, record, organizer, spend });
 
   useEffect(() => {
     if (!done) return;
@@ -42,7 +42,8 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
   if (!done) {
     const rejected = spend.status === 'rejected';
     return (
-      <Frame record={record} {...maintainerJourney(rejected ? 'turned-down' : 'swapping', organizer)} title="Swapping at the mint" facts={facts}
+      <Frame record={record} {...maintainerJourney(rejected ? 'turned-down' : 'swapping', organizer)} title="Swapping at the mint"
+        really={really(rejected ? 'turned-down' : 'swapping')}
         actions={rejected && !isRunning(key)
           ? <button type="button" className="button" data-variant="primary" onClick={again}>Try the swap again</button>
           : (
@@ -69,7 +70,7 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
   }
 
   return (
-    <Frame record={record} {...maintainerJourney('spent', organizer)} title={`Yours. ${sats(spend.receivedSat!)}`} facts={facts}
+    <Frame record={record} {...maintainerJourney('spent', organizer)} title={`Yours. ${sats(spend.receivedSat!)}`} really={really('spent')}
       actions={(
         <>
           {ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}

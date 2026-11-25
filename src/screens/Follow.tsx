@@ -1,10 +1,11 @@
 import { people, sats, statusOf, tally, type CampaignRecord } from '../demo/world';
 import type { BoardDraft } from '../live/board';
 import { formatWhen, shortKey } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, closeLine, maintainerJourney } from '../ui/journey';
 import { NewStack, Pending, ShareButton, Status } from '../ui/parts';
-import { maintainerFacts } from '../ui/Really';
+import { Steps } from '../ui/Really';
 import { Stack } from '../ui/Stack';
 import { PayoutTrack } from '../ui/Track';
 import { whyUnmet } from './Unmet';
@@ -12,10 +13,10 @@ import { whyUnmet } from './Unmet';
 // M2: a stack for her. Nothing to do; the payout will be locked to her key if all three sign.
 export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?: CampaignRecord; viewerId: string }) {
   const organizer = people[draft.organizerId].short;
-  const facts = maintainerFacts(sats(63));
+  const really = reallyContext({ role: 'maintainer', at: 'follow', record, organizer, keyBy: draft.key?.by });
   if (!record) {
     return (
-      <Frame {...maintainerJourney('follow', organizer)} title="Key confirmed" facts={facts} actions={<Pending label={`Waiting for ${organizer} to open the stack…`} />}>
+      <Frame {...maintainerJourney('follow', organizer)} title="Key confirmed" really={really} actions={<Pending label={`Waiting for ${organizer} to open the stack…`} />}>
         <div className="lead rise">
           <h1>Your key is confirmed.</h1>
           <p>{organizer} is setting the terms next. The payout will be locked to your key. Nothing to do yet.</p>
@@ -26,6 +27,10 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
             <div><dt>Confirmed</dt><dd className="mono">{formatWhen(draft.key.at)}</dd></div>
           </dl>
         )}
+        <div className="part">
+          <h2>What happens next</h2>
+          <Steps {...really.next} />
+        </div>
       </Frame>
     );
   }
@@ -40,7 +45,7 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
   const chip = unmet ? { state: 'unmet' as const } : sending ? { state: 'paying out' as const }
     : { state: 'collecting' as const, phrase: held === 3 ? 'At the line' : `${held} of 3 in` };
   return (
-    <Frame record={record} {...maintainerJourney('follow', organizer, record)} title="A stack for you" facts={facts}
+    <Frame record={record} {...maintainerJourney('follow', organizer, record)} title="A stack for you" really={really}
       actions={unmet ? <NewStack variant="primary" /> : (
         <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={`${location.origin}/s/${campaign.id}`}
           text={`${organizer} is getting 3 plebs to back me on Plebstack.`} variant="secondary" />
@@ -57,6 +62,10 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
       <Stack goal={campaignGoal(record)} meta={closeLine(record)} />
       <PayoutTrack title="Where the sats for you are" stop={unmet ? 'none' : sending ? 'to-you' : held ? 'at-mint' : 'none'}
         label={unmet ? 'none coming' : sending ? `${total} on the way to you` : held ? `${heldSat} of ${total} at the mint` : 'nothing stacked yet'} />
+      <div className="part">
+        <h2>What happens next</h2>
+        <Steps {...really.next} />
+      </div>
     </Frame>
   );
 }

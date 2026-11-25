@@ -4,10 +4,10 @@ import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { ORGANIZER, useSession } from '../session';
 import { isHttpUrl } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { organizerJourney } from '../ui/journey';
 import { Note } from '../ui/parts';
-import { organizerFacts } from '../ui/Really';
 
 export function Field({ label, value, onChange, hint, error, type = 'text', placeholder }: {
   label: string; value: string; onChange: (value: string) => void; hint?: string; error?: string; type?: string; placeholder?: string;
@@ -57,7 +57,7 @@ export function Backing() {
 
   return (
     <Frame rail={rail} here={organizer ? here : { ...here, next: 'play as Ada to start a stack.' }} title="Who are you backing?"
-      facts={organizerFacts(first, '21 sats')}
+      really={reallyContext({ role: 'organizer', at: 'who', maintainer: first })}
       actions={organizer
         ? <button type="button" className="button" data-variant="primary" onClick={next}>Next</button>
         : <button type="button" className="button" data-variant="primary" onClick={() => viewAs(ORGANIZER)}>Play as Ada</button>}>

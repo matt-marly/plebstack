@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
+import { maintainerOf, type CampaignRecord } from '../demo/world';
 import { paths } from '../routes';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { Icon } from '../ui/Icon';
 import { organizerJourney } from '../ui/journey';
 import { CopyButton, ShareInvite } from '../ui/parts';
 import { Qr } from '../ui/Qr';
-import { organizerFacts } from '../ui/Really';
 
 // O4: get the invite out. The organizer can share and stop collecting, never move anyone's sats.
 export function Share({ record }: { record: CampaignRecord }) {
@@ -16,7 +16,7 @@ export function Share({ record }: { record: CampaignRecord }) {
   const url = `${location.origin}${paths.stack(campaign.id)}`;
   return (
     <Frame record={record} {...organizerJourney('share', maintainer)} title="Your stack is open"
-      facts={organizerFacts(maintainer, sats(campaign.contributionSat))}
+      really={reallyContext({ role: 'organizer', at: 'share', record, maintainer })}
       actions={(
         <>
           <ShareInvite campaignId={campaign.id} title={`Back ${maintainer}: ${campaign.title}`} />

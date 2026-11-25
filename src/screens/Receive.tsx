@@ -4,10 +4,10 @@ import { failureCopy, liveActions, type Received } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatWhen } from '../ui/format';
+import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, maintainerJourney } from '../ui/journey';
 import { Note, Status, useOnline } from '../ui/parts';
-import { maintainerFacts } from '../ui/Really';
 import { Stack } from '../ui/Stack';
 import { PayoutTrack } from '../ui/Track';
 import { confirmedPayout } from './Paid';
@@ -22,6 +22,7 @@ export function Receive({ record, viewerId }: { record: CampaignRecord; viewerId
   const total = sats(campaign.contributionSat * campaign.backerCount);
   const payout = confirmedPayout(record);
   const key = keys.spend(campaign.id);
+  const organizer = people[record.creatorId].short;
 
   useEffect(() => {
     try {
@@ -37,8 +38,8 @@ export function Receive({ record, viewerId }: { record: CampaignRecord; viewerId
 
   const ready = received !== undefined && online && !isRunning(key);
   return (
-    <Frame record={record} {...maintainerJourney('receive', people[record.creatorId].short, record)} title={`${total} for you`}
-      facts={maintainerFacts(total)}
+    <Frame record={record} {...maintainerJourney('receive', organizer, record)} title={`${total} for you`}
+      really={reallyContext({ role: 'maintainer', at: 'receive', record, organizer })}
       actions={(
         <button type="button" className="button" data-variant="primary" aria-disabled={!ready || undefined}
           onClick={() => { if (ready) spend(); }}>
