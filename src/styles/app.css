@@ -12,7 +12,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-h1, h2, p, ol, ul, figure { margin: 0; }
+h1, h2, p, ol, ul, dl, figure { margin: 0; }
 button, a { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; border-radius: 6px; }
 
@@ -27,7 +27,7 @@ button, a { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------------- shell */
 
-/* A phone column; on a desktop the night ground runs out around it. */
+/* A phone column; on a narrow window the night ground runs out around it. */
 .shell {
   width: 100%;
   max-width: var(--column);
@@ -46,6 +46,37 @@ button, a { font: inherit; color: inherit; }
     calc(var(--space-4) + env(safe-area-inset-top)) calc(var(--pad) + env(safe-area-inset-right))
     0 calc(var(--pad) + env(safe-area-inset-left));
 }
+
+/* ---------------------------------------------------------------- desktop frame */
+
+/* A phone, a small window or a zoomed page never sees the frame: its wrappers drop out of the layout. */
+.desk, .device, .device-glass { display: contents; }
+
+.desk[data-framed] {
+  display: flex; align-items: center; justify-content: center; gap: 96px;
+  min-height: 100dvh; padding: var(--space-4) var(--space-6);
+}
+.desk[data-framed] .device {
+  display: block; flex: none; padding: 10px; border: 1px solid var(--color-rule); border-radius: 58px; background: var(--color-card);
+  box-shadow: 0 32px 96px rgba(0, 0, 0, .55), 0 8px 24px rgba(0, 0, 0, .35);
+}
+/* Its own scroll; the transform holds the fixed sheet layer to the glass, so sheets open inside the phone. */
+.desk[data-framed] .device-glass {
+  display: block; position: relative; width: 390px; height: min(844px, calc(100dvh - 2 * var(--space-4) - 22px));
+  border-radius: 48px; overflow: hidden; background: var(--color-canvas); transform: translateZ(0);
+}
+.desk[data-framed] .screen { padding-top: var(--space-6); }
+.desk[data-framed] .shell { max-width: none; height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.desk[data-framed] .sheet-layer, .desk[data-framed] .sheet-scrim { border-radius: inherit; }
+.desk[data-framed] .sheet { max-height: calc(100% - var(--space-6)); }
+
+.desk-side { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); width: 240px; }
+.desk-side .brand-mark { width: 24px; height: 24px; }
+.desk-side .brand-word { height: 20px; }
+.desk-lead { color: var(--color-muted); text-wrap: pretty; }
+.desk-side .qr { width: 152px; border-radius: 12px; }
+.desk-side .button[data-variant="quiet"] { align-self: flex-start; padding: 0; }
+.desk-note { font-size: var(--text-caption); color: var(--color-muted); text-wrap: pretty; }
 
 .top { display: flex; flex-direction: column; gap: var(--space-4); }
 .top-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); min-height: 32px; }
@@ -539,13 +570,13 @@ h1:focus { outline: none; }
 .splash-word svg { display: block; width: 168px; height: auto; }
 .splash-note { max-width: 30ch; text-align: center; color: var(--color-muted); }
 
-.intro .top-bar { padding-bottom: var(--space-2); }
-.art { width: 100%; height: auto; overflow: visible; }
-.art-label { font-size: var(--text-caption); fill: var(--color-muted); }
-.art-label[data-strong] { fill: var(--color-ink); font-weight: 600; }
-.art-drop { animation: drop 620ms var(--ease-settle) both; }
+/* The app's own parts as the pictures, so the words carry over. */
+.intro-art { display: flex; flex-direction: column; gap: var(--space-2); }
+.intro-caption { font-size: var(--text-caption); color: var(--color-muted); }
+.intro .lead h1 { font-size: 28px; }
+.intro-note { font-size: var(--text-caption); color: var(--color-muted); }
 .dots { display: flex; gap: var(--space-2); }
-.dots span { width: 8px; height: 8px; border-radius: 4px; background: #3a3a40; transition: width var(--dur-base) var(--ease-out); }
+.dots span[aria-hidden] { width: 8px; height: 8px; border-radius: 4px; background: #3a3a40; transition: width var(--dur-base) var(--ease-out); }
 .dots span[data-on] { width: 24px; background: var(--color-ink); }
 
 /* Words move first. */

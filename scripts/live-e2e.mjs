@@ -9,6 +9,8 @@
 //      browser's own clock control, so nothing in the app has a test switch.
 //   F. journey A again by keyboard alone (Tab, Shift+Tab, Enter, Space, Escape): the focus is always visible and
 //      lands on the new headline, or in the sheet, after every change.
+//   G. a desktop window (1440x900): the app sits in a phone frame with its own scroll, a QR beside it; axe clean,
+//      no sideways scroll, the frame gone at the reflow sizes, and a sheet that opens and traps focus inside the frame.
 // On every checked screen: each control named, headings in order, AA contrast from the computed colours, 44px targets,
 // a live region and a focus ring that is never lime; the sheets trap focus; Reduce Motion shows Paid at once.
 // On every checked or captured screen: axe against WCAG 2.2 AA, and reflow at 320px wide and at 200% zoom
@@ -499,6 +501,9 @@ try {
   await page.getByRole('button', { name: 'Next' }).click();
   await shoot('intro-3');
   await noLime('Intro 3');
+  check('A0: the intro counts its pages for a screen reader only, and shows no lime before anything is paid',
+    (await page.locator('.dots .visually-hidden').innerText()) === 'Page 3 of 3'
+    && (await page.locator('.intro .cast').count()) === 1 && !(await page.locator('.intro [data-paid]').count()));
   check('A1: Intro 3 starts a stack; no invite yet in a fresh browser',
     await page.getByRole('button', { name: 'Start a stack' }).isVisible() && !(await page.getByRole('button', { name: 'I have an invite link' }).count()));
   await page.getByRole('button', { name: 'Start a stack' }).click();
@@ -778,7 +783,8 @@ try {
   await page.goto(`${base}/`);
   await page.waitForURL(/\/intro\/1$/);
   await page.getByRole('button', { name: 'Skip the intro' }).click();
-  await page.getByRole('button', { name: 'Start a stack' }).click();
+  await heading('Who are you backing?').waitFor();
+  check('E0: Skip the intro finishes it: Ada starts a stack', page.url().endsWith('/new'));
   const e = summary.campaigns.closed = await openStack({ close: '24 hours' });
   await chipIn('Tobi');
   await chipIn('Maren');
@@ -897,6 +903,59 @@ try {
     return keys.filter(secret => shared.includes(secret) || document.documentElement.outerHTML.includes(secret)).length;
   }, await secretKeys());
   check('Z1: no private key on the board, with the coordinator or on the page (closed run)', leaked === 0);
+
+  // ---------------------------------------------------------------- G: a desktop window frames the phone
+  page = await phonePage(await browser.newContext({ viewport: { width: 1440, height: 900 } }));
+  await page.goto(`${base}/`);
+  await page.waitForURL(/\/intro\/1$/);
+  await page.waitForTimeout(1200);
+  const glassBox = () => page.evaluate(() => {
+    const box = document.querySelector('.desk[data-framed] .device-glass')?.getBoundingClientRect();
+    return box && { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height };
+  });
+  const within = (box, glass) => !!box && !!glass && box.left >= glass.left && box.right <= glass.right
+    && box.top >= glass.top && box.bottom <= glass.bottom;
+  const glass = await glassBox();
+  const framing = await page.evaluate(() => {
+    const root = document.scrollingElement;
+    return { sideways: root.scrollWidth > root.clientWidth, scroll: getComputedStyle(document.querySelector('.shell')).overflowY };
+  });
+  check('G1: at 1440x900 the app sits in a 390x844 phone frame with its own scroll, and the page never scrolls sideways',
+    glass?.width === 390 && glass?.height === 844 && framing.scroll === 'auto' && !framing.sideways, JSON.stringify({ glass, ...framing }));
+  const side = page.locator('.desk-side');
+  check('G2: beside the phone: how to open it on one (a QR of this page), the stage, and the test-mint note',
+    (await side.innerText()).includes('A phone app on the web. Open it on your phone:')
+    && await side.getByRole('img', { name: `QR code for ${base}/intro/1` }).isVisible()
+    && await side.getByRole('link', { name: 'Open the stage' }).getAttribute('href') === '/stage'
+    && (await side.innerText()).includes('a test mint: the sats are fake'));
+  await noLime('Desktop 1440 intro');
+  const deskFound = [...await axeViolations(page), ...await reflowIssues(page)];
+  check('G3: desktop: axe WCAG 2.2 AA clean, nothing clipped, no sideways scroll', deskFound.length === 0, deskFound.join(' | '));
+  await shoot('desktop-1440', 400, { checked: false });
+  const unframed = [];
+  for (const [label, view] of REFLOW) {
+    await page.setViewportSize(view);
+    await page.waitForTimeout(150);
+    if (await page.locator('.desk[data-framed], .desk-side').count()) unframed.push(label);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  check('G4: a small window and 200% zoom never see the frame', unframed.length === 0, unframed.join(', '));
+  await page.getByRole('button', { name: 'Skip the intro' }).click();
+  await heading('Who are you backing?').waitFor();
+  const inFrame = async locator => within(await locator.boundingBox().then(box => box && {
+    left: box.x, top: box.y, right: box.x + box.width, bottom: box.y + box.height }), await glassBox());
+  const usable = await inFrame(heading('Who are you backing?')) && await inFrame(page.getByRole('button', { name: 'Next', exact: true }));
+  const help = page.getByRole('button', { name: 'What’s really happening' });
+  await help.click();
+  await dialog().waitFor();
+  await page.waitForTimeout(600);
+  const sheetInside = await inFrame(dialog());
+  const sideInert = await side.evaluate(element => element.hasAttribute('inert'));
+  await page.keyboard.press('Escape');
+  await dialog().waitFor({ state: 'detached' });
+  check('G5: usable inside the frame: the headline and the action sit in the phone, a sheet opens inside it with the rest inert, Escape closes it',
+    usable && sheetInside && sideInert && await help.evaluate(element => element === document.activeElement),
+    JSON.stringify({ usable, sheetInside, sideInert }));
   check('Z2: no private key on any screenshotted page', shotLeaks.length === 0, shotLeaks.join(', '));
   check('Z3: no page errors', errors.length === 0, errors.join(' | '));
   summary.limeChecked = limeChecked;

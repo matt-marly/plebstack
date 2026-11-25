@@ -4,6 +4,19 @@ import { createPortal } from 'react-dom';
 const focusable = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, summary, [tabindex]:not([tabindex="-1"])';
 const LEAVE_MS = 220;
 
+// Everything but the sheet goes inert, wherever the sheet sits: the body, or the phone frame on a desktop.
+function inertAround(layer: HTMLElement): Element[] {
+  const made: Element[] = [];
+  for (let node = layer; node.parentElement && node !== document.body; node = node.parentElement) {
+    for (const sibling of node.parentElement.children) {
+      if (sibling === node || sibling.hasAttribute('inert')) continue;
+      sibling.setAttribute('inert', '');
+      made.push(sibling);
+    }
+  }
+  return made;
+}
+
 // A bottom sheet: modal while open, Escape or the scrim closes it, and focus goes back where it came from.
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const [shown, setShown] = useState(open);
@@ -28,12 +41,11 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   useEffect(() => {
     if (!shown) return;
     opener.current = document.activeElement as HTMLElement | null;
-    const root = document.getElementById('root');
-    root?.setAttribute('inert', '');
+    const behind = inertAround(panel.current!.parentElement!);
     // The panel itself takes focus, so a long sheet opens at its top and Tab moves into it.
     panel.current?.focus({ preventScroll: true });
     return () => {
-      root?.removeAttribute('inert');
+      behind.forEach(element => element.removeAttribute('inert'));
       opener.current?.focus();
     };
   }, [shown]);
@@ -68,6 +80,6 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         {children}
       </div>
     </div>,
-    document.body,
+    document.querySelector('[data-sheet-host]') ?? document.body,
   );
 }

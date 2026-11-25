@@ -10,19 +10,22 @@ import { Splash } from './screens/Splash';
 import { Stage } from './screens/Stage';
 import { StackRoute } from './screens/StackRoute';
 import { SessionProvider, useSession } from './session';
+import { Desk } from './ui/Desk';
 
 function Announcer() {
   const { notice } = useSession();
   return <p className="visually-hidden" role="status" aria-live="polite">{notice}</p>;
 }
 
-// Every screen but the stage sits in one phone column.
+// Every screen but the stage sits in one phone column, framed as a phone on a desktop.
 function Phone() {
   return (
-    <div className="shell">
-      <Outlet />
-      <Announcer />
-    </div>
+    <Desk>
+      <div className="shell">
+        <Outlet />
+        <Announcer />
+      </div>
+    </Desk>
   );
 }
 
