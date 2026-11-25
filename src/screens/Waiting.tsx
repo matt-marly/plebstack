@@ -19,7 +19,7 @@ export function Waiting({ world, record, journey }: ScreenProps) {
   const others = whoIsIn(record, world.viewerId).filter(name => name !== 'you');
 
   return (
-    <Frame record={record} rail={journey.rail} title="Waiting for the others"
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Waiting for the others"
       actions={(
         <>
           <ShareInvite campaignId={campaign.id} title={campaign.title} />

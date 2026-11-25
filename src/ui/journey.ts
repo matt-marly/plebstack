@@ -1,8 +1,9 @@
 import {
-  groupComplete, isHeld, pendingOperation, people, sats, slotOf, statusOf, tally, viewerStep,
+  fellShort, groupComplete, isHeld, maintainerOf, pendingOperation, people, sats, slotOf, statusOf, tally, viewerStep,
   type CampaignRecord, type ViewerStep, type World,
 } from '../demo/world';
-import { formatWhen } from './format';
+import { formatWhen, listNames } from './format';
+import { maintainerSteps, organizerSteps } from './GoalRail';
 
 export const PLEBS = ['tobi', 'maren', 'ishaan'] as const;
 
@@ -15,6 +16,19 @@ export interface Rail {
   paid: boolean;
   // Organizer and maintainer have their own four steps.
   steps?: readonly string[];
+  // Every step behind, like the organizer's setup once the stack is open.
+  done?: boolean;
+  // The step at `at` waits on the mint, so it stays ahead: Sending is not Paid.
+  pending?: boolean;
+  // Taking it back ends on Back, not Paid.
+  branch?: 'back';
+}
+
+// The step header: where you are, and what happens next. `end` means there is no next.
+export interface Here {
+  name: string;
+  next: string;
+  end?: boolean;
 }
 
 export type Stop = 'wallet' | 'to-mint' | 'at-mint' | 'signed' | 'to-maintainer' | 'with-maintainer' | 'to-you' | 'back';
@@ -24,12 +38,115 @@ export interface Journey {
   screen: Screen;
   rail: Rail;
   stop: Stop;
+  here: Here;
 }
 
 const railAt: Record<ViewerStep['kind'], Rail['at']> = {
-  organize: 0, watch: 0, join: 0, fund: 1, wait: 1, 'take-back': 1, approve: 2, stopped: 2, approved: 2,
-  'payout-pending': 3, paid: 3, reclaiming: 1, reclaimed: 1,
+  organize: 0, watch: 0, join: 0, fund: 1, wait: 1, 'take-back': 3, approve: 2, stopped: 2, approved: 2,
+  'payout-pending': 3, paid: 3, reclaiming: 3, reclaimed: 3,
 };
+
+function railOf(step: ViewerStep, record: CampaignRecord, own: boolean): Rail {
+  // Someone who never chipped in stays at Join, whatever the stack did without them.
+  if (!own) return { at: 0, paid: false };
+  const rail: Rail = { at: railAt[step.kind], paid: statusOf(record) === 'paid' };
+  if (step.kind === 'payout-pending') rail.pending = true;
+  if (step.kind === 'take-back' || step.kind === 'reclaiming' || step.kind === 'reclaimed') rail.branch = 'back';
+  if (step.kind === 'reclaimed') rail.done = true;
+  return rail;
+}
+
+const plural = (count: number, one: string, many: string) => `${count} more ${count === 1 ? one : many}`;
+
+// The pleb's step header for the screen they are on, counts and names from the record.
+export function plebHere(screen: Screen, step: ViewerStep, record: CampaignRecord): Here {
+  const each = sats(record.campaign.contributionSat);
+  const maintainer = maintainerOf(record).short;
+  const total = sats(record.campaign.contributionSat * record.campaign.backerCount);
+  const missing = record.campaign.backerCount - tally(record).held;
+  switch (screen) {
+    case 'join':
+      if (step.kind === 'join') return { name: 'Join the stack', next: `chip in ${each}.` };
+      return { name: fellShort(record) ? 'This stack closed' : 'This stack is full', next: 'start a new stack.' };
+    case 'pay': return { name: 'Pay to stack', next: 'pay the invoice.' };
+    case 'stacked': case 'waiting':
+      return { name: 'Stacked', next: missing > 0 ? `${plural(missing, 'pleb chips', 'plebs chip')} in.` : 'check the payout and sign.' };
+    case 'sign':
+      return step.kind === 'stopped' ? { name: 'Signing stopped', next: `take your ${each} back.` }
+        : { name: 'Sign the group card', next: 'check the payout and sign.' };
+    case 'signed': {
+      const waitingOn = step.kind === 'approved' ? step.waitingOn : [];
+      return waitingOn.length ? { name: 'Signed', next: `${listNames(waitingOn)} ${waitingOn.length > 1 ? 'sign' : 'signs'}.` }
+        : { name: 'All three signed', next: 'send it to the mint.' };
+    }
+    case 'sending': return { name: 'Sending · not paid yet', next: 'the mint confirms.' };
+    case 'paid': return { name: 'Paid', next: `Done. ${maintainer} got ${total}.`, end: true };
+    case 'race': return { name: 'Paid', next: `Done. ${maintainer} got ${total}, yours included.`, end: true };
+    case 'unmet': return { name: 'Take yours back', next: 'take yours back.' };
+    case 'back':
+      return step.kind === 'reclaimed' ? { name: 'Back to you', next: `Done. Your ${each} are back with you.`, end: true }
+        : { name: 'Taking it back', next: `the mint sends your ${each} back.` };
+  }
+}
+
+export type OrganizerStage = 'who' | 'key' | 'confirmed' | 'pasted' | 'terms' | 'share' | 'watch';
+
+// Ada's four setup steps. Once the stack is open her setup is done; the rest is the plebs'.
+export function organizerJourney(stage: OrganizerStage, maintainer: string, record?: CampaignRecord): { rail: Rail; here: Here } {
+  const rail = (at: Rail['at'], done?: boolean): Rail => ({ at, paid: false, steps: organizerSteps, ...(done ? { done } : {}) });
+  switch (stage) {
+    case 'who': return { rail: rail(0), here: { name: 'Who you’re backing', next: 'name the person and the work.' } };
+    case 'key': return { rail: rail(1), here: { name: `Get ${maintainer}’s key`, next: `${maintainer} confirms on her phone.` } };
+    case 'confirmed': return { rail: rail(1), here: { name: 'Key confirmed', next: 'set the terms.' } };
+    case 'pasted': return { rail: rail(1), here: { name: 'Key pasted', next: `check the key with ${maintainer}, then set the terms.` } };
+    case 'terms': return { rail: rail(2), here: { name: 'Set the terms', next: 'create the stack.' } };
+    case 'share': return { rail: rail(3), here: { name: 'Share the invite', next: 'send the invite, then watch it fill.' } };
+    case 'watch': return { rail: rail(3, true), here: { name: 'Watching it fill · setup done', ...watchNext(record!, maintainer) } };
+  }
+}
+
+function watchNext(record: CampaignRecord, maintainer: string): Omit<Here, 'name'> {
+  const state = statusOf(record);
+  const missing = record.campaign.backerCount - tally(record).held;
+  if (state === 'paid') return { next: `Done. ${maintainer} was paid.`, end: true };
+  if (state === 'unmet' || state === 'reclaimed') return { next: 'Done. Each pleb takes their own back.', end: true };
+  if (state === 'paying out') return { next: 'the mint confirms.' };
+  if (state === 'reclaiming') return { next: 'the mint answers the take-back.' };
+  if (missing > 0) return { next: `${plural(missing, 'pleb chips', 'plebs chip')} in. Nothing for you to do.` };
+  return { next: `${listNames(unsigned(record))} ${unsigned(record).length > 1 ? 'sign' : 'signs'}. Nothing for you to do.` };
+}
+
+const unsigned = (record: CampaignRecord) =>
+  record.slots.filter(slot => slot.backerId && !slot.deposit?.authorizationReleased).map(slot => people[slot.backerId!].short);
+
+export type MaintainerStage = 'claim' | 'claim-pasted' | 'follow' | 'receive' | 'swapping' | 'turned-down' | 'spent';
+
+// Ngozi's four steps follow the money: her key, the stack, the payout in, then spent.
+export function maintainerJourney(stage: MaintainerStage, organizer: string, record?: CampaignRecord): { rail: Rail; here: Here } {
+  const rail = (at: Rail['at'], done?: boolean): Rail => ({ at, paid: false, steps: maintainerSteps, ...(done ? { done } : {}) });
+  switch (stage) {
+    case 'claim': return { rail: rail(0), here: { name: 'Confirm your key', next: 'confirm your key.' } };
+    case 'claim-pasted': return { rail: rail(0), here: { name: 'A stack for you', next: `tell ${organizer} if that key isn’t yours.` } };
+    case 'follow': return { rail: rail(1), here: { name: 'Follow the stack', ...followNext(organizer, record) } };
+    case 'receive':
+      return { rail: rail(2), here: { name: `${sats(record!.campaign.contributionSat * record!.campaign.backerCount)} for you`,
+        next: record?.keyBy === 'pasted' ? `whoever holds the key ${organizer} pasted spends it.` : 'spend it into ecash only you hold.' } };
+    case 'swapping': return { rail: rail(3), here: { name: 'Swapping', next: 'the mint answers.' } };
+    case 'turned-down': return { rail: rail(3), here: { name: 'Swap turned down', next: 'try the swap again.' } };
+    case 'spent': return { rail: rail(3, true), here: { name: 'Spent', next: 'Done. Copy your ecash into any Cashu wallet.', end: true } };
+  }
+}
+
+function followNext(organizer: string, record?: CampaignRecord): Omit<Here, 'name'> {
+  if (!record) return { next: `${organizer} sets the terms. Nothing to do yet.` };
+  const state = statusOf(record);
+  const missing = record.campaign.backerCount - tally(record).held;
+  if (state === 'unmet' || state === 'reclaimed') return { next: 'Done. No payout this time.', end: true };
+  if (state === 'paying out') return { next: 'the mint confirms.' };
+  if (state === 'reclaiming') return { next: 'the mint answers the take-back. Nothing to do.' };
+  if (missing > 0) return { next: `${plural(missing, 'pleb chips', 'plebs chip')} in. Nothing to do yet.` };
+  return { next: `${listNames(unsigned(record))} ${unsigned(record).length > 1 ? 'sign' : 'signs'}. Nothing to do yet.` };
+}
 
 // The viewer asked for their own back, but the batch was issued first.
 export function lostRace(record: CampaignRecord, viewerId: string): boolean {
@@ -61,10 +178,11 @@ const stopAt: Partial<Record<ViewerStep['kind'], Stop>> = {
 export function journeyOf(world: World, record: CampaignRecord): Journey {
   const step = viewerStep(world, record);
   const own = slotOf(record, world.viewerId);
+  const screen = screenOf(step, record, world.viewerId);
   return {
-    step, screen: screenOf(step, record, world.viewerId),
-    rail: { at: railAt[step.kind], paid: statusOf(record) === 'paid' },
+    step, screen, rail: railOf(step, record, own !== undefined),
     stop: !own ? 'wallet' : stopAt[step.kind] ?? 'at-mint',
+    here: plebHere(screen, step, record),
   };
 }
 

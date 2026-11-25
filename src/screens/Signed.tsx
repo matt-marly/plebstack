@@ -29,7 +29,7 @@ export function Signed({ world, record, journey }: ScreenProps) {
   const send = () => inBackground(key, () => liveActions.payout(world.viewerId, campaign.id), refresh);
 
   return (
-    <Frame record={record} rail={journey.rail} title={unsent ? 'All three signed' : 'Signed'}
+    <Frame record={record} rail={journey.rail} here={journey.here} title={unsent ? 'All three signed' : 'Signed'}
       actions={unsent ? (
         <button type="button" className="button" data-variant="primary" aria-disabled={isRunning(key) || undefined}
           onClick={() => { if (!isRunning(key)) send(); }}>

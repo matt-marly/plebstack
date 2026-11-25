@@ -6,10 +6,9 @@ import { paths } from '../routes';
 import { useSession } from '../session';
 import { formatTime, formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { organizerSteps } from '../ui/GoalRail';
-import { campaignGoal, closeLine, signedCount } from '../ui/journey';
+import { campaignGoal, closeLine, organizerJourney, signedCount } from '../ui/journey';
 import { Icon } from '../ui/Icon';
-import { Note, ShareButton, ShareInvite, Status } from '../ui/parts';
+import { NewStack, Note, ShareButton, ShareInvite, Status } from '../ui/parts';
 import { organizerFacts } from '../ui/Really';
 import { Sheet } from '../ui/Sheet';
 import { Stack } from '../ui/Stack';
@@ -67,25 +66,29 @@ export function Watch({ record }: { record: CampaignRecord }) {
             : { title: counts[held], text: `When all three sign, the last signature sends the payout to the mint. You never send it, and you never hold anyone’s ${each}.` };
 
   const collecting = state === 'collecting' && held < 3;
+  const over = state === 'unmet' || state === 'reclaimed';
   return (
-    <Frame record={record} rail={{ at: 3, paid: false, steps: organizerSteps }} title={words.title}
-      facts={organizerFacts(maintainer.short, each)}
+    <Frame record={record} {...organizerJourney('watch', maintainer.short, record)} back={{ to: paths.organize(campaign.id, 'share'), label: 'Share' }}
+      title={words.title} facts={organizerFacts(maintainer.short, each)}
       actions={state === 'paid' ? (
-        <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={url}
-          text={`We stacked ${total} for ${maintainer.name}. Three plebs, one batch, confirmed by the mint. Test mint, fake sats.`} />
-      ) : (
+        <>
+          <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={url}
+            text={`We stacked ${total} for ${maintainer.name}. Three plebs, one batch, confirmed by the mint. Test mint, fake sats.`} />
+          <NewStack />
+        </>
+      ) : over ? <NewStack variant="primary" /> : (
         <>
           <ShareInvite campaignId={campaign.id} title={`Back ${maintainer.short}: ${campaign.title}`} />
           {collecting && <button type="button" className="button" data-variant="secondary" onClick={() => setStopping(true)}>Stop collecting</button>}
         </>
       )}>
-      <Who name={maintainer.name} title={campaign.title} keyBy={record.keyBy} />
       <div className="lead rise">
         {words.chip && <Status {...words.chip} />}
         <h1>{words.title}</h1>
         <p>{words.text}</p>
       </div>
       <Stack goal={campaignGoal(record)} meta={state === 'paid' ? undefined : closeLine(record)} />
+      <Who name={maintainer.name} title={campaign.title} keyBy={record.keyBy} pubkey={campaign.beneficiaryPubkey} />
       <dl className="rows">
         {record.slots.filter(slot => slot.backerId).map(slot => (
           <div key={slot.id}><dt>{people[slot.backerId!].name}</dt><dd className="mono">{standing(slot)}</dd></div>

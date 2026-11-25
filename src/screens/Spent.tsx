@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { sats, type CampaignRecord } from '../demo/world';
+import { people, sats, type CampaignRecord } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatClock } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { maintainerSteps } from '../ui/GoalRail';
-import { CopyButton, Note, Pending, Status } from '../ui/parts';
+import { maintainerJourney } from '../ui/journey';
+import { CopyButton, NewStack, Note, Pending, Status } from '../ui/parts';
 import { PayoutTrack } from '../ui/Track';
 import { maintainerFacts } from '../ui/Really';
 
@@ -21,6 +21,7 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
   const done = spend.status === 'confirmed';
   const fee = done ? spend.grossSat - spend.receivedSat! : 0;
   const facts = maintainerFacts(sats(spend.grossSat));
+  const organizer = people[record.creatorId].short;
 
   useEffect(() => {
     if (!done) return;
@@ -41,7 +42,7 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
   if (!done) {
     const rejected = spend.status === 'rejected';
     return (
-      <Frame record={record} rail={{ at: 3, paid: false, steps: maintainerSteps }} title="Swapping at the mint" facts={facts}
+      <Frame record={record} {...maintainerJourney(rejected ? 'turned-down' : 'swapping', organizer)} title="Swapping at the mint" facts={facts}
         actions={rejected && !isRunning(key)
           ? <button type="button" className="button" data-variant="primary" onClick={again}>Try the swap again</button>
           : (
@@ -68,8 +69,13 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
   }
 
   return (
-    <Frame record={record} rail={{ at: 3, paid: false, steps: maintainerSteps }} title={`Yours. ${sats(spend.receivedSat!)}`} facts={facts}
-      actions={ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}>
+    <Frame record={record} {...maintainerJourney('spent', organizer)} title={`Yours. ${sats(spend.receivedSat!)}`} facts={facts}
+      actions={(
+        <>
+          {ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}
+          <NewStack />
+        </>
+      )}>
       <div className="lead rise">
         <h1 className="display">Yours. {sats(spend.receivedSat!)}.</h1>
         <p>Swap fee at the mint, {sats(fee)}. Received, {sats(spend.receivedSat!)}. Copy it into any Cashu wallet.</p>

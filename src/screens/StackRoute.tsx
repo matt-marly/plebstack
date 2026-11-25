@@ -2,7 +2,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { findCampaign, isHeld, slotOf, type CampaignRecord, type World } from '../demo/world';
 import { paths } from '../routes';
 import { homePath, useSession } from '../session';
-import { journeyOf, type Journey, type Screen } from '../ui/journey';
+import { journeyOf, plebHere, type Journey, type Screen } from '../ui/journey';
 import { Back } from './Back';
 import { Join } from './Join';
 import { NotFound } from './NotFound';
@@ -57,5 +57,7 @@ export function StackRoute() {
     return <Navigate to={paths.screen(campaignId, landed ? 'stacked' : journey.screen)} state={{ landed, lit }} replace />;
   }
   const Component = screens[wanted];
-  return <Component key={`${world.viewerId}/${wanted}`} world={world} record={record} journey={journey} />;
+  // Stacked can stay open after the step moved on; its header still names the screen that shows.
+  const shown = wanted === journey.screen ? journey : { ...journey, here: plebHere(wanted, journey.step, record) };
+  return <Component key={`${world.viewerId}/${wanted}`} world={world} record={record} journey={shown} />;
 }

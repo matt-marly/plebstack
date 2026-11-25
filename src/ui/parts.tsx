@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { isSignal, stateColour, stateCopy, type ToneState } from '../domain/states';
-import { useSession } from '../session';
+import { paths } from '../routes';
+import { ORGANIZER, usePlayAs, useSession } from '../session';
 import { Icon } from './Icon';
 
 const statusCopy: Partial<Record<ToneState, { word: string; phrase: string }>> = {
@@ -27,6 +28,14 @@ export function Quiet({ children, ...props }: ButtonHTMLAttributes<HTMLButtonEle
       {children}<Icon name="chevron" />
     </button>
   );
+}
+
+// The way out of any finished or closed stack: Ada starts the next one.
+export function NewStack({ variant = 'quiet' }: { variant?: 'primary' | 'quiet' }) {
+  const playAs = usePlayAs();
+  const start = () => playAs(ORGANIZER, paths.start());
+  return variant === 'quiet' ? <Quiet onClick={start}>Start a new stack</Quiet>
+    : <button type="button" className="button" data-variant={variant} onClick={start}>Start a new stack</button>;
 }
 
 // Calm, no red: what happened, what's true now, what you can do.

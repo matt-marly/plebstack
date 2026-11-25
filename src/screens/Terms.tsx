@@ -9,7 +9,7 @@ import { paths } from '../routes';
 import { useSession } from '../session';
 import { formatWhen, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { organizerSteps } from '../ui/GoalRail';
+import { organizerJourney } from '../ui/journey';
 import { Note } from '../ui/parts';
 import { organizerFacts } from '../ui/Really';
 
@@ -48,7 +48,8 @@ export function Terms({ draft }: { draft: BoardDraft }) {
   }
 
   return (
-    <Frame rail={{ at: 2, paid: false, steps: organizerSteps }} title="Set the terms" facts={organizerFacts(maintainer.short, sats(EACH))}
+    <Frame {...organizerJourney('terms', maintainer.short)} back={{ to: paths.organize(draft.id, 'key'), label: 'Key' }} title="Set the terms"
+      facts={organizerFacts(maintainer.short, sats(EACH))}
       actions={(
         <button type="button" className="button" data-variant="primary" aria-disabled={!future || undefined}
           onClick={() => { if (future) create(); }}>

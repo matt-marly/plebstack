@@ -28,7 +28,7 @@ export function Sending({ world, record, journey }: ScreenProps) {
   }
 
   return (
-    <Frame record={record} rail={journey.rail} title="Sending"
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Sending"
       actions={(
         <>
           <Pending />

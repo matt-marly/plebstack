@@ -5,7 +5,7 @@ import { paths } from '../routes';
 import { ORGANIZER, useSession } from '../session';
 import { isHttpUrl } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { organizerSteps } from '../ui/GoalRail';
+import { organizerJourney } from '../ui/journey';
 import { Note } from '../ui/parts';
 import { organizerFacts } from '../ui/Really';
 
@@ -41,6 +41,7 @@ export function Backing() {
     link: isHttpUrl(link) ? undefined : 'Add a public link to the work, starting with https://.',
   };
   const organizer = viewer.id === ORGANIZER;
+  const { rail, here } = organizerJourney('who', first);
 
   function next() {
     setTried(true);
@@ -55,7 +56,8 @@ export function Backing() {
   }
 
   return (
-    <Frame rail={{ at: 0, paid: false, steps: organizerSteps }} title="Who are you backing?" facts={organizerFacts(first, '21 sats')}
+    <Frame rail={rail} here={organizer ? here : { ...here, next: 'play as Ada to start a stack.' }} title="Who are you backing?"
+      facts={organizerFacts(first, '21 sats')}
       actions={organizer
         ? <button type="button" className="button" data-variant="primary" onClick={next}>Next</button>
         : <button type="button" className="button" data-variant="primary" onClick={() => viewAs(ORGANIZER)}>Play as Ada</button>}>

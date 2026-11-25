@@ -332,8 +332,11 @@ async function openStack({ shots: still = false, close = '48 hours' } = {}) {
   await playAs('Ada');
   await heading('Ngozi confirmed her key.').waitFor();
   if (still) {
-    check('O2c: key confirmed, the short key shown, on Ngozi’s own storage',
-      (await page.locator('.who .status').innerText()).includes('Key confirmed') && /^0[23][0-9a-f]{2}…[0-9a-f]{4}$/.test(await page.locator('.rows dd').first().innerText()));
+    check('O2c: key confirmed, the short key in the card, on Ngozi’s own storage, no second key row',
+      (await page.locator('.who-card .status').innerText()).includes('Key confirmed')
+      && /^0[23][0-9a-f]{2}…[0-9a-f]{4}$/.test(await page.locator('.who-card .who-foot .mono').innerText())
+      && !(await page.locator('.rows dt', { hasText: 'Payout key' }).count())
+      && (await page.locator('.step-head').innerText()).includes('Next: set the terms.'));
     await noLime('O2c confirmed');
     await shoot('o2c-confirmed');
   }
@@ -368,7 +371,7 @@ async function chipIn(person, { shotPrefix } = {}) {
   if (shotPrefix) {
     check('P1: organized by Ada, the close from the stack, nobody pre-labelled',
       await heading('Ada is getting 3 plebs to back Ngozi.').isVisible()
-      && (await page.locator('.who').innerText()).includes('Organized by Ada')
+      && (await page.locator('.who-card').innerText()).includes('Organized by Ada')
       && /closes \d{1,2} \w{3}, \d\d:00/.test(await page.locator('.stack-labels').innerText())
       && (await page.locator('.stack-name').count()) === 0);
     await noLime('P1 join');
@@ -519,6 +522,12 @@ try {
   check('O5: names, times and the close; the last signature sends the payout',
     (await page.locator('.rows').innerText()).includes('Tobi Adewale') && /in · \d\d:\d\d/.test(await page.locator('.rows').innerText())
     && (await page.getByText('the last signature sends the payout to the mint').count()) === 1);
+  check('O5: setup done, the next step from the board, back to the invite, the card under the stack',
+    (await page.locator('.step-name').innerText()).endsWith('Watching it fill · setup done')
+    && (await page.locator('.step-next').innerText()) === 'You’re the organizer. Next: 1 more pleb chips in. Nothing for you to do.'
+    && (await page.locator('.rail [data-state="done"]').count()) === 4
+    && await page.getByRole('link', { name: 'Back to Share' }).isVisible()
+    && await page.locator('.stack ~ .who-card').count() === 1);
   await noLime('O5 watch');
   await shoot('o5-watch');
   await page.getByRole('button', { name: 'Stop collecting' }).click();
@@ -551,7 +560,9 @@ try {
   await batch.arrived;
   await heading('All three signed. Sending.').waitFor();
   check('A4: the last signature sent the batch; Sending, never Paid, while the mint has it',
-    !(await page.getByText('Stacked. Paid.').count()) && (await page.locator('.stack-labels').innerText()).includes('signed 3 of 3'));
+    !(await page.getByText('Stacked. Paid.').count()) && (await page.locator('.stack-labels').innerText()).includes('signed 3 of 3')
+    && (await page.locator('.step-name').innerText()) === 'Sending · not paid yet'
+    && !(await page.locator('.rail [aria-current]').count()) && await page.locator('.rail li:last-child').getAttribute('data-state') === 'ahead');
   await noLime('P7 sending');
   await shoot('p7-sending');
   await batch.release();
@@ -764,11 +775,37 @@ try {
   await noLime('P9 closed');
   await shoot('p9-closed');
   await playAs('Ishaan');
-  check('E3: nobody new can join after the close', !(await page.getByRole('button', { name: 'Chip in 21 sats' }).count()));
+  await heading('This stack didn’t fill.').waitFor();
+  const closedWhy = await page.locator('.lead > p').innerText();
+  check('E3: nobody new can join after the close; Ishaan is told why, at Join, with a way on and a way out',
+    !(await page.getByRole('button', { name: 'Chip in 21 sats' }).count())
+    && /^This stack closed on \d{1,2} \w{3}, \d\d:\d\d \S+ with 2 of 3 in\. You didn’t chip in, so none of your sats moved\.$/.test(closedWhy)
+    && (await page.locator('.step-name').innerText()) === 'This stack closed'
+    && await page.getByRole('button', { name: 'Start a new stack' }).isVisible()
+    && await page.getByRole('button', { name: 'See how it works' }).isVisible(), closedWhy);
+  await noLime('P1 closed');
+  await shoot('p1-closed');
+  await page.getByRole('button', { name: 'Play as Ada to see this stack' }).click();
+  await heading('No payout this time.').waitFor();
+  check('E3b: Play as Ada opens this stack as its organizer', page.url().endsWith(`/o/${e}/watch`)
+    && await page.getByRole('button', { name: 'Start a new stack' }).isVisible());
   await playAs('Maren');
   await takeBack();
   await heading('Back to you.').waitFor({ timeout: 60_000 });
   check('E4: Maren took hers back after the close', (await board(e)).events.some(event => event.type === 'settled' && event.status === 'confirmed'));
+  check('E5: the take-back path ends on Back, not Paid', (await page.locator('.rail').innerText()).includes('Back')
+    && !(await page.locator('.rail').innerText()).includes('Paid') && (await page.locator('.rail [data-state="done"]').count()) === 4);
+
+  await page.goto(`${base}/s/not-in-this-browser`);
+  await heading('We couldn’t find this stack.').waitFor();
+  const cast = await page.locator('.cast').innerText();
+  check('X1: an unknown stack explains one browser plays everyone, who is who, and offers a way on and a way out',
+    (await page.locator('main').innerText()).includes('A link from another browser won’t open here.')
+    && ['Ada', 'organizer · never holds a key', 'Ngozi', 'Tobi, Maren, Ishaan', 'plebs · 21 sats each'].every(text => cast.includes(text))
+    && await page.getByRole('button', { name: 'Start a stack' }).isVisible()
+    && await page.getByRole('button', { name: 'See how it works' }).isVisible());
+  await noLime('X unknown stack');
+  await shoot('x-unknown-stack');
 
   // ---------------------------------------------------------------- F: the paid journey by keyboard alone
   // The splash moves on after a moment, so it is checked on a page of its own where that moment is a minute.

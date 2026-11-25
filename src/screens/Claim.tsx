@@ -6,7 +6,8 @@ import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { homePath, storageWorks, useSession } from '../session';
 import { Frame } from '../ui/Frame';
-import { maintainerSteps } from '../ui/GoalRail';
+import { maintainerJourney } from '../ui/journey';
+import { Icon } from '../ui/Icon';
 import { Note } from '../ui/parts';
 import { maintainerFacts } from '../ui/Really';
 import { fixing } from '../ui/Who';
@@ -37,8 +38,12 @@ export function Claim() {
   }
 
   return (
-    <Frame rail={{ at: 0, paid: false, steps: maintainerSteps }} title="Confirm your key" facts={maintainerFacts('63 sats')}
-      actions={!opened && (
+    <Frame {...maintainerJourney(opened ? 'claim-pasted' : 'claim', organizer)} title="Confirm your key" facts={maintainerFacts('63 sats')}
+      actions={opened ? (
+        <button type="button" className="button" data-variant="primary" onClick={() => navigate(paths.maintain(campaignId))}>
+          Follow the stack<Icon name="chevron" />
+        </button>
+      ) : (
         <button type="button" className="button" data-variant="primary" aria-disabled={!canSave || undefined}
           onClick={() => { if (canSave) confirm(); }}>
           Confirm my key

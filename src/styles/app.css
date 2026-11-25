@@ -138,28 +138,36 @@ h1:focus { outline: none; }
 .help:hover { text-decoration-color: var(--color-ink); }
 .help .icon { width: 16px; height: 16px; flex: none; color: var(--color-muted); }
 
+/* ---------------------------------------------------------------- step header */
+
+.step-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.step-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 28px; }
+.step-name { display: flex; align-items: center; min-width: 0; font-size: var(--text-name); font-weight: 600; line-height: 22px; }
+.step-count {
+  flex: none; font: var(--text-micro)/1 var(--font-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted);
+}
+/* 28px to the eye, a 44px hit area that doesn't push the name. */
+.back {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: var(--target-size); height: var(--target-size); margin: -8px -6px -8px -14px;
+  border-radius: var(--radius-control); color: var(--color-muted);
+}
+.back:hover { color: var(--color-ink); }
+.back .icon { width: 20px; height: 20px; }
+.step-next { font-size: var(--text-small); line-height: 20px; color: var(--color-muted); text-wrap: pretty; }
+.step-next strong { color: var(--color-ink); font-weight: 600; }
+
 /* ---------------------------------------------------------------- rail */
 
-.rail { position: relative; height: 40px; margin: 0 2px; }
-.rail-line { position: absolute; left: 0; right: 0; top: 5px; border-top: 2px dashed var(--color-dash-dim); }
-.rail-done {
-  position: absolute; left: 0; top: -2px; border-top: 2px solid var(--color-ink);
-  transition: width var(--dur-reveal) var(--ease-out), border-color var(--dur-fast) ease;
-}
-.rail ol { list-style: none; padding: 0; }
-.rail li {
-  position: absolute; top: 0; width: 34px; margin-left: -17px;
-  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
-}
-.rail li:first-child { margin-left: 0; align-items: flex-start; }
-.rail li:last-child { margin-left: -34px; align-items: flex-end; }
-.rail-slab { width: 34px; height: 12px; border-radius: 3px; background: var(--color-canvas); border: 1.5px dashed var(--color-dash); }
-.rail-name { font-size: var(--text-caption); color: var(--color-faint); white-space: nowrap; }
-.rail [data-state="done"] .rail-slab { background: var(--color-ink); border: 0; }
-.rail [data-state="done"] .rail-name { color: var(--color-ink); }
-.rail [data-state="now"] .rail-slab { border: 2px solid var(--color-ink); }
+.rail ol { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); }
+.rail li { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rail-slab { display: block; height: 4px; border-radius: 2px; background: var(--color-rule); }
+.rail-name { font-size: var(--text-caption); line-height: 16px; color: var(--color-faint); overflow-wrap: anywhere; }
+.rail [data-state="done"] .rail-slab { background: var(--color-ink); }
+.rail [data-state="done"] .rail-name { color: var(--color-muted); }
+.rail [data-state="now"] .rail-slab { background: var(--color-ink); box-shadow: 0 0 0 3px rgba(244, 244, 241, .14); }
 .rail [data-state="now"] .rail-name { color: var(--color-ink); font-weight: 600; }
-.rail[data-paid] .rail-done { border-color: var(--color-signal); }
+.rail[data-branch="back"] li:last-child[data-state="done"] .rail-slab { background: var(--color-state-reclaimed); }
 .rail[data-paid] li:last-child .rail-slab { background: var(--color-signal); }
 
 /* ---------------------------------------------------------------- stack */
@@ -195,14 +203,12 @@ h1:focus { outline: none; }
 }
 .stack[data-lighting] .stack-line { animation: line-turns 120ms ease 160ms both; }
 .stack[data-lighting] .stack-labels { animation: fade 120ms ease 160ms both; }
-.rail[data-lighting] .rail-done { animation: rail-turns 120ms ease 160ms both; }
 .rail[data-lighting] li:last-child .rail-slab { animation: rail-slab-turns 120ms ease 160ms both; }
 .screen[data-moment] .paid-words h1 { animation: rise 280ms var(--ease-out) 480ms both; }
 .screen[data-moment] .receipt, .screen[data-moment] .disclosure, .screen[data-moment] .actions { animation: fade 180ms ease 760ms both; }
 @keyframes close-up { from { transform: translateY(calc(var(--i) * -4px)); } }
 @keyframes light { from { filter: grayscale(1) brightness(1.25); } }
 @keyframes line-turns { from { stroke: var(--color-ink); } }
-@keyframes rail-turns { from { border-color: var(--color-ink); } }
 @keyframes rail-slab-turns { from { background: var(--color-ink); } }
 
 /* ---------------------------------------------------------------- track */
@@ -272,10 +278,25 @@ h1:focus { outline: none; }
 .person-tag[data-size="small"] .person-tag-name { font-size: var(--text-body); font-weight: 500; line-height: 20px; }
 .person-tag[data-own] .person-tag-name { font-weight: 600; }
 
-.who { display: flex; align-items: center; gap: var(--space-4); }
-.who-text { display: flex; flex-direction: column; gap: 2px; }
-.who-name { font-size: var(--text-name); font-weight: 600; }
-.who-work { font-size: 14px; color: var(--color-muted); }
+/* The maintainer as a person card: who, what for, and how far her key can be trusted, each on its own row. */
+.who-card {
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);
+  background: var(--color-card); border: 1px solid var(--color-hairline); border-radius: 18px;
+}
+.who-card > .person-tag { gap: var(--space-4); }
+.who-card .person-tag-text { gap: 2px; }
+.role-caps {
+  margin: 1px 0 var(--space-1); font: 600 10px/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--color-faint);
+}
+.who-work { font-size: 14px; line-height: 20px; color: var(--color-muted); }
+.who-foot {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-1) var(--space-3);
+  padding-top: var(--space-3); border-top: 1px solid var(--color-rule);
+}
+.who-foot .mono { font-size: var(--text-caption); color: var(--color-muted); }
+.who-foot .avatar { --avatar: 24px; border-radius: 7px; font-size: var(--text-micro); }
+.who-by { font-size: var(--text-small); color: var(--color-muted); }
+.who-by strong { color: var(--color-ink); font-weight: 600; }
 
 .in { display: flex; align-items: center; gap: var(--space-2); }
 .in p { margin-left: var(--space-1); font-size: 14px; }
@@ -459,3 +480,11 @@ h1:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------------------------------------------------------------- who's who */
+
+.cast {
+  list-style: none; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);
+  background: var(--color-card); border: 1px solid var(--color-hairline); border-radius: 18px;
+}
+.cast li + li { padding-top: var(--space-3); border-top: 1px solid var(--color-rule); }

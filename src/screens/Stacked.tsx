@@ -9,7 +9,7 @@ import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
 
 // P3: the first win. The slab drops in only when arriving from the mint's answer, never on a reload.
-export function Stacked({ world, record }: ScreenProps) {
+export function Stacked({ world, record, journey }: ScreenProps) {
   const navigate = useNavigate();
   const landed = (useLocation().state as { landed?: boolean } | null)?.landed === true;
   const { campaign } = record;
@@ -19,7 +19,7 @@ export function Stacked({ world, record }: ScreenProps) {
   const next = () => navigate(paths.stack(campaign.id));
 
   return (
-    <Frame record={record} rail={{ at: 1, paid: false }} title="Stacked"
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Stacked"
       actions={full ? <button type="button" className="button" data-variant="primary" onClick={next}>Continue</button> : (
         <>
           <ShareInvite campaignId={campaign.id} title={campaign.title} />

@@ -9,6 +9,7 @@ const paths: Record<string, string> = {
   check: 'M5 12.5L10 17L19 7.5',
   swap: 'M7 7H18L15 4M17 17H6L9 20',
   chevron: 'M9.5 6L15.5 12L9.5 18',
+  back: 'M14.5 6L8.5 12L14.5 18',
   ring: 'M12 5.5a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13',
 };
 

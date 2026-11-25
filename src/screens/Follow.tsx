@@ -2,15 +2,12 @@ import { people, sats, statusOf, tally, type CampaignRecord } from '../demo/worl
 import type { BoardDraft } from '../live/board';
 import { formatWhen, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { maintainerSteps } from '../ui/GoalRail';
-import { campaignGoal, closeLine } from '../ui/journey';
-import { Pending, ShareButton, Status } from '../ui/parts';
+import { campaignGoal, closeLine, maintainerJourney } from '../ui/journey';
+import { NewStack, Pending, ShareButton, Status } from '../ui/parts';
 import { maintainerFacts } from '../ui/Really';
 import { Stack } from '../ui/Stack';
 import { PayoutTrack } from '../ui/Track';
 import { whyUnmet } from './Unmet';
-
-const rail = { at: 1, paid: false, steps: maintainerSteps } as const;
 
 // M2: a stack for her. Nothing to do; the payout will be locked to her key if all three sign.
 export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?: CampaignRecord; viewerId: string }) {
@@ -18,7 +15,7 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
   const facts = maintainerFacts(sats(63));
   if (!record) {
     return (
-      <Frame rail={rail} title="Key confirmed" facts={facts} actions={<Pending label={`Waiting for ${organizer} to open the stack…`} />}>
+      <Frame {...maintainerJourney('follow', organizer)} title="Key confirmed" facts={facts} actions={<Pending label={`Waiting for ${organizer} to open the stack…`} />}>
         <div className="lead rise">
           <h1>Your key is confirmed.</h1>
           <p>{organizer} is setting the terms next. The payout will be locked to your key. Nothing to do yet.</p>
@@ -43,8 +40,8 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
   const chip = unmet ? { state: 'unmet' as const } : sending ? { state: 'paying out' as const }
     : { state: 'collecting' as const, phrase: held === 3 ? 'At the line' : `${held} of 3 in` };
   return (
-    <Frame record={record} rail={rail} title="A stack for you" facts={facts}
-      actions={(
+    <Frame record={record} {...maintainerJourney('follow', organizer, record)} title="A stack for you" facts={facts}
+      actions={unmet ? <NewStack variant="primary" /> : (
         <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={`${location.origin}/s/${campaign.id}`}
           text={`${organizer} is getting 3 plebs to back me on Plebstack.`} variant="secondary" />
       )}>

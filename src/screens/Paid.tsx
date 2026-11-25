@@ -5,7 +5,7 @@ import { stateCopy } from '../domain/states';
 import { formatWhen, listNames, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { campaignGoal } from '../ui/journey';
-import { Avatar, ShareButton, Status } from '../ui/parts';
+import { Avatar, NewStack, ShareButton, Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import type { ScreenProps } from './StackRoute';
 
@@ -56,12 +56,13 @@ export function Paid({ world, record, journey }: ScreenProps) {
   ];
 
   return (
-    <Frame record={record} rail={journey.rail} title="Stacked. Paid." moment={playing}
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Stacked. Paid." moment={playing}
       actions={(
         <>
           <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={url}
             text={`We stacked ${total} for ${maintainer.name}. Three plebs, one batch, confirmed by the mint. Test mint, fake sats.`} />
           <p className="fine mono">Test mint, fake sats</p>
+          <NewStack />
         </>
       )}>
       <div className="lead paid-words">

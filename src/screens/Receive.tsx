@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { sats, type CampaignRecord } from '../demo/world';
+import { people, sats, type CampaignRecord } from '../demo/world';
 import { failureCopy, liveActions, type Received } from '../live/actions';
 import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { maintainerSteps } from '../ui/GoalRail';
-import { campaignGoal } from '../ui/journey';
+import { campaignGoal, maintainerJourney } from '../ui/journey';
 import { Note, Status, useOnline } from '../ui/parts';
 import { maintainerFacts } from '../ui/Really';
 import { Stack } from '../ui/Stack';
@@ -38,8 +37,9 @@ export function Receive({ record, viewerId }: { record: CampaignRecord; viewerId
 
   const ready = received !== undefined && online && !isRunning(key);
   return (
-    <Frame record={record} rail={{ at: 2, paid: false, steps: maintainerSteps }} title={`${total} for you`} facts={maintainerFacts(total)}
-      actions={received && (
+    <Frame record={record} {...maintainerJourney('receive', people[record.creatorId].short, record)} title={`${total} for you`}
+      facts={maintainerFacts(total)}
+      actions={(
         <button type="button" className="button" data-variant="primary" aria-disabled={!ready || undefined}
           onClick={() => { if (ready) spend(); }}>
           Spend

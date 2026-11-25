@@ -5,17 +5,15 @@ import { failureCopy, liveActions } from '../live/actions';
 import type { BoardDraft } from '../live/board';
 import { paths } from '../routes';
 import { MAINTAINER, usePlayAs, useSession } from '../session';
-import { formatWhen, shortKey } from '../ui/format';
+import { formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { organizerSteps } from '../ui/GoalRail';
+import { organizerJourney } from '../ui/journey';
 import { Avatar, CopyButton, Note, Quiet, ShareButton } from '../ui/parts';
 import { Qr } from '../ui/Qr';
 import { organizerFacts } from '../ui/Really';
 import { Sheet } from '../ui/Sheet';
 import { Who } from '../ui/Who';
 import { Field } from './Backing';
-
-const rail = { at: 1, paid: false, steps: organizerSteps } as const;
 
 // O2: the payout key comes from Ngozi's own side. Ada can paste one instead, and it says so wherever it shows.
 export function PayoutKey({ draft }: { draft: BoardDraft }) {
@@ -47,7 +45,7 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
   if (draft.key) {
     const confirmed = draft.key.by === 'maintainer';
     return (
-      <Frame rail={rail} title={confirmed ? 'Key confirmed' : 'Key pasted'} facts={facts}
+      <Frame {...organizerJourney(confirmed ? 'confirmed' : 'pasted', name)} title={confirmed ? 'Key confirmed' : 'Key pasted'} facts={facts}
         actions={(
           <button type="button" className="button" data-variant="primary"
             onClick={() => navigate(paths.organize(draft.id, opened ? 'watch' : 'terms'))}>
@@ -60,9 +58,8 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
             ? 'The payout can only ever be locked to this key. You never see the private half.'
             : `${name}’s device hasn’t confirmed this key. The payout can only ever be locked to it, so check it with her before you share the stack.`}</p>
         </div>
-        <Who name={maintainer.name} title={draft.title} keyBy={draft.key.by} />
+        <Who name={maintainer.name} title={draft.title} keyBy={draft.key.by} pubkey={draft.key.pubkey} />
         <dl className="rows">
-          <div><dt>Payout key</dt><dd className="mono">{shortKey(draft.key.pubkey, 4, 4)}</dd></div>
           <div><dt>{confirmed ? 'Confirmed' : 'Pasted'}</dt><dd className="mono">{formatWhen(draft.key.at)}</dd></div>
           <div><dt>{confirmed ? 'On' : 'Confirmed by her'}</dt><dd className="mono">{confirmed ? `${name}’s own storage` : 'No'}</dd></div>
         </dl>
@@ -71,7 +68,7 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
   }
 
   return (
-    <Frame rail={rail} title={`Get ${name}’s key`} facts={facts}
+    <Frame {...organizerJourney('key', name)} title={`Get ${name}’s key`} facts={facts}
       actions={(
         <>
           <ShareButton label="Share claim link" done="Claim link copied" title="Plebstack" url={link}

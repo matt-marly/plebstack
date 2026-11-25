@@ -2,7 +2,7 @@ import { maintainerOf, people, sats, tally, type CampaignRecord } from '../demo/
 import { formatWhen, listNames } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, closeLine } from '../ui/journey';
-import { Status } from '../ui/parts';
+import { NewStack, Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { TakeBack } from '../ui/TakeBack';
 import { Track } from '../ui/Track';
@@ -26,8 +26,13 @@ export function Unmet({ world, record, journey }: ScreenProps) {
   const { campaign } = record;
   const each = sats(campaign.contributionSat);
   return (
-    <Frame record={record} rail={journey.rail} title="No payout this time"
-      actions={<TakeBack record={record} viewerId={world.viewerId} variant="primary" />}>
+    <Frame record={record} rail={journey.rail} here={journey.here} title="No payout this time"
+      actions={(
+        <>
+          <TakeBack record={record} viewerId={world.viewerId} variant="primary" />
+          <NewStack />
+        </>
+      )}>
       <div className="lead rise">
         <Status state="unmet" />
         <h1>No payout this time.</h1>

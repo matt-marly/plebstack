@@ -5,7 +5,7 @@ import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatClock } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { CopyButton, Note, Pending, Status } from '../ui/parts';
+import { CopyButton, NewStack, Note, Pending, Status } from '../ui/parts';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
 
@@ -41,7 +41,7 @@ export function Back({ world, record, journey }: ScreenProps) {
 
   if (!back) {
     return (
-      <Frame record={record} rail={journey.rail} title="Taking it back"
+      <Frame record={record} rail={journey.rail} here={journey.here} title="Taking it back"
         actions={(
           <>
             <Pending />
@@ -63,8 +63,13 @@ export function Back({ world, record, journey }: ScreenProps) {
   }
 
   return (
-    <Frame record={record} rail={journey.rail} title="Back to you"
-      actions={ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}>
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Back to you"
+      actions={(
+        <>
+          {ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}
+          <NewStack />
+        </>
+      )}>
       <div className="lead rise">
         <Status state="reclaimed" />
         <h1 className={first ? undefined : 'display'}>{first ? 'Your take-back got there first.' : 'Back to you.'}</h1>

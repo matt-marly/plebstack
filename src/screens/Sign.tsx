@@ -67,7 +67,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
 
   if (stopped) {
     return (
-      <Frame record={record} rail={journey.rail} title="You stopped signing"
+      <Frame record={record} rail={journey.rail} here={journey.here} title="You stopped signing"
         actions={<TakeBack record={record} viewerId={viewerId} variant="primary" />}>
         <div className="lead rise">
           <Status state="ready" />
@@ -81,7 +81,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
 
   const ready = review !== undefined && !failure;
   return (
-    <Frame record={record} rail={journey.rail} title="Sign the group card"
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Sign the group card"
       actions={(
         <>
           <button type="button" className="button" data-variant="primary" aria-disabled={!ready || undefined}

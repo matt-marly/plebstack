@@ -8,15 +8,19 @@ import {
   requestReclaim, setViewer, type World,
 } from '../src/demo/world';
 import { isSignal, signalStates, stateColour, type ToneState } from '../src/domain/states';
+import { whyClosed } from '../src/screens/Join';
 import { whyUnmet } from '../src/screens/Unmet';
 import { checkResults } from '../src/ui/Checked';
-import { GoalRail } from '../src/ui/GoalRail';
+import { GoalRail, railStates } from '../src/ui/GoalRail';
 import { GroupCard } from '../src/ui/GroupCard';
-import { campaignGoal, journeyOf, readyToSend, slabOffset, stopLabel, type Stop } from '../src/ui/journey';
+import {
+  campaignGoal, journeyOf, maintainerJourney, organizerJourney, readyToSend, slabOffset, stopLabel, type Stop,
+} from '../src/ui/journey';
 import { qrModules } from '../src/ui/Qr';
 import { maintainerFacts, organizerFacts, reallyFacts } from '../src/ui/Really';
 import { Stack } from '../src/ui/Stack';
 import { Track } from '../src/ui/Track';
+import { Who } from '../src/ui/Who';
 
 const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const record = (world: World, id = MAIN_CAMPAIGN) => findCampaign(world, id)!;
@@ -166,7 +170,11 @@ test('sign, send, paid, and both orders of the race each have their own screen',
   const world = initialWorld();
   const as = (id: string, from: World, campaign = RACE_CAMPAIGN) => journeyOf(setViewer(from, id), record(from, campaign));
   const sending = as('tobi', world);
-  assert.deepEqual([sending.screen, sending.stop, sending.rail], ['sending', 'to-maintainer', { at: 3, paid: false }]);
+  // Sending keeps Paid ahead: nothing is current until the mint confirms.
+  assert.deepEqual([sending.screen, sending.stop, sending.rail], ['sending', 'to-maintainer', { at: 3, paid: false, pending: true }]);
+  assert.deepEqual(railStates(sending.rail), ['done', 'done', 'done', 'ahead']);
+  assert.doesNotMatch(html(createElement(GoalRail, sending.rail)), /aria-current|data-paid/);
+  assert.equal(sending.here.name, 'Sending · not paid yet');
   assert.equal(campaignGoal(record(world, RACE_CAMPAIGN)).label, 'at the line · signed 3 of 3');
 
   const paid = checkMint(world, RACE_CAMPAIGN, at, 'creator');
@@ -178,8 +186,14 @@ test('sign, send, paid, and both orders of the race each have their own screen',
   assert.equal(as('tobi', payoutFirst).screen, 'race');
   assert.equal(as('maren', payoutFirst).screen, 'paid');
 
+  // Taking it back ends on Back, never on Paid.
+  assert.deepEqual(as('tobi', racing).rail, { at: 3, paid: false, branch: 'back' });
+  assert.match(html(createElement(GoalRail, as('tobi', racing).rail)), /aria-current="step"[^>]*><span class="rail-slab"[^>]*><\/span><span class="rail-name">Back</);
   const reclaimFirst = checkMint(racing, RACE_CAMPAIGN, at, 'owner');
   assert.deepEqual([as('tobi', reclaimFirst).screen, as('tobi', reclaimFirst).stop], ['back', 'back']);
+  assert.deepEqual(railStates(as('tobi', reclaimFirst).rail), ['done', 'done', 'done', 'done']);
+  assert.doesNotMatch(html(createElement(GoalRail, as('tobi', reclaimFirst).rail)), /Paid|data-paid/);
+  assert.equal(as('tobi', reclaimFirst).here.next, 'Done. Your 21 sats are back with you.');
   assert.deepEqual([as('maren', reclaimFirst).screen, as('maren', reclaimFirst).stop], ['unmet', 'at-mint']);
   assert.equal(whyUnmet(record(reclaimFirst, RACE_CAMPAIGN), 'maren'), 'Tobi took theirs back first, so the payout didn’t go.');
   assert.equal(whyUnmet(record(world, UNMET_CAMPAIGN), 'tobi'), 'Ngozi stopped collecting.');
@@ -213,4 +227,48 @@ test('what your phone checked comes from the review itself', () => {
   assert.match(lines[1], /Ngozi’s key NUT-11 P2PK/);
   assert.match(lines[3], /keyset 00abc/);
   assert.match(lines[5], /PAID · PAID · PAID/);
+});
+
+test('the step header says where you are and what’s next, counts and names from the record', () => {
+  const world = initialWorld();
+  const as = (id: string, from = world, campaign = MAIN_CAMPAIGN) => journeyOf(setViewer(from, id), record(from, campaign));
+  assert.deepEqual(as('ishaan').here, { name: 'Join the stack', next: 'chip in 21 sats.' });
+  assert.deepEqual(as('maren').here, { name: 'Stacked', next: '1 more pleb chips in.' });
+  const full = confirmDeposit(requestQuote(setViewer(world, 'ishaan'), MAIN_CAMPAIGN, at), MAIN_CAMPAIGN, 'backer-3', at);
+  const signed = releaseApproval(setViewer(full, 'tobi'), MAIN_CAMPAIGN, 'backer-1', at);
+  assert.deepEqual(as('tobi', signed).here, { name: 'Signed', next: 'Maren and Ishaan sign.' });
+  assert.deepEqual(as('tobi', world, UNMET_CAMPAIGN).here, { name: 'Take yours back', next: 'take yours back.' });
+  assert.equal(as('tobi', checkMint(world, RACE_CAMPAIGN, at, 'creator'), RACE_CAMPAIGN).here.end, true);
+
+  // The organizer's setup is done once the stack is open; the line says what the plebs do next.
+  const watch = organizerJourney('watch', 'Ngozi', record(world));
+  assert.deepEqual(railStates(watch.rail), ['done', 'done', 'done', 'done']);
+  assert.deepEqual(watch.here, { name: 'Watching it fill · setup done', next: '1 more pleb chips in. Nothing for you to do.' });
+  assert.equal(organizerJourney('watch', 'Ngozi', record(signed)).here.next, 'Maren and Ishaan sign. Nothing for you to do.');
+  assert.deepEqual(organizerJourney('terms', 'Ngozi').rail, { at: 2, paid: false, steps: ['Who', 'Key', 'Terms', 'Share'] });
+  assert.equal(maintainerJourney('follow', 'Ada', record(world, UNMET_CAMPAIGN)).here.end, true);
+});
+
+test('someone who never chipped in stays at Join with a reason, and is told no sats moved only when none did', () => {
+  const world = initialWorld();
+  const closed = record(world, UNMET_CAMPAIGN);
+  const maren = journeyOf(setViewer(world, 'maren'), closed);
+  assert.deepEqual([maren.screen, maren.rail], ['join', { at: 0, paid: false }]);
+  assert.equal(maren.here.name, 'This stack closed');
+  assert.match(whyClosed(closed, 'maren'), /^Ngozi stopped collecting\. You didn’t chip in, so none of your sats moved\.$/);
+  const empty = { ...closed, slots: closed.slots.map(slot => ({ id: slot.id })) } as typeof closed;
+  assert.match(whyClosed(empty, 'maren'), /No sats moved\.$/);
+  const paid = record(checkMint(world, RACE_CAMPAIGN, at, 'creator'), RACE_CAMPAIGN);
+  assert.match(whyClosed(paid, 'maren'), /^Ngozi got 63 sats, confirmed by the mint\. You didn’t chip in/);
+});
+
+test('the maintainer card: role, name and work, then the key on its own row, never a money colour', () => {
+  const pubkey = '0343' + 'a'.repeat(58) + 'd962';
+  const card = html(createElement(Who, { name: 'Ngozi Eze', title: 'Daylight-saving drift', keyBy: 'maintainer', pubkey }));
+  assert.match(card, /class="role-caps">Maintainer<.*class="person-tag-name">Ngozi Eze<.*class="who-work">Fixing daylight-saving drift</);
+  assert.match(card, /class="who-foot"><p class="status" data-kind="fact"><svg[^]*<strong>Key confirmed<\/strong>on her phone<\/p><span class="mono">0343…d962</);
+  assert.doesNotMatch(card, /--tone|color-state|Organized by/);
+  const pasted = html(createElement(Who, { name: 'Ngozi Eze', title: 'x', keyBy: 'pasted', organizer: 'Ada' }));
+  assert.match(pasted, /data-weak="true".*Key pasted, not confirmed by her/);
+  assert.match(pasted, /Organized by <strong>Ada<\/strong>/);
 });

@@ -34,7 +34,7 @@ export function Pay({ world, record, journey }: ScreenProps) {
   }, [quote.id, attempt, campaign.id, personId, refresh]);
 
   return (
-    <Frame record={record} rail={journey.rail} title="Pay the invoice"
+    <Frame record={record} rail={journey.rail} here={journey.here} title="Pay the invoice"
       actions={(
         <>
           <a className="button" data-variant="primary" href={`lightning:${quote.invoice}`}>Open in wallet</a>

@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
 import { paths } from '../routes';
 import { Frame } from '../ui/Frame';
-import { organizerSteps } from '../ui/GoalRail';
 import { Icon } from '../ui/Icon';
+import { organizerJourney } from '../ui/journey';
 import { CopyButton, ShareInvite } from '../ui/parts';
 import { Qr } from '../ui/Qr';
 import { organizerFacts } from '../ui/Really';
@@ -15,7 +15,7 @@ export function Share({ record }: { record: CampaignRecord }) {
   const maintainer = maintainerOf(record).short;
   const url = `${location.origin}${paths.stack(campaign.id)}`;
   return (
-    <Frame record={record} rail={{ at: 3, paid: false, steps: organizerSteps }} title="Your stack is open"
+    <Frame record={record} {...organizerJourney('share', maintainer)} title="Your stack is open"
       facts={organizerFacts(maintainer, sats(campaign.contributionSat))}
       actions={(
         <>
