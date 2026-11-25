@@ -39,7 +39,7 @@ npm i
 npm run dev
 ```
 
-Open the address Vite prints (usually `http://localhost:5173`) in a phone-sized window. Tap **Start a stack** and you're Ada. "Playing as" at the top of each screen switches between Ada, Ngozi and the three plebs (Tobi, Maren, Ishaan), so one browser can play the whole thing. `?live=1` from older links still works; the app always talks to testnut now.
+Open the address Vite prints (usually `http://localhost:5173`). On a phone or a small window it fills the screen; in a desktop window it sits in a phone frame, with a QR code beside it to open the same page on your phone. Three short screens show how it works (**Skip the intro** goes straight on). Tap **Start a stack** and you're Ada. "Playing as" at the top of each screen switches between Ada, Ngozi and the three plebs (Tobi, Maren, Ishaan), so one browser can play the whole thing. `?live=1` from older links still works; the app always talks to testnut now.
 
 ### The stage
 
@@ -55,7 +55,7 @@ node scripts/live-e2e.mjs        # every journey in headless Chromium, with acce
 node scripts/stage-demo.mjs      # drives the stage; --shots retakes stills, --video records it
 ```
 
-The browser runs use Playwright and axe, and check names, contrast, focus, 320px reflow and a keyboard-only walk. They write their output to `.evidence/`.
+The browser runs use Playwright and axe, and check names, contrast, focus, 320px reflow, a keyboard-only walk and the desktop phone frame. They write their output to `.evidence/`.
 
 ## Honest limits
 
@@ -68,7 +68,7 @@ The browser runs use Playwright and axe, and check names, contrast, focus, 320px
 
 ## Screenshots
 
-Phone stills from a live run are in [`docs/screens-live/`](docs/screens-live/).
+Phone stills from a live run are in [`docs/screens-live/`](docs/screens-live/), with the desktop frame in `desktop-1440.png`.
 
 | Join | Sign | Paid | Spent |
 | --- | --- | --- | --- |
