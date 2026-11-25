@@ -51,7 +51,7 @@ export function Really({ facts }: { facts: Fact[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="chip-button" onClick={() => setOpen(true)}>
+      <button type="button" className="help" onClick={() => setOpen(true)}>
         <Icon name="info" />What’s really happening
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="What’s really happening">
@@ -63,7 +63,7 @@ export function Really({ facts }: { facts: Fact[] }) {
             </li>
           ))}
         </ul>
-        <button type="button" className="button" data-variant="quiet" onClick={() => setOpen(false)}>Got it</button>
+        <button type="button" className="button" data-variant="secondary" onClick={() => setOpen(false)}>Close</button>
       </Sheet>
     </>
   );

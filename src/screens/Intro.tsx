@@ -5,6 +5,7 @@ import { paths } from '../routes';
 import { ORGANIZER, homePath, usePlayAs, useSession } from '../session';
 import { PLEBS } from '../ui/journey';
 import { Brand, useHeadingFocus, useTitle } from '../ui/Frame';
+import { Quiet } from '../ui/parts';
 import { Slab } from '../ui/Slab';
 
 function ChipIn() {
@@ -122,8 +123,8 @@ export function Intro() {
           onClick={() => (last ? start() : navigate(paths.intro(page + 1)))}>
           {last ? 'Start a stack' : 'Next'}
         </button>
-        {!last && <button type="button" className="button" data-variant="quiet" onClick={() => navigate(paths.intro(pages.length))}>Skip</button>}
-        {last && joinable && <button type="button" className="button" data-variant="quiet" onClick={join}>I have an invite link</button>}
+        {!last && <Quiet onClick={() => navigate(paths.intro(pages.length))}>Skip the intro</Quiet>}
+        {last && joinable && <button type="button" className="button" data-variant="secondary" onClick={join}>I have an invite link</button>}
       </footer>
     </div>
   );

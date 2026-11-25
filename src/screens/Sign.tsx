@@ -8,7 +8,7 @@ import { Frame } from '../ui/Frame';
 import { GroupCard } from '../ui/GroupCard';
 import { Icon } from '../ui/Icon';
 import { readyToSend } from '../ui/journey';
-import { Note, StateChip, useOnline } from '../ui/parts';
+import { Note, Status, useOnline } from '../ui/parts';
 import { Sheet } from '../ui/Sheet';
 import { TakeBack } from '../ui/TakeBack';
 import type { ScreenProps } from './StackRoute';
@@ -70,7 +70,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
       <Frame record={record} rail={journey.rail} title="You stopped signing"
         actions={<TakeBack record={record} viewerId={viewerId} variant="primary" />}>
         <div className="lead rise">
-          <StateChip state="ready" />
+          <Status state="ready" />
           <h1>You stopped signing on this device.</h1>
           <p>A signature you already released still counts. Your {sats(campaign.contributionSat)} are still at the mint, locked to you, and you can take them back.</p>
         </div>
@@ -92,7 +92,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <StateChip state="ready" />
+        <Status state="ready" />
         <h1>Everyone’s in. Sign the group card.</h1>
         <p>You’re agreeing to one thing: {total} go to {maintainer.short}, but only if all three of you sign.</p>
       </div>
@@ -101,7 +101,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
       {failure && (
         <Note>
           <p>Nothing was signed.</p>
-          <button type="button" className="button" data-variant="quiet" onClick={() => setAttempt(count => count + 1)}>Check again</button>
+          <button type="button" className="button" data-variant="secondary" onClick={() => setAttempt(count => count + 1)}>Check again</button>
         </Note>
       )}
       {signFailure && !confirming && <Note><p>{signFailure}</p></Note>}
@@ -122,9 +122,9 @@ export function Sign({ world, record, journey }: ScreenProps) {
             onClick={() => { if (!signing && online) void sign(); }}>
             {signing ? 'Signing…' : 'Sign'}
           </button>
-          <button type="button" className="button" data-variant="quiet" onClick={() => setConfirming(false)}>Not yet</button>
+          <button type="button" className="button" data-variant="secondary" onClick={() => setConfirming(false)}>Not yet</button>
         </div>
-        <button type="button" className="text-button" onClick={() => void stopSigning()}>
+        <button type="button" className="button" data-variant="secondary" onClick={() => void stopSigning()}>
           Stop signing on this device
         </button>
       </Sheet>

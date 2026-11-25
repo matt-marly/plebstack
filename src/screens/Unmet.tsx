@@ -2,7 +2,7 @@ import { maintainerOf, people, sats, tally, type CampaignRecord } from '../demo/
 import { formatWhen, listNames } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, closeLine } from '../ui/journey';
-import { StateChip } from '../ui/parts';
+import { Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { TakeBack } from '../ui/TakeBack';
 import { Track } from '../ui/Track';
@@ -29,7 +29,7 @@ export function Unmet({ world, record, journey }: ScreenProps) {
     <Frame record={record} rail={journey.rail} title="No payout this time"
       actions={<TakeBack record={record} viewerId={world.viewerId} variant="primary" />}>
       <div className="lead rise">
-        <StateChip state="unmet" />
+        <Status state="unmet" />
         <h1>No payout this time.</h1>
         <p>{whyUnmet(record, world.viewerId)} That’s fine: your {each} are still at the mint, yours. Take them back. Nobody needs to approve it.</p>
       </div>

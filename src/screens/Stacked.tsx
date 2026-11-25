@@ -3,7 +3,7 @@ import { groupComplete, maintainerOf, sats } from '../demo/world';
 import { paths } from '../routes';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, closeLine } from '../ui/journey';
-import { ShareInvite, StateChip } from '../ui/parts';
+import { Quiet, ShareInvite, Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
@@ -23,11 +23,11 @@ export function Stacked({ world, record }: ScreenProps) {
       actions={full ? <button type="button" className="button" data-variant="primary" onClick={next}>Continue</button> : (
         <>
           <ShareInvite campaignId={campaign.id} title={campaign.title} />
-          <button type="button" className="button" data-variant="quiet" onClick={next}>See who’s in</button>
+          <Quiet onClick={next}>See who’s in</Quiet>
         </>
       )}>
       <div className="lead rise">
-        <StateChip state="deposited" />
+        <Status state="deposited" />
         <h1 className="display">Stacked.</h1>
         <p>Your {each} are waiting at the mint, locked to your key. {maintainer} gets nothing unless all three sign.</p>
       </div>

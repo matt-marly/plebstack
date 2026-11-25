@@ -12,9 +12,8 @@
 .stage-brand { display: inline-flex; align-items: center; gap: 14px; color: var(--color-ink); }
 .stage-mark { width: 44px; height: 44px; }
 .stage-word { height: 34px; width: auto; display: block; }
-.stage-honest { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.stage-honest .pill { gap: 10px; padding: 8px 16px; font: 17px/1.2 var(--font-mono); color: var(--color-ink); }
-.stage-honest .pill-dot { width: 9px; height: 9px; }
+.stage-honest { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-3); }
+.stage-honest .env { height: 40px; padding: 0 var(--space-4); font-size: 17px; }
 .stage-honest p { font-size: 17px; color: var(--color-muted); }
 
 /* The three plebs together on the left, the stack they share in the middle, the maintainer they pay on the right. */
@@ -35,10 +34,15 @@
 }
 .mini-screen {
   width: 390px; height: 844px; transform: scale(.585); transform-origin: 0 0; pointer-events: none;
-  display: flex; flex-direction: column; gap: 20px; padding: 22px 24px 26px;
+  display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-5) var(--space-5) var(--space-6);
 }
-.mini-actions { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
-.mini-actions .fine { padding-top: 2px; }
+.mini-actions { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-1); }
+.mini-actions .fine { padding-top: var(--space-1); text-align: left; }
+/* The phone's header and its next step as words, so nothing on the stage looks tappable. */
+.mini-playing { font-size: var(--text-small); color: var(--color-muted); }
+.mini-playing strong { color: var(--color-ink); font-weight: 600; }
+.mini-next { display: flex; flex-direction: column; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-rule); font-size: var(--text-body); color: var(--color-ink); }
+.mini-next-label { font: 600 var(--text-micro)/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--color-muted); }
 .mini-tick {
   position: absolute; top: -16px; right: -16px; display: flex; align-items: center; justify-content: center;
   width: 48px; height: 48px; border-radius: 50%; background: var(--color-state-approved); color: var(--color-on-ink);
@@ -89,10 +93,7 @@
 .pile[data-moment] .pile-lit { animation: fill-up 480ms var(--ease-out) 240ms both; }
 @keyframes fill-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0); } }
 
-.stage-organizer {
-  display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px 8px 10px; border-radius: 999px;
-  border: 1px solid var(--color-hairline); background: var(--color-wash); font-size: 18px; color: var(--color-ink);
-}
+.stage-organizer { display: inline-flex; align-items: center; gap: var(--space-3); font-size: 18px; color: var(--color-ink); }
 .stage-organizer .avatar { width: 28px; height: 28px; font-size: 14px; }
 .stage-organizer .mono { font-size: 16px; color: var(--color-muted); }
 
@@ -131,8 +132,7 @@
 .stage[data-tall] .stage-mark { width: 26px; height: 26px; }
 .stage[data-tall] .stage-word { height: 21px; }
 .stage[data-tall] .stage-honest { display: contents; }
-.stage[data-tall] .stage-honest .pill { padding: 5px 10px; font-size: 12px; gap: 7px; }
-.stage[data-tall] .stage-honest .pill-dot { width: 7px; height: 7px; }
+.stage[data-tall] .stage-honest .env { height: 26px; padding: 0 var(--space-2); font-size: var(--text-micro); }
 .stage[data-tall] .stage-honest p { flex-basis: 100%; font-size: 13px; }
 
 .stage[data-tall] .stage-floor { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
@@ -141,9 +141,7 @@
 .stage[data-tall] .pile-goal { font-size: 15px; gap: 2px; }
 .stage[data-tall] .pile-note { font-size: 13px; }
 .stage[data-tall] .pile-name { font-size: 30px; }
-.stage[data-tall] .stage-organizer {
-  flex-wrap: wrap; justify-content: center; gap: 2px 8px; padding: 0; border: 0; background: none; font-size: 13px; text-align: center;
-}
+.stage[data-tall] .stage-organizer { flex-wrap: wrap; justify-content: center; gap: var(--space-1) var(--space-2); font-size: 13px; text-align: center; }
 .stage[data-tall] .stage-organizer .avatar { width: 20px; height: 20px; font-size: 11px; }
 .stage[data-tall] .stage-organizer .mono { font-size: 12px; }
 

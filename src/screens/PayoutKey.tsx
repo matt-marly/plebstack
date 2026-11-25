@@ -8,7 +8,7 @@ import { MAINTAINER, usePlayAs, useSession } from '../session';
 import { formatWhen, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { organizerSteps } from '../ui/GoalRail';
-import { Avatar, CopyButton, Note, ShareButton } from '../ui/parts';
+import { Avatar, CopyButton, Note, Quiet, ShareButton } from '../ui/parts';
 import { Qr } from '../ui/Qr';
 import { organizerFacts } from '../ui/Really';
 import { Sheet } from '../ui/Sheet';
@@ -77,7 +77,7 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
           <ShareButton label="Share claim link" done="Claim link copied" title="Plebstack" url={link}
             text={`I’m starting a stack for you on Plebstack. Confirm your key here so only you can spend what lands.`}
             notice={`Claim link copied. ${name} opens it on her own phone.`} />
-          <button type="button" className="button" data-variant="quiet" onClick={() => { setFailure(undefined); setPasting(true); }}>
+          <button type="button" className="button" data-variant="secondary" onClick={() => { setFailure(undefined); setPasting(true); }}>
             Paste a key instead
           </button>
         </>
@@ -89,8 +89,8 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
       <div className="link-card">
         <p className="mono link-text">{link.replace(/^https?:\/\//, '')}</p>
         <div className="link-buttons">
-          <CopyButton text={link} label="Copy link" variant="outline" />
-          <button type="button" className="button" data-variant="outline" onClick={() => setQr(true)}>Show QR</button>
+          <CopyButton text={link} label="Copy link" />
+          <button type="button" className="button" data-variant="secondary" onClick={() => setQr(true)}>Show QR</button>
         </div>
       </div>
       <div className="waiting-on" aria-live="polite">
@@ -100,13 +100,13 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
       <p className="demo-line">
         One browser plays everyone for this demo, so {name}’s phone is her own part of this browser.
       </p>
-      <button type="button" className="text-button" onClick={openAsMaintainer}>Open the link as {name}</button>
+      <Quiet onClick={openAsMaintainer}>Open the link as {name}</Quiet>
       <Sheet open={qr} onClose={() => setQr(false)} title="Claim link">
         <div className="invoice">
           <Qr text={link} label={`QR code of ${name}’s claim link`} />
           <p className="mono small">{link.replace(/^https?:\/\//, '')}</p>
         </div>
-        <button type="button" className="button" data-variant="quiet" onClick={() => setQr(false)}>Done</button>
+        <button type="button" className="button" data-variant="secondary" onClick={() => setQr(false)}>Back to the claim link</button>
       </Sheet>
       <Sheet open={pasting} onClose={() => setPasting(false)} title={`Paste ${name}’s key`}>
         <Field label="Public key" value={pasted} onChange={value => { setPasted(value); setFailure(undefined); }}
@@ -114,7 +114,7 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
         <Note><p>{name}’s device won’t have confirmed this key. Only use one she gave you herself: the payout can only ever go to it, and the stack will say it wasn’t confirmed.</p></Note>
         <div className="sheet-actions">
           <button type="button" className="button" data-variant="primary" onClick={paste}>Use this key, not confirmed</button>
-          <button type="button" className="button" data-variant="quiet" onClick={() => setPasting(false)}>Send the claim link instead</button>
+          <button type="button" className="button" data-variant="secondary" onClick={() => setPasting(false)}>Send the claim link instead</button>
         </div>
       </Sheet>
     </Frame>

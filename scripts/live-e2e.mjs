@@ -333,7 +333,7 @@ async function openStack({ shots: still = false, close = '48 hours' } = {}) {
   await heading('Ngozi confirmed her key.').waitFor();
   if (still) {
     check('O2c: key confirmed, the short key shown, on Ngozi’s own storage',
-      (await page.locator('.badge').innerText()).includes('Key confirmed') && /^0[23][0-9a-f]{2}…[0-9a-f]{4}$/.test(await page.locator('.rows dd').first().innerText()));
+      (await page.locator('.who .status').innerText()).includes('Key confirmed') && /^0[23][0-9a-f]{2}…[0-9a-f]{4}$/.test(await page.locator('.rows dd').first().innerText()));
     await noLime('O2c confirmed');
     await shoot('o2c-confirmed');
   }
@@ -504,7 +504,7 @@ try {
   check('WRH: the sheet names the signature, the lock and the batch, not the coordinator',
     ['NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => facts.includes(term)) && !/key methods/.test(facts));
   await shoot('wrh-sheet', 700);
-  await dialog().getByRole('button', { name: 'Got it' }).click();
+  await dialog().getByRole('button', { name: 'Close', exact: true }).click();
   await dialog().waitFor({ state: 'detached' });
   await sheetTrap('WRH', page.getByRole('button', { name: 'What’s really happening' }));
 
@@ -605,7 +605,7 @@ try {
   await shoot('m3-receive');
   await page.getByRole('button', { name: 'What’s really happening' }).click();
   check('M3: the sheet says the locked ecash only works with her key', (await dialog().innerText()).includes('it only works with your key'));
-  await dialog().getByRole('button', { name: 'Got it' }).click();
+  await dialog().getByRole('button', { name: 'Close', exact: true }).click();
   await dialog().waitFor({ state: 'detached' });
 
   const keysets = (await (await fetch(`${MINT}/v1/keysets`)).json()).keysets;
@@ -666,7 +666,7 @@ try {
 
   await playAs('Tobi');
   await heading('No payout this time.').waitFor();
-  check('B4: Tobi is told why, honestly', (await page.locator('.lead > p:not(.state-chip)').innerText()).startsWith('Maren took theirs back and the stack closed.'));
+  check('B4: Tobi is told why, honestly', (await page.locator('.lead > p:not(.status)').innerText()).startsWith('Maren took theirs back and the stack closed.'));
   await noLime('P9 no payout');
   await shoot('p9-unmet');
   await takeBack();
@@ -695,7 +695,7 @@ try {
   await playAs('Tobi');
   await heading('The payout got there first.').waitFor();
   check('C2: the payout won; Tobi’s 21 sats went to Ngozi and the take-back was turned down',
-    (await page.locator('.lead > p:not(.state-chip)').innerText()).includes('Your 21 sats went to Ngozi')
+    (await page.locator('.lead > p:not(.status)').innerText()).includes('Your 21 sats went to Ngozi')
     && (await page.locator('.track').getAttribute('aria-label')).endsWith('with Ngozi, locked to her key'));
   await shoot('p10r-race');
   await page.getByRole('button', { name: 'See the receipt' }).click();
@@ -728,7 +728,7 @@ try {
   const settled = (await board(d)).events.filter(event => event.type === 'settled').map(event => event.status);
   check('D1: the take-back landed first and the mint turned the batch down', settled.join() === 'confirmed,rejected', settled.join());
   check('D2: Maren is told the payout didn’t go, and her 21 sats are still hers',
-    (await page.locator('.lead > p:not(.state-chip)').innerText()).startsWith('Tobi took theirs back first, so the payout didn’t go.'));
+    (await page.locator('.lead > p:not(.status)').innerText()).startsWith('Tobi took theirs back first, so the payout didn’t go.'));
   await noLime('P9 after the race');
   await shoot('p9-race');
   await playAs('Tobi');
@@ -749,7 +749,7 @@ try {
   page = await phonePage(clocked);
   await page.goto(`${base}/`);
   await page.waitForURL(/\/intro\/1$/);
-  await page.getByRole('button', { name: 'Skip' }).click();
+  await page.getByRole('button', { name: 'Skip the intro' }).click();
   await page.getByRole('button', { name: 'Start a stack' }).click();
   const e = summary.campaigns.closed = await openStack({ close: '24 hours' });
   await chipIn('Tobi');
@@ -758,7 +758,7 @@ try {
   await page.clock.fastForward('25:00:00');
   await playAs('Tobi');
   await heading('No payout this time.').waitFor({ timeout: 30_000 });
-  const why = await page.locator('.lead > p:not(.state-chip)').innerText();
+  const why = await page.locator('.lead > p:not(.status)').innerText();
   check('E1: past the close with 2 of 3 in, No payout, and the reason is the close', why.startsWith('The stack closed at') && why.includes('with 2 of 3 in'), why);
   check('E2: the close moved nobody’s sats', (await board(e)).events.every(event => event.type !== 'sent'), closesAt);
   await noLime('P9 closed');

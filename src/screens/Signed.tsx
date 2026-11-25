@@ -6,7 +6,7 @@ import { listNames } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { GroupCard } from '../ui/GroupCard';
 import { readyToSend, signedCount } from '../ui/journey';
-import { Note, ShareButton, StateChip } from '../ui/parts';
+import { Note, ShareButton, Status } from '../ui/parts';
 import { TakeBack } from '../ui/TakeBack';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
@@ -44,7 +44,7 @@ export function Signed({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <StateChip state="approved" />
+        <Status state="approved" />
         <h1>{unsent ? 'All three signed.' : `Signed. Waiting for ${names}.`}</h1>
         <p>{unsent
           ? 'The last step sends the batch to the mint. Nothing is paid until the mint confirms.'

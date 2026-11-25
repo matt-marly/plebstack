@@ -7,7 +7,6 @@ import { paths } from '../routes';
 import { homePath, storageWorks, useSession } from '../session';
 import { Frame } from '../ui/Frame';
 import { maintainerSteps } from '../ui/GoalRail';
-import { Mark } from '../ui/Mark';
 import { Note } from '../ui/parts';
 import { maintainerFacts } from '../ui/Really';
 import { fixing } from '../ui/Who';
@@ -56,7 +55,6 @@ export function Claim() {
         <p className="small muted">3 plebs · 21 sats each · {TEST_MINT.replace('https://', '')}</p>
         <p className="small muted">For {maintainerOf(draft).name} · a link to the work: {draft.publicWorkUrl.replace(/^https?:\/\//, '')}</p>
       </div>
-      <Mark size="large" className="claim-mark" />
       {!canSave && <Note><p>This browser can’t save anything, so it couldn’t keep your key. Nothing was shared.</p></Note>}
       {failure && <Note><p>{failure}</p></Note>}
     </Frame>

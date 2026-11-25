@@ -5,7 +5,7 @@ import { useSession } from '../session';
 import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatClock } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { CopyButton, Note, StateChip } from '../ui/parts';
+import { CopyButton, Note, Pending, Status } from '../ui/parts';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
 
@@ -42,9 +42,14 @@ export function Back({ world, record, journey }: ScreenProps) {
   if (!back) {
     return (
       <Frame record={record} rail={journey.rail} title="Taking it back"
-        actions={!inFlight && op && <button type="button" className="button" data-variant="outline" onClick={checkAgain}>Check again</button>}>
+        actions={(
+          <>
+            <Pending />
+            {!inFlight && op && <button type="button" className="button" data-variant="secondary" onClick={checkAgain}>Check again</button>}
+          </>
+        )}>
         <div className="lead rise">
-          <StateChip state="reclaiming" />
+          <Status state="reclaiming" />
           <h1>Taking it back.</h1>
           <p>Asking the mint for your own {each}. If you signed, the payout may still get there first.</p>
         </div>
@@ -59,9 +64,9 @@ export function Back({ world, record, journey }: ScreenProps) {
 
   return (
     <Frame record={record} rail={journey.rail} title="Back to you"
-      actions={ecash && <CopyButton text={ecash} label="Copy ecash" variant="primary" />}>
+      actions={ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}>
       <div className="lead rise">
-        <StateChip state="reclaimed" />
+        <Status state="reclaimed" />
         <h1 className={first ? undefined : 'display'}>{first ? 'Your take-back got there first.' : 'Back to you.'}</h1>
         <p>
           {first ? `The payout can’t go now. The others’ ${each} are still at the mint, theirs to take back. ` : ''}

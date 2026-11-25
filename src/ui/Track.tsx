@@ -27,7 +27,7 @@ function TrackView({ title, label, at: target, from, stops, paid }: {
     <section className="track" aria-label={`${title}: ${label}`} data-paid={paid || undefined}>
       <div className="track-head" aria-hidden="true">
         <span>{title}</span>
-        <span className="track-label">{label}</span>
+        <span className="status track-label"><span className="status-dot" aria-hidden="true" />{label}</span>
       </div>
       <div className="track-row" aria-hidden="true">
         {stops.map((item, index) => (
@@ -65,11 +65,11 @@ export function Track({ stop, from, maintainer, amount }: { stop: Stop; from?: S
 
 export type PayoutStop = 'none' | 'at-mint' | 'to-you' | 'locked' | 'spent';
 
-// The maintainer's view of the same money: plebs → Mint → her, locked to her key until she spends it.
+// The maintainer's view of the same money: plebs → Mint → her. Lime only while it waits, locked to her key; spent ecash is just hers.
 export function PayoutTrack({ stop, label, title }: { stop: PayoutStop; label: string; title: string }) {
   const at = { none: 0, 'at-mint': 1, 'to-you': 1.5, locked: 2, spent: 2 }[stop];
   return (
-    <TrackView title={title} label={label} at={at} paid={stop === 'locked' || stop === 'spent'} stops={[
+    <TrackView title={title} label={label} at={at} paid={stop === 'locked'} stops={[
       { name: 'Plebs', icon: 'pleb', note: 'their wallets' },
       { name: 'Mint', icon: 'mint', note: stop === 'at-mint' ? 'locked to each pleb' : 'testnut' },
       { name: 'You', icon: 'maintainer', note: stop === 'spent' ? 'your ecash' : 'locked to your key' },

@@ -3,6 +3,7 @@ import { maintainerOf, sats, type CampaignRecord } from '../demo/world';
 import { paths } from '../routes';
 import { Frame } from '../ui/Frame';
 import { organizerSteps } from '../ui/GoalRail';
+import { Icon } from '../ui/Icon';
 import { CopyButton, ShareInvite } from '../ui/parts';
 import { Qr } from '../ui/Qr';
 import { organizerFacts } from '../ui/Really';
@@ -19,8 +20,8 @@ export function Share({ record }: { record: CampaignRecord }) {
       actions={(
         <>
           <ShareInvite campaignId={campaign.id} title={`Back ${maintainer}: ${campaign.title}`} />
-          <button type="button" className="button" data-variant="quiet" onClick={() => navigate(paths.organize(campaign.id, 'watch'))}>
-            Watch it fill
+          <button type="button" className="button" data-variant="secondary" onClick={() => navigate(paths.organize(campaign.id, 'watch'))}>
+            Watch it fill<Icon name="chevron" />
           </button>
         </>
       )}>
@@ -28,12 +29,10 @@ export function Share({ record }: { record: CampaignRecord }) {
         <h1>Your stack is open.</h1>
         <p>You organize this stack. You can share it and stop collecting, but you can’t move anyone’s sats.</p>
       </div>
-      <div className="share-qr">
+      <div className="link-card share-card">
         <Qr text={url} label={`QR code of the invite link for backing ${maintainer}`} />
-      </div>
-      <div className="link-card">
         <p className="mono link-text">{url.replace(/^https?:\/\//, '')}</p>
-        <CopyButton text={url} label="Copy link" variant="outline" />
+        <CopyButton text={url} label="Copy link" />
       </div>
     </Frame>
   );

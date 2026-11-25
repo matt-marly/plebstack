@@ -6,7 +6,8 @@ import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatClock } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { maintainerSteps } from '../ui/GoalRail';
-import { CopyButton, Note, StateChip } from '../ui/parts';
+import { CopyButton, Note, Pending, Status } from '../ui/parts';
+import { PayoutTrack } from '../ui/Track';
 import { maintainerFacts } from '../ui/Really';
 
 // M4: after the swap. The ecash is hers alone now; until the mint answers, Check again asks about the same swap.
@@ -41,13 +42,16 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
     const rejected = spend.status === 'rejected';
     return (
       <Frame record={record} rail={{ at: 3, paid: false, steps: maintainerSteps }} title="Swapping at the mint" facts={facts}
-        actions={!isRunning(key) && (
-          <button type="button" className="button" data-variant={rejected ? 'primary' : 'outline'} onClick={rejected ? again : check}>
-            {rejected ? 'Try the swap again' : 'Check again'}
-          </button>
-        )}>
+        actions={rejected && !isRunning(key)
+          ? <button type="button" className="button" data-variant="primary" onClick={again}>Try the swap again</button>
+          : (
+            <>
+              <Pending />
+              {!isRunning(key) && <button type="button" className="button" data-variant="secondary" onClick={check}>Check again</button>}
+            </>
+          )}>
         <div className="lead rise">
-          <StateChip state="reclaiming" phrase={rejected ? 'Turned down' : 'Waiting for the mint'} />
+          <Status state="reclaiming" phrase={rejected ? 'Turned down' : 'Waiting for the mint'} />
           <h1>{rejected ? 'The mint turned down the swap.' : 'Swapping at the mint.'}</h1>
           <p>{rejected
             ? `Nothing was swapped. Your ${sats(spend.grossSat)} are still locked to your key.`
@@ -65,7 +69,7 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
 
   return (
     <Frame record={record} rail={{ at: 3, paid: false, steps: maintainerSteps }} title={`Yours. ${sats(spend.receivedSat!)}`} facts={facts}
-      actions={ecash && <CopyButton text={ecash} label="Copy ecash" variant="primary" />}>
+      actions={ecash ? <CopyButton text={ecash} label="Copy ecash" variant="primary" /> : <Pending label="Getting your ecash…" />}>
       <div className="lead rise">
         <h1 className="display">Yours. {sats(spend.receivedSat!)}.</h1>
         <p>Swap fee at the mint, {sats(fee)}. Received, {sats(spend.receivedSat!)}. Copy it into any Cashu wallet.</p>
@@ -75,6 +79,7 @@ export function Spent({ record, viewerId }: { record: CampaignRecord; viewerId: 
         <div><dt>Swap fee at the mint</dt><dd className="mono">{sats(fee)}</dd></div>
         <div><dt>Received</dt><dd className="mono">{sats(spend.receivedSat!)}</dd></div>
       </dl>
+      <PayoutTrack title={`Where your ${sats(spend.receivedSat!)} are`} stop="spent" label="ecash only you hold" />
       {ecash && <p className="ecash mono">{ecash.slice(0, 64)}…</p>}
     </Frame>
   );

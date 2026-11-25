@@ -5,7 +5,7 @@ import { stateCopy } from '../domain/states';
 import { formatWhen, listNames, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { campaignGoal } from '../ui/journey';
-import { Avatar, ShareButton, StateChip } from '../ui/parts';
+import { Avatar, ShareButton, Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import type { ScreenProps } from './StackRoute';
 
@@ -65,7 +65,7 @@ export function Paid({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead paid-words">
-        <StateChip state="paid" phrase="Confirmed by the mint" />
+        <Status state="paid" phrase="Confirmed by the mint" />
         <h1 className="display">{stateCopy.paid.phrase}</h1>
       </div>
       <Stack goal={campaignGoal(record, world.viewerId)} lighting={playing} />

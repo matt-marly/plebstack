@@ -7,8 +7,8 @@ import { Note, useOnline } from './parts';
 import { Sheet } from './Sheet';
 
 // The owner's own mint of their own deposit. Nobody approves it; once signed, it can race the payout.
-export function TakeBack({ record, viewerId, signed, variant = 'quiet' }: {
-  record: CampaignRecord; viewerId: string; signed?: boolean; variant?: 'primary' | 'quiet';
+export function TakeBack({ record, viewerId, signed, variant = 'secondary' }: {
+  record: CampaignRecord; viewerId: string; signed?: boolean; variant?: 'primary' | 'secondary';
 }) {
   const { refresh } = useSession();
   const online = useOnline();
@@ -41,7 +41,7 @@ export function TakeBack({ record, viewerId, signed, variant = 'quiet' }: {
             onClick={() => { if (!asking && online) takeBack(); }}>
             Take mine back
           </button>
-          <button type="button" className="button" data-variant="quiet" onClick={() => setOpen(false)}>Keep it stacked</button>
+          <button type="button" className="button" data-variant="secondary" onClick={() => setOpen(false)}>Keep it stacked</button>
         </div>
       </Sheet>
     </>

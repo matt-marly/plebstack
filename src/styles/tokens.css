@@ -40,4 +40,21 @@
   --radius-card: 22px;
   --radius-sheet: 32px;
   --target-size: 44px;
+  /* Spacing: the only gaps in use. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --text-micro: 11px;
+  --text-caption: 12px;
+  --text-small: 13px;
+  --text-body: 15px;
+  --text-name: 17px;
+  /* What a tappable frame looks like. */
+  --color-control-line: rgba(255, 255, 255, .22);
+  --color-control-fill: rgba(255, 255, 255, .04);
+  --radius-control: 14px;
+  --radius-env: 6px;
 }

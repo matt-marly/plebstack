@@ -6,7 +6,7 @@ import { failureOf, inBackground, isRunning, keys } from '../ui/background';
 import { formatClock } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { campaignGoal } from '../ui/journey';
-import { Note, StateChip } from '../ui/parts';
+import { Note, Pending, Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
@@ -29,11 +29,14 @@ export function Sending({ world, record, journey }: ScreenProps) {
 
   return (
     <Frame record={record} rail={journey.rail} title="Sending"
-      actions={!inFlight && op && (
-        <button type="button" className="button" data-variant="outline" onClick={checkAgain}>Check again</button>
+      actions={(
+        <>
+          <Pending />
+          {!inFlight && op && <button type="button" className="button" data-variant="secondary" onClick={checkAgain}>Check again</button>}
+        </>
       )}>
       <div className="lead rise">
-        <StateChip state="paying out" />
+        <Status state="paying out" />
         <h1>All three signed. Sending.</h1>
         <p>The payout is with the mint as one batch. Nothing is paid until the mint confirms.</p>
       </div>

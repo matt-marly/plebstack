@@ -5,7 +5,7 @@ import { liveActions, type Wallet } from '../live/actions';
 import type { BoardDraft } from '../live/board';
 import { useSession } from '../session';
 import { formatClock, shortKey } from '../ui/format';
-import { useTitle } from '../ui/Frame';
+import { TestMint, useTitle } from '../ui/Frame';
 import { Icon } from '../ui/Icon';
 import { closeLine, PLEBS, type Journey, type Stop } from '../ui/journey';
 import { Mark, Wordmark } from '../ui/Mark';
@@ -314,7 +314,7 @@ function StageView({ id }: { id: string | undefined }) {
             <Wordmark className="stage-word" />
           </span>
           <div className="stage-honest">
-            <span className="pill"><span className="pill-dot" aria-hidden="true" />Test mint · fake sats</span>
+            <TestMint />
             <p>One browser plays everyone. Every number here comes from the mint.</p>
           </div>
         </header>

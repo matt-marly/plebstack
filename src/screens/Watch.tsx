@@ -8,7 +8,8 @@ import { formatTime, formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { organizerSteps } from '../ui/GoalRail';
 import { campaignGoal, closeLine, signedCount } from '../ui/journey';
-import { Note, ShareButton, ShareInvite, StateChip } from '../ui/parts';
+import { Icon } from '../ui/Icon';
+import { Note, ShareButton, ShareInvite, Status } from '../ui/parts';
 import { organizerFacts } from '../ui/Really';
 import { Sheet } from '../ui/Sheet';
 import { Stack } from '../ui/Stack';
@@ -51,7 +52,7 @@ export function Watch({ record }: { record: CampaignRecord }) {
     }
   }
 
-  const words: { chip?: Parameters<typeof StateChip>[0]; title: string; text: string } = state === 'paid'
+  const words: { chip?: Parameters<typeof Status>[0]; title: string; text: string } = state === 'paid'
     ? { chip: { state: 'paid', phrase: 'Confirmed by the mint' }, title: stateCopy.paid.phrase,
       text: `${maintainer.short} got ${total}, locked to her key. Confirmed by the mint at ${formatWhen(payout?.settledAt ?? new Date().toISOString())}.` }
     : state === 'paying out'
@@ -75,12 +76,12 @@ export function Watch({ record }: { record: CampaignRecord }) {
       ) : (
         <>
           <ShareInvite campaignId={campaign.id} title={`Back ${maintainer.short}: ${campaign.title}`} />
-          {collecting && <button type="button" className="button" data-variant="quiet" onClick={() => setStopping(true)}>Stop collecting</button>}
+          {collecting && <button type="button" className="button" data-variant="secondary" onClick={() => setStopping(true)}>Stop collecting</button>}
         </>
       )}>
       <Who name={maintainer.name} title={campaign.title} keyBy={record.keyBy} />
       <div className="lead rise">
-        {words.chip && <StateChip {...words.chip} />}
+        {words.chip && <Status {...words.chip} />}
         <h1>{words.title}</h1>
         <p>{words.text}</p>
       </div>
@@ -91,14 +92,16 @@ export function Watch({ record }: { record: CampaignRecord }) {
         ))}
       </dl>
       {failure && <Note><p>{failure}</p></Note>}
-      <a className="text-button" href={paths.stage(campaign.id)} target="_blank" rel="noopener">Open the stage for a big screen</a>
+      <a className="button" data-variant="quiet" href={paths.stage(campaign.id)} target="_blank" rel="noopener">
+        Open the stage for a big screen<Icon name="chevron" />
+      </a>
       <Sheet open={stopping} onClose={() => setStopping(false)} title="Stop collecting?">
         <p className="sheet-text">
           Nobody new can join, and there’s no payout. Everyone who’s in takes their own {each} back. Signatures already released still count.
         </p>
         <div className="sheet-actions">
           <button type="button" className="button" data-variant="primary" onClick={stop}>Stop collecting</button>
-          <button type="button" className="button" data-variant="quiet" onClick={() => setStopping(false)}>Keep collecting</button>
+          <button type="button" className="button" data-variant="secondary" onClick={() => setStopping(false)}>Keep collecting</button>
         </div>
       </Sheet>
     </Frame>

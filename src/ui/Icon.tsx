@@ -8,13 +8,18 @@ const paths: Record<string, string> = {
   info: 'M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17M12 11V16.5M12 7.75V8',
   check: 'M5 12.5L10 17L19 7.5',
   swap: 'M7 7H18L15 4M17 17H6L9 20',
+  chevron: 'M9.5 6L15.5 12L9.5 18',
+  ring: 'M12 5.5a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13',
 };
+
+// A dashed ring says "not confirmed", without borrowing a money colour.
+const dashes: Record<string, string> = { ring: '2.6 2.6' };
 
 export function Icon({ name, className }: { name: string; className?: string }) {
   return (
     <svg className={className ?? 'icon'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      <path d={paths[name]} />
+      <path d={paths[name]} strokeDasharray={dashes[name]} />
     </svg>
   );
 }

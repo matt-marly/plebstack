@@ -7,7 +7,7 @@ import { formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { maintainerSteps } from '../ui/GoalRail';
 import { campaignGoal } from '../ui/journey';
-import { Note, StateChip, useOnline } from '../ui/parts';
+import { Note, Status, useOnline } from '../ui/parts';
 import { maintainerFacts } from '../ui/Really';
 import { Stack } from '../ui/Stack';
 import { PayoutTrack } from '../ui/Track';
@@ -46,7 +46,7 @@ export function Receive({ record, viewerId }: { record: CampaignRecord; viewerId
         </button>
       )}>
       <div className="lead rise">
-        <StateChip state="paid" phrase="Confirmed by the mint" />
+        <Status state="paid" phrase="Confirmed by the mint" />
         <h1 className="display">{total} for you.</h1>
         <p>Three plebs stacked together. Confirmed by the mint at {formatWhen(payout?.settledAt ?? new Date().toISOString())}.</p>
       </div>

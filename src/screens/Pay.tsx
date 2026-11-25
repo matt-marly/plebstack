@@ -53,7 +53,7 @@ export function Pay({ world, record, journey }: ScreenProps) {
       {failure && (
         <Note>
           <p>{failure}</p>
-          <button type="button" className="button" data-variant="quiet" onClick={() => setAttempt(count => count + 1)}>Check again</button>
+          <button type="button" className="button" data-variant="secondary" onClick={() => setAttempt(count => count + 1)}>Check again</button>
         </Note>
       )}
       <Track stop={journey.stop} maintainer={maintainerOf(record).short} amount={each} />

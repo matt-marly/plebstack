@@ -38,10 +38,14 @@ export function GroupCard({ record, viewerId }: { record: CampaignRecord; viewer
           const { label, tone } = mark(slot, own);
           return (
             <li key={slot.id}>
-              <Avatar name={slot.backerId ? people[slot.backerId].short : undefined} own={own} open={!slot.backerId} />
-              <span className="group-name" data-own={own || undefined}>{own ? 'You' : people[slot.backerId!]?.short}</span>
-              <span className="group-mark" data-tone={tone}>
-                {tone === 'signed' && <Icon name="nib" />}{label}
+              <span className="person-tag" data-size="small" data-own={own || undefined}>
+                <Avatar name={slot.backerId ? people[slot.backerId].short : undefined} own={own} open={!slot.backerId} />
+                <span className="person-tag-name">{own ? 'You' : people[slot.backerId!]?.short}</span>
+              </span>
+              {/* It reports, so no frame: a dot for signed or your turn, a dashed ring for not yet. */}
+              <span className="status group-mark" data-tone={tone}>
+                {tone === 'later' ? <Icon name="ring" /> : <span className="status-dot" aria-hidden="true" />}
+                {tone === 'later' ? label : <strong>{label}</strong>}
               </span>
             </li>
           );

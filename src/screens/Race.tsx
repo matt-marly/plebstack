@@ -3,7 +3,7 @@ import { maintainerOf, sats } from '../demo/world';
 import { paths } from '../routes';
 import { Frame } from '../ui/Frame';
 import { campaignGoal } from '../ui/journey';
-import { StateChip } from '../ui/parts';
+import { Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
@@ -23,7 +23,7 @@ export function Race({ world, record, journey }: ScreenProps) {
         </button>
       )}>
       <div className="lead rise">
-        <StateChip state="paid" phrase="The payout got there first" />
+        <Status state="paid" phrase="The payout got there first" />
         <h1>The payout got there first.</h1>
         <p>Your {each} went to {maintainer}, which is what you signed for. The mint turned down your take-back.</p>
       </div>

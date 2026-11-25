@@ -1,19 +1,31 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { stateColour, stateCopy, type ToneState } from '../domain/states';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { isSignal, stateColour, stateCopy, type ToneState } from '../domain/states';
 import { useSession } from '../session';
+import { Icon } from './Icon';
 
-const chipCopy: Partial<Record<ToneState, { word: string; phrase: string }>> = {
+const statusCopy: Partial<Record<ToneState, { word: string; phrase: string }>> = {
   ...stateCopy, unmet: { word: 'Unmet', phrase: 'Didn’t fill' }, collecting: { word: 'Collecting', phrase: '' },
 };
 
-export function StateChip({ state, phrase }: { state: ToneState; phrase?: string }) {
-  const copy = chipCopy[state]!;
+// Where the money is, as a dot and a word. Paid takes its lime from the stylesheet, under data-paid only.
+export function Status({ state, phrase }: { state: ToneState; phrase?: string }) {
+  const copy = statusCopy[state]!;
+  const paid = isSignal(state);
   return (
-    <p className="state-chip" style={{ '--tone': stateColour[state] } as React.CSSProperties}>
-      <span className="state-dot" aria-hidden="true" />
+    <p className="status" data-paid={paid || undefined} style={paid ? undefined : { '--tone': stateColour[state] } as React.CSSProperties}>
+      <span className="status-dot" aria-hidden="true" />
       <strong>{copy.word}</strong>
       <span>{phrase ?? copy.phrase}</span>
     </p>
+  );
+}
+
+// A quiet button only ever goes somewhere, so it always carries the chevron.
+export function Quiet({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button type="button" className="button" data-variant="quiet" {...props}>
+      {children}<Icon name="chevron" />
+    </button>
   );
 }
 
@@ -36,7 +48,7 @@ export function useOnline(): boolean {
   return online;
 }
 
-export function CopyButton({ text, label, variant = 'quiet' }: { text: string; label: string; variant?: string }) {
+export function CopyButton({ text, label, variant = 'secondary' }: { text: string; label: string; variant?: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -55,6 +67,11 @@ export function CopyButton({ text, label, variant = 'quiet' }: { text: string; l
       <span aria-live="polite">{copied ? 'Copied' : label}</span>
     </button>
   );
+}
+
+// Nothing to tap while the mint answers: the footer stays, and says what it waits for.
+export function Pending({ label = 'Waiting for the mint…' }: { label?: string }) {
+  return <button type="button" className="button" data-variant="primary" aria-disabled="true">{label}</button>;
 }
 
 // Web Share where there is one, otherwise the text and link go to the clipboard.
@@ -88,6 +105,19 @@ export function ShareInvite({ campaignId, title }: { campaignId: string; title: 
   return (
     <ShareButton label="Share invite" done="Invite link copied" title="Plebstack" text={title} url={`${location.origin}/s/${campaignId}`}
       notice="Invite link copied. To play the next pleb in this browser, switch who you’re playing as." />
+  );
+}
+
+// Who someone is in this stack: avatar, name, and the part they play.
+export function PersonTag({ name, role, own, open, size }: { name?: string; role?: string; own?: boolean; open?: boolean; size?: 'small' }) {
+  return (
+    <span className="person-tag" data-size={size} data-own={own || undefined}>
+      <Avatar name={name} own={own} open={open} size={size ? undefined : 'large'} />
+      <span className="person-tag-text">
+        {name && <span className="person-tag-name">{name}</span>}
+        {role && <span className="person-tag-role">{role}</span>}
+      </span>
+    </span>
   );
 }
 

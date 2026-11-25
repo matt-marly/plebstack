@@ -4,7 +4,7 @@ import { formatWhen, shortKey } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { maintainerSteps } from '../ui/GoalRail';
 import { campaignGoal, closeLine } from '../ui/journey';
-import { ShareButton, StateChip } from '../ui/parts';
+import { Pending, ShareButton, Status } from '../ui/parts';
 import { maintainerFacts } from '../ui/Really';
 import { Stack } from '../ui/Stack';
 import { PayoutTrack } from '../ui/Track';
@@ -18,7 +18,7 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
   const facts = maintainerFacts(sats(63));
   if (!record) {
     return (
-      <Frame rail={rail} title="Key confirmed" facts={facts}>
+      <Frame rail={rail} title="Key confirmed" facts={facts} actions={<Pending label={`Waiting for ${organizer} to open the stack…`} />}>
         <div className="lead rise">
           <h1>Your key is confirmed.</h1>
           <p>{organizer} is setting the terms next. The payout will be locked to your key. Nothing to do yet.</p>
@@ -46,10 +46,10 @@ export function Follow({ draft, record, viewerId }: { draft: BoardDraft; record?
     <Frame record={record} rail={rail} title="A stack for you" facts={facts}
       actions={(
         <ShareButton label="Share the stack" done="Copied" title="Plebstack" url={`${location.origin}/s/${campaign.id}`}
-          text={`${organizer} is getting 3 plebs to back me on Plebstack.`} variant="outline" />
+          text={`${organizer} is getting 3 plebs to back me on Plebstack.`} variant="secondary" />
       )}>
       <div className="lead rise">
-        <StateChip {...chip} phrase={chip.phrase ?? (unmet ? 'Didn’t fill' : 'Waiting for the mint')} />
+        <Status {...chip} phrase={chip.phrase ?? (unmet ? 'Didn’t fill' : 'Waiting for the mint')} />
         <h1>{unmet ? 'No payout this time.' : sending ? 'On its way to you.' : 'A stack for you.'}</h1>
         <p>{unmet
           ? `${whyUnmet(record, viewerId)} Each pleb takes their own back. Nothing was paid to you.`

@@ -2,7 +2,7 @@ import { isHeld, maintainerOf, people, sats, tally } from '../demo/world';
 import { listNames } from '../ui/format';
 import { Frame } from '../ui/Frame';
 import { campaignGoal, closeLine, whoIsIn } from '../ui/journey';
-import { Avatar, ShareInvite, StateChip } from '../ui/parts';
+import { Avatar, ShareInvite, Status } from '../ui/parts';
 import { Stack } from '../ui/Stack';
 import { TakeBack } from '../ui/TakeBack';
 import { Track } from '../ui/Track';
@@ -27,7 +27,7 @@ export function Waiting({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <StateChip state="deposited" />
+        <Status state="deposited" />
         <h1>{counts[missing]} and you’re at the line.</h1>
         <div className="in">
           {record.slots.map(slot => (isHeld(slot)

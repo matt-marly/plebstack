@@ -31,8 +31,9 @@ export function Brand() {
   );
 }
 
+// Not real money, on every screen. It reports, so it never looks like a control.
 export function TestMint() {
-  return <span className="pill"><span className="pill-dot" aria-hidden="true" />Test mint</span>;
+  return <span className="env">Test mint · fake sats</span>;
 }
 
 export function plebFacts(record: CampaignRecord): Fact[] {
@@ -56,8 +57,8 @@ export function Frame({ record, rail, title, children, actions, moment, facts }:
         </div>
         <GoalRail {...rail} lighting={moment} />
         <div className="helpers">
-          <Really facts={facts ?? (record ? plebFacts(record) : [])} />
           <PlayingAs record={record} />
+          <Really facts={facts ?? (record ? plebFacts(record) : [])} />
         </div>
       </header>
       <main ref={main} className="body" id="main">{children}</main>
