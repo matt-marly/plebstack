@@ -43,8 +43,8 @@ export function TestMint() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="env" aria-label="Testnet: about this mint" onClick={() => setOpen(true)}>
-        <span className="env-dot" aria-hidden="true" />Testnet
+      <button type="button" className="env" aria-label="Test mint: fake sats, about this mint" onClick={() => setOpen(true)}>
+        <Icon name="flask" />Test mint
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Testnet">
         <p className="sheet-text">Every deposit, payout and take-back is a real Cashu request to a public test mint. The test mint pays its own invoices, so the sats are fake and nothing here is real money.</p>

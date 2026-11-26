@@ -12,11 +12,11 @@ const maintainer = people[MAINTAINER].short;
 // One animated stack across the three pages, each playing its part of the story: it fills, it pays, or it goes back.
 const pages: { title: string; text: string; scene: Scene }[] = [
   { title: 'Chip in together.', scene: 'fill',
-    text: 'Three people lock 21 sats each at the mint for someone who builds tools you use. Nobody else holds your key.' },
+    text: 'Three people lock 21 sats each for a builder. Nobody else holds your key.' },
   { title: 'Everyone signs. One payout.', scene: 'pay',
-    text: `When all three sign, ${maintainer} gets 63 sats in one payment, confirmed by the mint.` },
+    text: `All three sign, and ${maintainer} gets 63 sats in one payment.` },
   { title: 'Not filled? Take yours back.', scene: 'back',
-    text: 'Worst case, you get your 21 sats back. Nobody else can move them.' },
+    text: 'Worst case, you take your 21 sats back. Nobody else can move them.' },
 ];
 
 export function Intro() {
@@ -43,6 +43,10 @@ export function Intro() {
     <div className="screen intro">
       <header className="top">
         <div className="top-bar"><Brand /><TestMint /></div>
+        <p className="dots">
+          <span className="visually-hidden">Page {page} of {pages.length}</span>
+          {pages.map((_, index) => <span key={index} aria-hidden="true" data-on={index === page - 1 || undefined} data-done={index < page - 1 || undefined} />)}
+        </p>
       </header>
       <main ref={main} className="intro-body">
         <div className="lead rise" key={`words-${page}`}>
@@ -52,10 +56,6 @@ export function Intro() {
         <div className="intro-art" key={`art-${page}`}><StoryStack scene={current.scene} maintainer={maintainer} /></div>
       </main>
       <footer className="actions intro-actions">
-        <p className="dots">
-          <span className="visually-hidden">Page {page} of {pages.length}</span>
-          {pages.map((_, index) => <span key={index} aria-hidden="true" data-on={index === page - 1 || undefined} />)}
-        </p>
         <button type="button" className="button" data-variant="primary"
           onClick={() => (last ? start() : navigate(paths.intro(page + 1)))}>
           {last ? 'Start a stack' : 'Next'}

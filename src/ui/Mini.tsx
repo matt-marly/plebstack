@@ -30,7 +30,7 @@ export function MiniPhone({ label, playing, rail, view, tick }: {
     <section className="mini" aria-label={`${label}: ${view.title}`}>
       <div className="mini-glass" aria-hidden="true" inert>
         <div className="mini-screen">
-          <div className="top-bar"><Brand /><span className="env"><span className="env-dot" aria-hidden="true" />Testnet</span></div>
+          <div className="top-bar"><Brand /><span className="env"><Icon name="flask" />Test mint</span></div>
           <GoalRail {...rail} slim />
           <p className="mini-playing"><strong>{playing}</strong>’s phone</p>
           {view.body}
