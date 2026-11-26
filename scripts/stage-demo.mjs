@@ -403,6 +403,7 @@ try {
   await page.goto(`${base}/`);
   await page.waitForURL(/\/intro\/1$/);
   await page.getByRole('button', { name: 'Skip the intro' }).click();
+  await page.getByRole('button', { name: 'Start a stack' }).click();
   await heading('Who are you backing?').waitFor();
   await beat();
   await page.getByRole('button', { name: 'Next' }).click();

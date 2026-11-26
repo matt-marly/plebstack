@@ -9,7 +9,7 @@ import { Brand } from './Frame';
 import { GoalRail, maintainerSteps } from './GoalRail';
 import { GroupCard } from './GroupCard';
 import { Icon } from './Icon';
-import { journeyOf, whoIsIn, type Journey, type Rail } from './journey';
+import { journeyOf, signedCount, whoIsIn, type Journey, type Rail } from './journey';
 import { Avatar, Status } from './parts';
 import { Qr } from './Qr';
 import { PayoutTrack, Track } from './Track';
@@ -86,18 +86,18 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
     case 'join': {
       const full = journey.step.kind !== 'join';
       const short = full && fellShort(record);
-      const title = short ? 'This stack didn’t fill.' : full ? 'This stack is full.' : `${organizer} is getting 3 plebs to back ${maintainer.short}.`;
+      const title = short ? 'This stack didn’t fill.' : full ? 'This stack is full.' : `Back ${maintainer.short} with ${each}`;
       return shown(title, (
         <>
           <Lead title={title} text={full ? whyClosed(record, personId)
-            : `Chip in ${each}. If all three of you sign, ${maintainer.short} gets ${total}. If not, everyone takes their own back.`} />
+            : `${organizer} invited 3 people. If all 3 sign, ${maintainer.short} gets ${total}.`} />
           <Who name={maintainer.name} title={record.campaign.title} keyBy={record.keyBy} pubkey={record.campaign.beneficiaryPubkey}
             organizer={organizer} />
         </>
       ), full ? <Offers items={['Start a new stack', 'See how it works', `Play as ${organizer}`]} /> : (
         <>
           <Offers items={[`Chip in ${each}`]} />
-          <p className="fine">Nobody holds your keys but you. Not us, not the organizer.</p>
+          <p className="fine">Only you hold the key to your {each}.</p>
         </>
       ));
     }
@@ -105,11 +105,14 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
       const quote = record.slots.find(slot => slot.backerId === personId)!.quote!;
       return shown(`Pay ${each} to stack.`, (
         <>
-          <Lead title={`Pay ${each} to stack.`} />
-          <div className="invoice">
-            <Qr text={`lightning:${quote.invoice}`} label={`QR code of the Lightning invoice for ${each}`} />
-            <p className="small muted">Test mint: it marks its own invoices paid. Fake sats.</p>
-          </div>
+          <Lead chip={<Status state="awaiting" phrase="Waiting for your payment" plain live />} title={`Pay ${each} to stack.`} />
+          <section className="invoice-card">
+            <div className="invoice-head">
+              <span className="invite-tag">Lightning invoice</span>
+              <p className="invoice-amount">{each}</p>
+            </div>
+            <div className="invite-qr"><Qr text={`lightning:${quote.invoice}`} label={`QR code of the Lightning invoice for ${each}`} /></div>
+          </section>
           {track}
         </>
       ), <Offers items={['Open in wallet', 'Copy invoice']} />);
@@ -119,7 +122,7 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
       const title = `${missing[record.campaign.backerCount - tally(record).held]} and you’re at the line.`;
       return shown(title, (
         <>
-          <Lead chip={<Status state="deposited" />} title={title} />
+          <Lead chip={<Status state="deposited" phrase="Locked at the mint" plain />} title={title} />
           <div className="in">
             {record.slots.map(slot => (slot.deposit && slot.deposit.state !== 'reclaimed'
               ? <Avatar key={slot.id} name={people[slot.backerId!].short} own={slot.backerId === personId} />
@@ -135,7 +138,7 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
       const title = stopped ? 'You stopped signing on this device.' : 'Everyone’s in. Sign the group card.';
       return shown(title, (
         <>
-          <Lead chip={<Status state="ready" />} title={title} />
+          <Lead chip={stopped ? <Status state="reclaimed" phrase="Signing stopped" plain /> : <Status state="ready" phrase="All three in · ready to sign" plain live />} title={title} />
           <GroupCard record={record} viewerId={personId} />
         </>
       ), stopped ? <Offers items={['Take mine back']} /> : (
@@ -150,7 +153,7 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
       const title = waitingOn.length ? `Signed. Waiting for ${listNames(waitingOn)}.` : 'All three signed.';
       return shown(title, (
         <>
-          <Lead chip={<Status state="approved" />} title={title} />
+          <Lead chip={<Status state="approved" phrase={`Signed · ${signedCount(record)} of 3`} plain live={waitingOn.length > 0} />} title={title} />
           <GroupCard record={record} viewerId={personId} />
         </>
       ), waitingOn.length ? <Offers items={['Share a nudge', 'Take mine back']} /> : <Offers items={['Send to the mint']} />);
@@ -158,7 +161,7 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
     case 'sending':
       return shown('All three signed. Sending.', (
         <>
-          <Lead chip={<Status state="paying out" />} title="All three signed. Sending."
+          <Lead chip={<Status state="paying out" phrase="Sending · not paid yet" plain live />} title="All three signed. Sending."
             text="The payout is with the mint as one batch. Nothing is paid until the mint confirms." />
           {track}
         </>
@@ -190,7 +193,7 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
     case 'unmet':
       return shown('No payout this time.', (
         <>
-          <Lead chip={<Status state="unmet" />} title="No payout this time." text={whyUnmet(record, personId)} />
+          <Lead chip={<Status state="unmet" phrase="Didn’t fill · yours to take back" plain />} title="No payout this time." text={whyUnmet(record, personId)} />
           {track}
         </>
       ), <Offers items={['Take mine back']} />);
@@ -198,7 +201,7 @@ export function plebView(record: CampaignRecord | undefined, personId: string, d
       const back = journey.step.kind === 'reclaimed';
       return shown(back ? 'Back to you.' : 'Taking it back.', (
         <>
-          <Lead chip={<Status state={back ? 'reclaimed' : 'reclaiming'} />} title={back ? 'Back to you.' : 'Taking it back.'} display={back}
+          <Lead chip={<Status state={back ? 'reclaimed' : 'reclaiming'} phrase={back ? 'Back with you' : 'Taking it back'} plain live={!back} />} title={back ? 'Back to you.' : 'Taking it back.'} display={back}
             text={back ? `Your ${each} are now ecash saved in this browser. Paste it into any Cashu wallet.` : `Asking the mint for your own ${each}.`} />
           {track}
         </>
@@ -275,8 +278,8 @@ export function maintainerView(draft: BoardDraft | undefined, record: CampaignRe
   const title = unmet ? 'No payout this time.' : sending ? 'On its way to you.' : 'A stack for you.';
   return { rail: rail(1), view: { title, body: (
     <>
-      <Lead chip={unmet ? <Status state="unmet" /> : sending ? <Status state="paying out" />
-        : <Status state="collecting" phrase={held === 3 ? 'At the line' : `${held} of 3 in`} />} title={title}
+      <Lead chip={unmet ? <Status state="unmet" phrase="Didn’t fill" plain /> : sending ? <Status state="paying out" phrase="Sending · not paid yet" plain live />
+        : <Status state={held === 3 ? 'ready' : 'collecting'} phrase={held === 3 ? 'At the line' : `Collecting · ${held} of 3 in`} plain />} title={title}
         text={unmet ? 'Each pleb takes their own back. Nothing was paid to you.'
           : sending ? 'All three signed and the batch is with the mint. Nothing is yours until the mint confirms.'
             : `${organizer} is organizing it. The payout will be locked to your key. Nothing to do yet.`} />
