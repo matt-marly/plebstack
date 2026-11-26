@@ -787,11 +787,11 @@ span.env { cursor: default; }
 /* ---------------------------------------------------------------- the pleb's path: one state pill, one picture, one action */
 
 /* At the top of every step, the money state as a coloured pill. A pulsing dot means something is still on its way. */
-.lead > .status {
+.lead > .status, .stage-state > .status {
   align-self: flex-start; min-height: 30px; padding: var(--space-1) var(--space-3) var(--space-1) 10px; border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--tone) 36%, transparent); background: color-mix(in srgb, var(--tone) 10%, transparent);
 }
-.lead > .status .status-dot { border-radius: 50%; }
+.lead > .status .status-dot, .stage-state > .status .status-dot { border-radius: 50%; }
 .status[data-live] .status-dot { animation: live-dot 1.8s ease-out infinite; }
 @keyframes live-dot {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone) 60%, transparent); }

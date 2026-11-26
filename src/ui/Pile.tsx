@@ -30,12 +30,23 @@ export function LoneSlab({ tone, className }: { tone: Tone; className?: string }
 
 interface Placed extends GoalSlab {
   who?: string;
+  signed?: boolean;
 }
 
 function placed(record: CampaignRecord | undefined): Placed[] {
   if (!record) return [0, 1, 2].map(() => ({ kind: 'open' }));
   const { slabs } = campaignGoal(record);
-  return record.slots.map((slot, index) => ({ ...slabs[index], who: slot.backerId }));
+  return record.slots.map((slot, index) => ({ ...slabs[index], who: slot.backerId, signed: slot.deposit?.authorizationReleased === true }));
+}
+
+// The same colours as on every phone: grey locked at the mint, teal at the line, blue once that pleb signed,
+// amber while the batch is with the mint. Lime is never here: it is the second layer, drawn only once paid.
+function toneOf(slab: Placed, phase: Look['phase']): Tone {
+  if (slab.kind === 'open') return 'open';
+  if (slab.kind === 'reclaimed') return 'outline';
+  if (phase === 'sending' || phase === 'paid') return 'sending';
+  if (phase === 'at-line') return slab.signed ? 'signed' : 'ready';
+  return 'own';
 }
 
 // The shared stack under its goal line, big. A slab still travelling in is held back; it keeps its place so
@@ -48,7 +59,7 @@ export function Pile({ record, look, away, moment }: {
   const draw = (lit: boolean) => slabs.map((slab, index) => {
     const x = X0 + slabOffset(slab.key, index) * 1.5;
     const y = BASE - RISE * index;
-    const tone: Tone = slab.kind === 'open' ? 'open' : slab.kind === 'reclaimed' ? 'outline' : lit ? 'lit' : 'ink';
+    const tone: Tone = lit ? (slab.kind === 'filled' ? 'lit' : 'open') : toneOf(slab, look.phase);
     if (lit && tone !== 'lit') return null;
     const hidden = slab.who !== undefined && away.has(slab.who);
     return (

@@ -1,18 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useParams } from 'react-router-dom';
-import { findCampaign, maintainerOf, people, sats, statusOf, fellShort, type CampaignRecord } from '../demo/world';
+import { findCampaign, maintainerOf, people, sats, statusOf, fellShort, tally, type CampaignRecord } from '../demo/world';
 import { liveActions, type Wallet } from '../live/actions';
 import type { BoardDraft } from '../live/board';
 import { useSession } from '../session';
 import { formatClock, shortKey } from '../ui/format';
 import { TestMint, useTitle } from '../ui/Frame';
 import { Icon } from '../ui/Icon';
-import { closeLine, PLEBS, type Journey, type Stop } from '../ui/journey';
+import { closeLine, PLEBS, signedCount, type Journey, type Stop } from '../ui/journey';
 import { Mark, Wordmark } from '../ui/Mark';
 import { MiniPhone, maintainerView, plebView } from '../ui/Mini';
-import { Avatar } from '../ui/parts';
+import { Avatar, Status } from '../ui/parts';
 import { LoneSlab, Pile } from '../ui/Pile';
-import { captionOf, lookOf, pocketLabel, snapOf, stageEvents, storyOf, type Caption, type StageSnap } from '../ui/story';
+import { captionOf, lookOf, pocketLabel, snapOf, stageEvents, storyOf, type Caption, type Look, type StageSnap } from '../ui/story';
 import { fixing } from '../ui/Who';
 
 const WIDTH = 1920;
@@ -91,7 +91,7 @@ function Ghost({ flight }: { flight: Flight }) {
   const { to } = flight;
   return (
     <div ref={ref} className="ghost" style={{ left: to.x, top: to.y, width: to.w, height: to.h }}>
-      <LoneSlab tone={flight.lit ? 'lit' : 'ink'} />
+      <LoneSlab tone={flight.lit ? 'lit' : flight.drop ? 'own' : 'ink'} />
     </div>
   );
 }
@@ -295,6 +295,7 @@ function StageView({ id }: { id: string | undefined }) {
   );
   const centre = (
     <div className="stage-centre">
+      <div className="stage-state">{stagePill(look, record)}</div>
       <Pile record={record} look={look} away={away} moment={moment} />
       <p className="stage-organizer">
         <Avatar name={organizer.short} size="small" />
@@ -362,6 +363,22 @@ function StageView({ id }: { id: string | undefined }) {
       <p className="visually-hidden" aria-live="polite">{current.text} {current.term}</p>
     </div>
   );
+}
+
+// The stack's state for the room, in the same colours as every phone. Lime only once the stage has told the payout.
+function stagePill(look: Look, record: CampaignRecord | undefined) {
+  const held = record ? tally(record).held : 0;
+  const signed = record ? signedCount(record) : 0;
+  switch (look.phase) {
+    case 'draft': return <Status state="open" phrase="Setting up · not open yet" plain />;
+    case 'at-line': return signed
+      ? <Status state="approved" phrase={`At the line · ${signed} of 3 signed`} plain live />
+      : <Status state="ready" phrase="At the line · ready to sign" plain live />;
+    case 'sending': return <Status state="paying out" phrase="Sending · not paid yet" plain live />;
+    case 'paid': return <Status state="paid" phrase="Confirmed by the mint" />;
+    case 'unmet': return <Status state="unmet" phrase="Didn’t fill · each takes their own back" plain />;
+    default: return <Status state="collecting" phrase={`Collecting · ${held} of 3 in`} plain live={held < 3} />;
+  }
 }
 
 // One word for where a pleb is, as their own phone has it.
