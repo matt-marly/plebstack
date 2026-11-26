@@ -3,6 +3,8 @@ import { maintainerOf, people, slotOf, slotStatus, statusOf, type CampaignRecord
 import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { MAINTAINER, ORGANIZER, homePath, usePlayAs, useSession } from '../session';
+import { Link } from 'react-router-dom';
+import { Glyph } from './Glyph';
 import { Icon } from './Icon';
 import { PLEBS } from './journey';
 import { Avatar, PersonTag } from './parts';
@@ -53,11 +55,13 @@ export function PlayingAs({ record }: { record?: CampaignRecord }) {
   const playing = viewer.id === MAINTAINER ? maintainer.short : viewer.short;
   return (
     <>
-      <button type="button" className="switcher" aria-label={`Playing as ${playing}`} onClick={() => setOpen(true)}>
+      <button type="button" className="switcher" aria-label={`Demo, playing as ${playing}`} onClick={() => setOpen(true)}>
+        <span className="switcher-label" aria-hidden="true">Demo</span>
         <Avatar name={playing} own />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Playing as">
-        <p className="sheet-text">Demo mode: play every person from this one device. Each person’s key stays in their own part of this browser, and Ada never has one.</p>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Demo mode">
+        <p className="sheet-text">Play every person from this one device. Each person’s key stays in their own part of this browser, and Ada never has one.</p>
+        <h3 className="sheet-label">Play as</h3>
         <ul className="people" role="list">
           {cast.map(person => (
             <li key={person.id}>
@@ -68,12 +72,20 @@ export function PlayingAs({ record }: { record?: CampaignRecord }) {
             </li>
           ))}
         </ul>
-        <button type="button" className="button" data-variant="secondary" onClick={startOver}>Start a new stack as Ada</button>
-        <button type="button" className="button" data-variant="secondary" onClick={resetDemo}>Reset the demo</button>
-        {/* The stage follows this window through storage, so the people can be played here while it shows. */}
-        <a className="button" data-variant="quiet" href={paths.stage(id)} target="_blank" rel="noopener">
-          Open the stage in a new window<Icon name="chevron" />
-        </a>
+        <h3 className="sheet-label">More</h3>
+        <div className="sheet-rows">
+          {/* The stage follows the stack over the relays, so it can sit on another screen. */}
+          <a className="sheet-row" href={paths.stage(id)} target="_blank" rel="noopener">
+            <Glyph name="watch" /><span>Watch it live<small>The big-screen view, in a new window</small></span><Icon name="chevron" />
+          </a>
+          <Link className="sheet-row" to={paths.intro(1)} onClick={() => setOpen(false)}>
+            <Glyph name="how" /><span>How it works<small>Three short screens</small></span><Icon name="chevron" />
+          </Link>
+          <button type="button" className="sheet-row" onClick={startOver}>
+            <Glyph name="start" /><span>Start a new stack as Ada<small>The old one stays where it is</small></span><Icon name="chevron" />
+          </button>
+        </div>
+        <button type="button" className="button" data-variant="quiet" onClick={resetDemo}>Reset the demo</button>
       </Sheet>
     </>
   );

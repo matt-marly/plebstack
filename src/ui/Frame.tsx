@@ -10,6 +10,7 @@ import { Mark, Wordmark } from './Mark';
 import { PlayingAs } from './PlayingAs';
 import { Really } from './Really';
 import { Sheet } from './Sheet';
+import { paths } from '../routes';
 import { TEST_MINT } from '../domain/models';
 
 export function useTitle(title: string) {
@@ -120,7 +121,8 @@ export function Frame({ record, rail, here, back, title, children, actions, mome
     <div className="screen" data-moment={moment || undefined}>
       <header className="top">
         <TopBar record={record} />
-        <StepHeader rail={rail} here={here} back={back} lighting={moment} really={really ?? plebContext(world, record!)} />
+        <StepHeader rail={rail} here={here} back={back ?? { to: paths.home(), label: 'home' }} lighting={moment}
+          really={really ?? plebContext(world, record!)} />
       </header>
       <main ref={main} className="body" id="main">{children}</main>
       <footer className="actions">{actions}</footer>

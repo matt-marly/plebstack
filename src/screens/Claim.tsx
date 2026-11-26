@@ -23,7 +23,7 @@ export function Claim() {
   const [canSave] = useState(storageWorks);
   const presence = useSeat(campaignId, 'maintainer');
   const draft = liveActions.draft(campaignId);
-  if (presence === 'searching' || presence === 'seating') return <Arriving />;
+  if (presence === 'searching' || presence === 'seating') return <Arriving seating={presence === 'seating'} />;
   if (!draft) return <NotFound />;
   if (world.viewerId !== draft.maintainerId) return <Navigate to={homePath(world.viewerId, campaignId)} replace />;
   if (liveActions.claimOf(world.viewerId, campaignId)) return <Navigate to={paths.maintain(campaignId)} replace />;

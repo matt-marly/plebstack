@@ -190,14 +190,19 @@ export function usePlayAs() {
 }
 
 // On a stack's own link: wait for it to arrive from the relays, then take this device's seat if it has none.
-export function useSeat(id: string, wants: 'pleb' | 'maintainer'): Presence | 'seating' {
-  const { world, viewAs } = useSession();
+export function useSeat(id: string, wants: 'pleb' | 'maintainer'): Presence | 'seating' | 'full' {
+  const { world, viewAs, refresh } = useSession();
+  const [full, setFull] = useState(false);
   const presence = presenceOf(id);
   const seated = !sync || sync.seats(id).some(seat => seat.device === sync!.device);
   useEffect(() => {
-    if (presence !== 'here') return;
+    if (presence !== 'here' || seated) return;
     const person = seatFor(id, wants);
-    if (person && person !== world.viewerId) viewAs(person);
-  }, [id, wants, presence, world.viewerId, viewAs]);
+    if (!person) setFull(true);
+    else if (person !== world.viewerId) viewAs(person);
+    // Already showing that person: still draw again, now that the seat is taken.
+    else refresh();
+  }, [id, wants, presence, seated, world.viewerId, viewAs, refresh]);
+  if (full) return 'full';
   return presence === 'here' && !seated ? 'seating' : presence;
 }
