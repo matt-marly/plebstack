@@ -788,8 +788,10 @@ try {
   await page.waitForURL(/\/intro\/1$/);
   await page.getByRole('button', { name: 'Skip the intro' }).click();
   await page.waitForURL(/\/home$/);
+  await page.locator('.home-action').first().waitFor();
+  const homeActions = await page.locator('.home-action').count();
   check('E0: Skip the intro finishes it and lands on home: a headline and three actions, no body text',
-    (await page.locator('.home-action').count()) === 3 && !(await page.locator('.home .lead p').count()));
+    homeActions === 3 && !(await page.locator('.home .lead p').count()), `${homeActions} actions at ${page.url()}`);
   await noLime('E0 home');
   await page.getByRole('button', { name: /Start a stack/ }).click();
   await heading('Who are you backing?').waitFor();
