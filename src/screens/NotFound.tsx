@@ -1,8 +1,23 @@
 import { useNavigate } from 'react-router-dom';
 import { paths } from '../routes';
 import { ORGANIZER, usePlayAs } from '../session';
-import { Cast } from '../ui/Cast';
-import { Brand, TestMint, useTitle } from '../ui/Frame';
+import { TopBar, useTitle } from '../ui/Frame';
+
+// While a stack is still on its way from the relays, a calm wait instead of an error.
+export function Arriving() {
+  useTitle('Opening the stack');
+  return (
+    <div className="screen">
+      <header className="top"><TopBar /></header>
+      <main className="body" id="main" aria-busy="true">
+        <div className="lead">
+          <h1>Opening the stack…</h1>
+          <p>Fetching it from the relays.</p>
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export function NotFound() {
   const playAs = usePlayAs();
@@ -10,16 +25,12 @@ export function NotFound() {
   useTitle('Not found');
   return (
     <div className="screen">
-      <header className="top-bar">
-        <Brand />
-        <TestMint />
-      </header>
+      <header className="top"><TopBar /></header>
       <main className="body" id="main">
         <div className="lead">
           <h1>We couldn’t find this stack.</h1>
-          <p>One browser plays everyone in this demo, and every stack lives in the browser that started it. A link from another browser won’t open here.</p>
+          <p>Check the link with whoever sent it. A stack only opens once its organizer’s device has shared it.</p>
         </div>
-        <Cast />
       </main>
       <footer className="actions">
         <button type="button" className="button" data-variant="primary" onClick={() => playAs(ORGANIZER, paths.start())}>

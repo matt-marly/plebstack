@@ -66,7 +66,13 @@ export function Home() {
     const id = stackIdFrom(link);
     const target = id ? findCampaign(world, id) : undefined;
     if (!target) {
-      setProblem('That link doesn’t match a stack. Check it and try again.');
+      if (!id) {
+        setProblem('That doesn’t look like an invite link. Check it and try again.');
+        return;
+      }
+      // Not on this device yet: open it, and it arrives from the relays.
+      setJoining(false);
+      navigate(paths.stack(id));
       return;
     }
     const pleb = PLEBS.find(person => !slotOf(target, person)) ?? PLEBS[0];
