@@ -29,7 +29,7 @@ test('Ada names the work and gets a claim link; nobody can join before Ngozi con
   const { storage, actions } = setup();
   assert.throws(() => actions.startStack('ada', { ...WORK, publicWorkUrl: '' }), /public link/);
   const id = actions.startStack('ada', WORK);
-  assert.equal(id, 'ngozi-daylight-saving-drift');
+  assert.match(id, /^ngozi-daylight-saving-drift-[a-z0-9]{4}$/);
   assert.equal(actions.draft(id)!.key, undefined);
   assert.throws(() => actions.createCampaign('ada', id, { closesAt: future, contributionSat: 21 }), /hasn’t confirmed a payout key/);
   assert.equal(actions.world('tobi').campaigns.length, 0);

@@ -253,9 +253,11 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       if (!maintainerName || !title) throw new Error('Name the person and the work.');
       if (!isHttpUrl(publicWorkUrl)) throw new Error('Add a public link to the work, starting with https://.');
       if (organizerId === maintainerId) throw new Error('The organizer and the maintainer are different people here.');
+      // Readable, and unique across every device on the relays: two stacks for the same work never share an id.
       const base = slugify(`${maintainerName.split(/\s+/)[0]} ${title}`);
-      let id = base;
-      for (let n = 2; board.draft(id) || board.get(id); n += 1) id = `${base}-${n}`;
+      const suffix = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => (byte % 36).toString(36)).join('');
+      let id = `${base}-${suffix()}`;
+      while (board.draft(id) || board.get(id)) id = `${base}-${suffix()}`;
       beforeSending(() => board.createDraft({
         id, organizerId, maintainerId, maintainerName, title, publicWorkUrl, createdAt: at(),
       }));
