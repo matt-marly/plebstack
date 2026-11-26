@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # tsc -b (type check) and vite build (production bundle)
+      - run: npm run build
+
+  # Talks to the public test mint and drives a browser, so it is not a PR gate.
+  # Run it by hand from the Actions tab (workflow_dispatch).
+  live:
+    name: Live mint and browser checks
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:live
+        env:
+          PLEB_LIVE: '1'
+      - run: node scripts/live-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence
+          path: .evidence/
+          if-no-files-found: ignore
