@@ -792,10 +792,10 @@ try {
   await page.waitForURL(/\/intro\/1$/);
   await page.getByRole('button', { name: 'Skip the intro' }).click();
   await page.waitForURL(/\/home$/);
-  await page.locator('.home-hero .stack').waitFor();
+  await page.locator('.home-body .story').waitFor();
   check('E0: Skip the intro finishes it and lands on home: the empty stack, one headline, one main action and a way in by link',
     (await page.locator('.home-body h1').count()) === 1 && await page.getByRole('button', { name: 'Start a stack' }).isVisible()
-    && await page.getByRole('button', { name: 'Join with a link' }).isVisible() && !(await page.locator('.home .stack [data-paid]').count()));
+    && await page.getByRole('button', { name: 'Join with a link' }).isVisible() && !(await page.locator('.home [data-paid]').count()));
   await noLime('E0 home');
   await page.getByRole('button', { name: /Start a stack/ }).click();
   await heading('Who are you backing?').waitFor();

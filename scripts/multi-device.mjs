@@ -57,7 +57,7 @@ try {
   await ada.getByRole('button', { name: 'Skip the intro' }).click();
   await ada.waitForURL(/\/home$/);
   check('Skipping the intro lands on home: the empty stack and one main action',
-    await ada.locator('.home-hero .stack').isVisible() && await ada.getByRole('button', { name: 'Start a stack' }).isVisible());
+    await ada.locator('.home-body .story').isVisible() && await ada.getByRole('button', { name: 'Start a stack' }).isVisible());
   await ada.getByRole('button', { name: /Start a stack/ }).click();
   await ada.heading('Who are you backing?').waitFor();
   await ada.getByRole('button', { name: 'Next' }).click();
