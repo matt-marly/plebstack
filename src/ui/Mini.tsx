@@ -5,7 +5,7 @@ import type { BoardDraft } from '../live/board';
 import { whyClosed } from '../screens/Join';
 import { whyUnmet } from '../screens/Unmet';
 import { listNames, shortKey } from './format';
-import { Brand, TestMint } from './Frame';
+import { Brand } from './Frame';
 import { GoalRail, maintainerSteps } from './GoalRail';
 import { GroupCard } from './GroupCard';
 import { Icon } from './Icon';
@@ -30,9 +30,9 @@ export function MiniPhone({ label, playing, rail, view, tick }: {
     <section className="mini" aria-label={`${label}: ${view.title}`}>
       <div className="mini-glass" aria-hidden="true" inert>
         <div className="mini-screen">
-          <div className="top-bar"><Brand /><TestMint /></div>
-          <GoalRail {...rail} />
-          <p className="mini-playing">Playing as <strong>{playing}</strong></p>
+          <div className="top-bar"><Brand /><span className="env"><span className="env-dot" aria-hidden="true" />Testnet</span></div>
+          <GoalRail {...rail} slim />
+          <p className="mini-playing"><strong>{playing}</strong>’s phone</p>
           {view.body}
           {view.actions && <div className="mini-actions">{view.actions}</div>}
         </div>

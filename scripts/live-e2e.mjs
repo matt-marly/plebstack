@@ -293,7 +293,7 @@ async function hold(path) {
 }
 
 async function playAs(name) {
-  await page.getByRole('button', { name: /^Playing as/ }).click();
+  await page.getByRole('button', { name: /playing as/i }).click();
   await dialog().getByRole('button', { name: new RegExp(`^${name}`) }).click();
   await page.getByRole('button', { name: `Playing as ${name}` }).waitFor();
 }
@@ -301,7 +301,7 @@ async function playAs(name) {
 // Ada names the work, Ngozi confirms her key on her own side, Ada sets the terms and opens the stack.
 async function openStack({ shots: still = false, close = '48 hours' } = {}) {
   if (!page.url().endsWith('/new')) {
-    await page.getByRole('button', { name: /^Playing as/ }).click();
+    await page.getByRole('button', { name: /playing as/i }).click();
     await dialog().getByRole('button', { name: 'Start a new stack as Ada' }).click();
   }
   await heading('Who are you backing?').waitFor();
@@ -383,8 +383,9 @@ async function chipIn(person, { shotPrefix } = {}) {
     await noLime('P1 join');
     await shoot('p1-join');
     await page.getByRole('button', { name: 'What’s really happening' }).click();
-    await dialog().getByText('The whole story').click();
-    const sheet = await dialog().innerText();
+    const nowText = await dialog().innerText();
+    await dialog().getByRole('tab', { name: 'The whole story' }).click();
+    const sheet = `${nowText}\n${await dialog().innerText()}`;
     check('P1: before chipping in, the sheet says the sats are still in the wallet, never at the mint',
       sheet.includes(`Your 21 sats are still in your wallet.`) && !/Your (21 )?sats are at the mint|You made a key/.test(sheet), sheet.split('\n').slice(0, 6).join(' | '));
     await dialog().getByRole('button', { name: 'Close', exact: true }).click();
@@ -488,7 +489,7 @@ const toHeading = name => () => heading(name).waitFor({ timeout: 90_000 });
 const toSheet = () => dialog().waitFor();
 
 async function keyPlayAs(name) {
-  await press(/^Playing as /, { back: true, then: toSheet });
+  await press(/playing as /i, { back: true, then: toSheet });
   await press(new RegExp(`^${name}`), { then: () => page.getByRole('button', { name: `Playing as ${name}` }).waitFor() });
 }
 
@@ -519,13 +520,16 @@ try {
   await noLime('P4 waiting');
   await shoot('p4-waiting');
   await page.getByRole('button', { name: 'What’s really happening' }).click();
-  const now = await dialog().innerText();
+  // The sheet is three steps: right now, what's next, and the whole story, one at a time.
+  const nowOnly = await dialog().innerText();
+  await dialog().getByRole('tab', { name: 'What’s next' }).click();
+  const now = `${nowOnly}\n${await dialog().innerText()}`;
   check('WRH: right now Tobi’s 21 sats are at the mint and Ngozi has nothing; next names the signature, the lock and the batch',
     now.includes('Your 21 sats are at the mint, locked to your key.') && now.includes('Ngozi has nothing yet.')
     && ['NUT-20 locked mint quote', 'NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => now.includes(term))
     && !/reached you|went to Ngozi|plebs paid/.test(now), now.split('\n').slice(0, 6).join(' | '));
   check('WRH: the whole story stays folded until asked', !now.includes('Signing is a signature over this exact batch'));
-  await dialog().getByText('The whole story').click();
+  await dialog().getByRole('tab', { name: 'The whole story' }).click();
   const story = (await dialog().innerText()).split('The whole story')[1] ?? '';
   check('WRH: the whole story names the signature, the lock and the batch, not the coordinator',
     ['NUT-20 signature over the batch', 'NUT-11 P2PK', 'NUT-29 batch mint'].every(term => story.includes(term)) && !/key methods/.test(story));
@@ -640,7 +644,7 @@ try {
   await shoot('m3-receive');
   await page.getByRole('button', { name: 'What’s really happening' }).click();
   check('M3: right now the sheet says 63 sats reached her, locked to her key', (await dialog().innerText()).includes('63 sats reached you, locked to your key.'));
-  await dialog().getByText('The whole story').click();
+  await dialog().getByRole('tab', { name: 'The whole story' }).click();
   check('M3: the sheet says the locked ecash only works with her key', (await dialog().innerText()).includes('it only works with your key'));
   await dialog().getByRole('button', { name: 'Close', exact: true }).click();
   await dialog().waitFor({ state: 'detached' });
@@ -788,10 +792,10 @@ try {
   await page.waitForURL(/\/intro\/1$/);
   await page.getByRole('button', { name: 'Skip the intro' }).click();
   await page.waitForURL(/\/home$/);
-  await page.locator('.home-action').first().waitFor();
-  const homeActions = await page.locator('.home-action').count();
-  check('E0: Skip the intro finishes it and lands on home: a headline and three actions, no body text',
-    homeActions === 3 && !(await page.locator('.home .lead p').count()), `${homeActions} actions at ${page.url()}`);
+  await page.locator('.home-hero .stack').waitFor();
+  check('E0: Skip the intro finishes it and lands on home: the empty stack, one headline, one main action and a way in by link',
+    (await page.locator('.home-body h1').count()) === 1 && await page.getByRole('button', { name: 'Start a stack' }).isVisible()
+    && await page.getByRole('button', { name: 'Have an invite link?' }).isVisible() && !(await page.locator('.home .stack [data-paid]').count()));
   await noLime('E0 home');
   await page.getByRole('button', { name: /Start a stack/ }).click();
   await heading('Who are you backing?').waitFor();
@@ -830,7 +834,7 @@ try {
     && !(await page.locator('.rail').innerText()).includes('Paid') && (await page.locator('.rail [data-state="done"]').count()) === 4);
 
   await page.goto(`${base}/s/not-in-this-browser`);
-  await heading('We couldn’t find this stack.').waitFor();
+  await heading('We couldn’t find this stack').waitFor();
   check('X1: an unknown stack says to check the link, and offers a way on and a way out',
     (await page.locator('main').innerText()).includes('Check the link with whoever sent it.')
     && await page.getByRole('button', { name: 'Start a stack' }).isVisible()

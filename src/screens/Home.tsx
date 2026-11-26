@@ -1,39 +1,17 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { findCampaign, maintainerOf, sats, slotOf, statusOf, tally, type CampaignRecord } from '../demo/world';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { findCampaign, maintainerOf, sats, slotOf, statusOf, tally } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { MAINTAINER, ORGANIZER, homePath, usePlayAs, useSession } from '../session';
 import { TopBar, useHeadingFocus, useTitle } from '../ui/Frame';
 import { Icon } from '../ui/Icon';
-import { PLEBS } from '../ui/journey';
+import { PLEBS, campaignGoal, closeLine, type Goal } from '../ui/journey';
+import { Stack } from '../ui/Stack';
 import { Sheet } from '../ui/Sheet';
 
-const stateWord: Record<string, string> = {
-  collecting: 'Collecting', ready: 'Ready to sign', approved: 'Signed', 'paying-out': 'Sending', paid: 'Paid',
-  unmet: 'No payout', reclaiming: 'Taking back', reclaimed: 'Taken back',
-};
-
-// The stack this browser is on, as one card: who it backs, how full it is, where it stands.
-function StackCard({ record, onOpen }: { record: CampaignRecord; onOpen: () => void }) {
-  const { heldSat, targetSat, held } = tally(record);
-  const state = statusOf(record);
-  const maintainer = maintainerOf(record);
-  return (
-    <button type="button" className="home-card" onClick={onOpen} data-paid={state === 'paid' || undefined}>
-      <span className="home-card-top">
-        <span className="home-card-for">Backing <strong>{maintainer.short}</strong></span>
-        <span className="home-card-state">{stateWord[state] ?? state}</span>
-      </span>
-      <span className="home-amount"><span className="mono">{heldSat}</span><span className="home-unit"> / {sats(targetSat)}</span></span>
-      <span className="home-bar" aria-hidden="true"><span style={{ width: `${(heldSat / targetSat) * 100}%` }} /></span>
-      <span className="home-card-foot">
-        <span>{held} of {record.campaign.backerCount} plebs in</span>
-        <span className="home-open">Open<Icon name="chevron" /></span>
-      </span>
-    </button>
-  );
-}
+// No stack yet: the goal line with three open places, the picture of what you're about to start.
+const emptyGoal: Goal = { phase: 'collecting', label: 'goal · 0 of 63 sats', text: '', slabs: [{ kind: 'open' }, { kind: 'open' }, { kind: 'open' }] };
 
 // Pull a stack id out of whatever was pasted: a full invite link, a path, or the id itself.
 export function stackIdFrom(text: string): string | undefined {
@@ -80,37 +58,54 @@ export function Home() {
     playAs(pleb, homePath(pleb, target.campaign.id));
   }
 
+  const invite = (
+    <button type="button" className="button" data-variant="quiet" onClick={() => { setProblem(''); setJoining(true); }}>
+      Have an invite link?
+    </button>
+  );
+  const { heldSat = 0, targetSat = 63, held = 0 } = record ? tally(record) : {};
+  const maintainer = record ? maintainerOf(record).short : draft?.maintainerName.split(' ')[0];
+
   return (
     <div className="screen home">
       <header className="top">
         <TopBar record={record} />
       </header>
-      <main ref={main} className="body" id="main">
-        <h1 className="home-title">{record || draft ? 'Your stack' : 'Back a builder, together.'}</h1>
-        {record && <StackCard record={record} onOpen={open} />}
-        {draft && (
-          <button type="button" className="home-card" onClick={open}>
-            <span className="home-card-top">
-              <span className="home-card-for">Backing <strong>{draft.maintainerName.split(' ')[0]}</strong></span>
-              <span className="home-card-state">Setting up</span>
-            </span>
-            <span className="home-card-foot"><span>{viewer.id === ORGANIZER || viewer.id === MAINTAINER ? 'Finish setting it up' : 'Not open yet'}</span>
-              <span className="home-open">Open<Icon name="chevron" /></span></span>
-          </button>
+      <main ref={main} className="home-body" id="main">
+        <div className="home-hero" key={record?.campaign.id ?? draft?.id ?? 'empty'}>
+          <Stack goal={record ? campaignGoal(record, viewer.id) : emptyGoal} meta={record ? closeLine(record) : undefined} landing />
+        </div>
+        {record ? (
+          <div className="home-words">
+            <p className="home-eyebrow">Backing {maintainer}</p>
+            <h1 className="home-title">{statusOf(record) === 'paid' ? `${maintainer} got ${sats(targetSat)}` : `${held} of ${record.campaign.backerCount} in`}</h1>
+            <p className="home-sub">{statusOf(record) === 'paid'
+              ? 'Confirmed by the mint.'
+              : `${heldSat} of ${sats(targetSat)} at the mint. ${maintainer} is paid only if everyone signs.`}</p>
+          </div>
+        ) : draft ? (
+          <div className="home-words">
+            <p className="home-eyebrow">Backing {maintainer}</p>
+            <h1 className="home-title">Setting up</h1>
+            <p className="home-sub">{viewer.id === ORGANIZER || viewer.id === MAINTAINER ? 'A couple of steps before anyone can chip in.' : 'Not open yet.'}</p>
+          </div>
+        ) : (
+          <div className="home-words">
+            <h1 className="home-title">Back a builder, together.</h1>
+            <p className="home-sub">Three people, 21 sats each. All in, or everyone takes theirs back.</p>
+          </div>
         )}
-        <nav className="home-actions" aria-label="Actions">
-          <button type="button" className="home-action" data-variant="primary" onClick={start}>
-            <span className="home-action-icon" aria-hidden="true"><Icon name="nib" /></span>Start a stack
-          </button>
-          <button type="button" className="home-action" onClick={() => { setProblem(''); setJoining(true); }}>
-            <span className="home-action-icon" aria-hidden="true"><Icon name="pleb" /></span>Join a stack
-          </button>
-          <Link className="home-action" to={paths.stage(stackId)}>
-            <span className="home-action-icon" aria-hidden="true"><Icon name="ring" /></span>Watch live
-          </Link>
-        </nav>
-        <Link className="home-how" to={paths.intro(1)}>How it works<Icon name="chevron" /></Link>
       </main>
+      <footer className="actions home-actions">
+        {record || draft ? (
+          <button type="button" className="button" data-variant="primary" onClick={open}>
+            {draft ? 'Finish setting up' : 'Open the stack'}<Icon name="chevron" />
+          </button>
+        ) : (
+          <button type="button" className="button" data-variant="primary" onClick={start}>Start a stack</button>
+        )}
+        {invite}
+      </footer>
       <Sheet open={joining} onClose={() => setJoining(false)} title="Join a stack">
         <p className="sheet-text">Scan the organizer’s QR code with your camera, or paste their invite link.</p>
         <form className="join-form" onSubmit={join}>

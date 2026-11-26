@@ -41,7 +41,7 @@ async function device(name) {
   pages.push([name, page]);
   page.on('pageerror', error => errors.push(`${name}: ${error.message}`));
   page.heading = text => page.getByRole('heading', { level: 1, name: text });
-  page.who = async () => (await page.getByRole('button', { name: /^Playing as / }).getAttribute('aria-label')).replace('Playing as ', '');
+  page.who = async () => (await page.getByRole('button', { name: /playing as /i }).getAttribute('aria-label')).replace(/.*playing as /i, '');
   return page;
 }
 const withRelays = url => `${url}${url.includes('?') ? '&' : '?'}relays=${encodeURIComponent(relays)}`;
@@ -56,8 +56,8 @@ try {
   check('A fresh device opens on the intro', true);
   await ada.getByRole('button', { name: 'Skip the intro' }).click();
   await ada.waitForURL(/\/home$/);
-  check('Skipping the intro lands on home with three actions',
-    (await ada.locator('.home-action').count()) === 3 && await ada.getByRole('button', { name: /Start a stack/ }).isVisible());
+  check('Skipping the intro lands on home: the empty stack and one main action',
+    await ada.locator('.home-hero .stack').isVisible() && await ada.getByRole('button', { name: 'Start a stack' }).isVisible());
   await ada.getByRole('button', { name: /Start a stack/ }).click();
   await ada.heading('Who are you backing?').waitFor();
   await ada.getByRole('button', { name: 'Next' }).click();

@@ -315,7 +315,7 @@ function StageView({ id }: { id: string | undefined }) {
           </span>
           <div className="stage-honest">
             <TestMint />
-            <p>One browser plays everyone. Every number here comes from the mint.</p>
+            <p>Live from every phone in the stack. Every number here comes from the mint.</p>
           </div>
         </header>
 

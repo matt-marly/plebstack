@@ -22,36 +22,56 @@ export function Steps({ steps, current }: { steps: NextStep[]; current?: number 
 }
 
 // Right now, what happens next, then the whole story folded away. Built from the record, so it says only what is true yet.
+const tabs = [['now', 'Right now'], ['next', 'What’s next'], ['story', 'The whole story']] as const;
+type Tab = typeof tabs[number][0];
+
+// Where your sats are, what happens next, and the whole story: three steps, one at a time, plain words first
+// and the protocol term under each. Built from the record, so it says only what is true yet.
 export function Really({ context }: { context: ReallyContext }) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>('now');
   const { status, now, next, story } = context;
+  const at = tabs.findIndex(([id]) => id === tab);
+  const close = () => {
+    setOpen(false);
+    setTab('now');
+  };
   return (
     <>
       <button type="button" className="help" aria-label="Details, what’s really happening" onClick={() => setOpen(true)}>
         <Icon name="info" /><span className="help-text" aria-hidden="true">Details</span>
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="What’s really happening">
+      <Sheet open={open} onClose={close} title="What’s really happening">
         <div className="sheet-for">
           <Status {...status} />
           <span>{youre[context.role]}</span>
         </div>
-        <div className="part">
-          <h3>Right now</h3>
+        <div className="segments" role="tablist" aria-label="Details">
+          {tabs.map(([id, label]) => (
+            <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls={`panel-${id}`}
+              tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)}
+              onKeyDown={event => {
+                const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+                if (!step) return;
+                const nextTab = tabs[(at + step + tabs.length) % tabs.length][0];
+                setTab(nextTab);
+                (event.currentTarget.parentElement?.querySelector(`#tab-${nextTab}`) as HTMLElement | null)?.focus();
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="panel" role="tabpanel" id="panel-now" aria-labelledby="tab-now" hidden={tab !== 'now'}>
           {now.map && <SatsMap {...now.map} />}
           <p className="now"><strong>{now.lead}</strong> {now.text}<span className="mono">{now.term}</span></p>
         </div>
-        <div className="part">
-          <h3>What happens next</h3>
+        <div className="panel" role="tabpanel" id="panel-next" aria-labelledby="tab-next" hidden={tab !== 'next'}>
           <Steps steps={next.steps} current={next.current} />
           {next.aside && (
             <p className="if-not"><Icon name={next.aside.icon} /><span><strong>{next.aside.lead}</strong> {next.aside.text}</span></p>
           )}
         </div>
-        <details className="disclosure story">
-          <summary>
-            <span>The whole story <span className="mono">{story.length} facts</span></span>
-            <svg className="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-          </summary>
+        <div className="panel story" role="tabpanel" id="panel-story" aria-labelledby="tab-story" hidden={tab !== 'story'}>
           <ul className="facts" role="list">
             {story.map(fact => (
               <li key={fact.term}>
@@ -60,9 +80,14 @@ export function Really({ context }: { context: ReallyContext }) {
               </li>
             ))}
           </ul>
-        </details>
+        </div>
         <div className="sheet-foot">
-          <button type="button" className="button" data-variant="secondary" onClick={() => setOpen(false)}>Close</button>
+          {at < tabs.length - 1 ? (
+            <button type="button" className="button" data-variant="primary" onClick={() => setTab(tabs[at + 1][0])}>
+              {tabs[at + 1][1]}<Icon name="chevron" />
+            </button>
+          ) : null}
+          <button type="button" className="button" data-variant={at < tabs.length - 1 ? 'quiet' : 'secondary'} onClick={close}>Close</button>
         </div>
       </Sheet>
     </>

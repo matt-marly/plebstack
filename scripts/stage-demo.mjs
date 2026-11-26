@@ -117,7 +117,7 @@ async function watchFlights(page) {
 for (const page of [stage, other].filter(Boolean)) await watchFlights(page);
 
 async function playAs(name) {
-  await page.getByRole('button', { name: /^Playing as/ }).click();
+  await page.getByRole('button', { name: /playing as/i }).click();
   await dialog().getByRole('button', { name: new RegExp(`^${name}`) }).click();
   await page.getByRole('button', { name: `Playing as ${name}` }).waitFor();
 }

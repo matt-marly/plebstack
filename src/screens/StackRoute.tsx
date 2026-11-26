@@ -5,7 +5,8 @@ import { homePath, useSeat, useSession } from '../session';
 import { journeyOf, plebHere, type Journey, type Screen } from '../ui/journey';
 import { Back } from './Back';
 import { Join } from './Join';
-import { Arriving, NotFound } from './NotFound';
+import { Arriving, Full, NotFound, NotOpenYet } from './NotFound';
+import { liveActions } from '../live/actions';
 import { Paid } from './Paid';
 import { Pay } from './Pay';
 import { Race } from './Race';
@@ -43,8 +44,12 @@ export function StackRoute() {
   const { world } = useSession();
   const presence = useSeat(campaignId, 'pleb');
   const record = findCampaign(world, campaignId);
-  if (presence === 'searching' || presence === 'seating') return <Arriving />;
-  if (!record) return <NotFound />;
+  if (presence === 'searching' || presence === 'seating') return <Arriving seating={presence === 'seating'} />;
+  if (presence === 'full') return <Full />;
+  if (!record) {
+    const draft = liveActions.draft(campaignId);
+    return draft ? <NotOpenYet organizerId={draft.organizerId} /> : <NotFound />;
+  }
   // The organizer and the maintainer have their own screens of the same stack.
   if (world.viewerId === record.creatorId || world.viewerId === record.maintainerId) {
     return <Navigate to={homePath(world.viewerId, campaignId)} replace />;
