@@ -870,10 +870,10 @@ try {
   await press('Create stack', { then: toHeading('Your stack is open.') });
   await press('Watch it fill', { then: toHeading('Nobody’s in yet.') });
   // A sheet by keyboard: open it, Escape closes it, and the focus is back on its button.
-  await press('Details: what’s really happening', { back: true, then: toSheet });
+  await press('Details, what’s really happening', { back: true, then: toSheet });
   await page.keyboard.press('Escape');
   await dialog().waitFor({ state: 'detached' });
-  check('F: Escape closes the sheet and the focus is back on its button', (await focusName()).name === 'Details: what’s really happening');
+  check('F: Escape closes the sheet and the focus is back on its button', (await focusName()).name === 'Details, what’s really happening');
   for (const name of ['Tobi', 'Maren', 'Ishaan']) {
     await keyPlayAs(name);
     await heading('Ada is getting 3 plebs to back Ngozi.').waitFor();
