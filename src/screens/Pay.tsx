@@ -4,7 +4,7 @@ import { failureCopy, liveActions } from '../live/actions';
 import { useSession } from '../session';
 import { formatClock } from '../ui/format';
 import { Frame } from '../ui/Frame';
-import { CopyButton, Note } from '../ui/parts';
+import { CopyButton, Note, Status } from '../ui/parts';
 import { Qr } from '../ui/Qr';
 import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
@@ -42,14 +42,23 @@ export function Pay({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
+        <Status state="awaiting" phrase="Waiting for your payment" plain live />
         <h1>Pay {each} to stack.</h1>
-        <p>Pay from any Lightning wallet. You’re stacked when the mint says it’s paid.</p>
+        <p>Use any Lightning wallet. You’re stacked the moment the mint sees it paid.</p>
       </div>
-      <div className="invoice">
-        <Qr text={`lightning:${quote.invoice}`} label={`QR code of the Lightning invoice for ${each}`} />
-        <p className="mono small" aria-live="polite">{checkedAt ? `Last checked ${formatClock(checkedAt)}` : 'Asking the mint'}</p>
-        <p className="small muted">Test mint: it marks its own invoices paid. Fake sats.</p>
-      </div>
+      <section className="invoice-card" aria-label="The invoice">
+        <div className="invoice-head">
+          <span className="invite-tag">Lightning invoice</span>
+          <p className="invoice-amount">{each}</p>
+          <p className="invoice-to">to the mint, locked to your key</p>
+        </div>
+        <div className="invite-qr"><Qr text={`lightning:${quote.invoice}`} label={`QR code of the Lightning invoice for ${each}`} /></div>
+        <p className="invoice-check" aria-live="polite">
+          <span className="wait-dot" aria-hidden="true" />
+          {checkedAt ? `Checked at ${formatClock(checkedAt)}` : 'Asking the mint'}
+        </p>
+        <p className="invoice-test">Test mint: it marks its own invoices paid. Fake sats.</p>
+      </section>
       {failure && (
         <Note>
           <p>{failure}</p>

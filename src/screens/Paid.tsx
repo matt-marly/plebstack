@@ -68,8 +68,9 @@ export function Paid({ world, record, journey }: ScreenProps) {
       <div className="lead paid-words">
         <Status state="paid" phrase="Confirmed by the mint" />
         <h1 className="display">{stateCopy.paid.phrase}</h1>
+        <p className="paid-line" data-paid><strong>{total}</strong> to {maintainer.short}, from three plebs in one payment.</p>
       </div>
-      <Stack goal={campaignGoal(record, world.viewerId)} lighting={playing} />
+      <div className="paid-hero" data-paid><Stack goal={campaignGoal(record, world.viewerId)} lighting={playing} /></div>
       <section className="card receipt" aria-label="Receipt">
         <div className="receipt-to">
           <Avatar name={maintainer.short} size="large" />
@@ -78,10 +79,16 @@ export function Paid({ world, record, journey }: ScreenProps) {
             <p className="group-sub">Organized by {people[record.creatorId].short}</p>
           </div>
         </div>
-        <div className="receipt-from">
-          <span className="in">{backers.map(({ slot, own, name }) => <Avatar key={slot.id} name={name} own={own} />)}</span>
-          <p>{listNames(backers.map(({ own, name }) => (own ? 'you' : name)))} · {sats(campaign.contributionSat)} each</p>
-        </div>
+        <dl className="receipt-rows">
+          <div>
+            <dt>From</dt>
+            <dd>
+              <span className="in">{backers.map(({ slot, own, name }) => <Avatar key={slot.id} name={name} own={own} size="small" />)}</span>
+              {listNames(backers.map(({ own, name }) => (own ? 'you' : name)))}
+            </dd>
+          </div>
+          <div><dt>Each</dt><dd>{sats(campaign.contributionSat)}</dd></div>
+        </dl>
         <p className="receipt-when">Confirmed by the mint · {formatWhen(confirmedAt)}</p>
         {record.closesAt && (
           <p className="receipt-when">All three were in before {formatWhen(record.closesAt)}, so the close no longer applied.</p>

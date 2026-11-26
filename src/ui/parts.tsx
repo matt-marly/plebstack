@@ -12,14 +12,20 @@ const statusCopy: Partial<Record<ToneState, { word: string; phrase: string }>> =
 };
 
 // Where the money is, as a dot and a word. Paid takes its lime from the stylesheet, under data-paid only.
-export function Status({ state, phrase }: { state: ToneState; phrase?: string }) {
+// `plain` says it in one plain phrase instead of the state's word; `live` makes the dot pulse while something waits.
+export function Status({ state, phrase, plain, live }: { state: ToneState; phrase?: string; plain?: boolean; live?: boolean }) {
   const copy = statusCopy[state]!;
   const paid = isSignal(state);
   return (
-    <p className="status" data-paid={paid || undefined} style={paid ? undefined : { '--tone': stateColour[state] } as React.CSSProperties}>
+    <p className="status" data-paid={paid || undefined} data-live={live || undefined}
+      style={paid ? undefined : { '--tone': stateColour[state] } as React.CSSProperties}>
       <span className="status-dot" aria-hidden="true" />
-      <strong>{copy.word}</strong>
-      <span>{phrase ?? copy.phrase}</span>
+      {plain ? <strong>{phrase ?? copy.phrase}</strong> : (
+        <>
+          <strong>{copy.word}</strong>
+          <span>{phrase ?? copy.phrase}</span>
+        </>
+      )}
     </p>
   );
 }

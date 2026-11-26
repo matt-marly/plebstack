@@ -44,7 +44,7 @@ export function Signed({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="approved" />
+        <Status state="approved" phrase={`Signed · ${signedCount(record)} of 3`} plain live={!unsent} />
         <h1>{unsent ? 'All three signed.' : `Signed. Waiting for ${names}.`}</h1>
         <p>{unsent
           ? 'The last step sends the batch to the mint. Nothing is paid until the mint confirms.'

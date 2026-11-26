@@ -27,7 +27,7 @@ export function Waiting({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="deposited" />
+        <Status state="deposited" phrase="Locked at the mint" plain />
         <h1>{counts[missing]} and you’re at the line.</h1>
         <div className="in">
           {record.slots.map(slot => (isHeld(slot)

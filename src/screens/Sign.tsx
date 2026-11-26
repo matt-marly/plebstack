@@ -70,7 +70,7 @@ export function Sign({ world, record, journey }: ScreenProps) {
       <Frame record={record} rail={journey.rail} here={journey.here} title="You stopped signing"
         actions={<TakeBack record={record} viewerId={viewerId} variant="primary" />}>
         <div className="lead rise">
-          <Status state="ready" />
+          <Status state="reclaimed" phrase="Signing stopped" plain />
           <h1>You stopped signing on this device.</h1>
           <p>A signature you already released still counts. Your {sats(campaign.contributionSat)} are still at the mint, locked to you, and you can take them back.</p>
         </div>
@@ -92,9 +92,9 @@ export function Sign({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="ready" />
+        <Status state="ready" phrase="All three in · ready to sign" plain live />
         <h1>Everyone’s in. Sign the group card.</h1>
-        <p>You’re agreeing to one thing: {total} go to {maintainer.short}, but only if all three of you sign.</p>
+        <p>You agree to one thing: {total} go to {maintainer.short}, and only if all three of you sign.</p>
       </div>
       <GroupCard record={record} viewerId={viewerId} />
       <Checked results={review && checkResults(record, review, quote.id)} failure={failure} />
