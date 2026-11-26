@@ -49,7 +49,7 @@ function newestStack(): string | undefined {
 // Each person has one place to be on a stack: the organizer's, the maintainer's, or a pleb's.
 export function homePath(personId: string, stackId: string | undefined): string {
   const draft = stackId ? liveActions.draft(stackId) : undefined;
-  if (!draft) return personId === ORGANIZER ? paths.start() : paths.splash();
+  if (!draft) return personId === ORGANIZER ? paths.start() : paths.home();
   if (personId === draft.organizerId) return paths.organize(draft.id);
   if (personId === draft.maintainerId) return paths.maintain(draft.id);
   return paths.stack(draft.id);

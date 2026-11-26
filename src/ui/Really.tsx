@@ -27,8 +27,8 @@ export function Really({ context }: { context: ReallyContext }) {
   const { status, now, next, story } = context;
   return (
     <>
-      <button type="button" className="help" onClick={() => setOpen(true)}>
-        <Icon name="info" />What’s really happening
+      <button type="button" className="help" aria-label="Details: what’s really happening" onClick={() => setOpen(true)}>
+        <Icon name="info" /><span className="help-text" aria-hidden="true">Details</span>
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="What’s really happening">
         <div className="sheet-for">
