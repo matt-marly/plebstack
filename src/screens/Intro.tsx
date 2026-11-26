@@ -3,30 +3,20 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { people } from '../demo/world';
 import { paths } from '../routes';
 import { MAINTAINER, ORGANIZER, usePlayAs, useSession } from '../session';
-import { PLEBS, type Goal } from '../ui/journey';
 import { Brand, TestMint, useHeadingFocus, useTitle } from '../ui/Frame';
 import { Quiet } from '../ui/parts';
-import { Stack } from '../ui/Stack';
+import { StoryStack, type Scene } from '../ui/StoryStack';
 
 const maintainer = people[MAINTAINER].short;
 
-// One picture across all three pages: the same stack, filling, full, and handed back. Never lime: nothing is paid.
-const goals: Goal[] = [
-  { phase: 'collecting', label: 'goal · 21 of 63 sats', text: '',
-    slabs: [{ kind: 'filled', name: 'You', own: true }, { kind: 'open' }, { kind: 'open' }] },
-  { phase: 'at-line', label: 'at the line · 63 of 63 sats', text: '',
-    slabs: PLEBS.map(pleb => ({ kind: 'filled', name: people[pleb].short })) },
-  { phase: 'unmet', label: 'didn’t fill · each takes theirs back', text: '',
-    slabs: [{ kind: 'reclaimed', name: 'You', own: true }, { kind: 'filled', name: people[PLEBS[1]].short }, { kind: 'open' }] },
-];
-
-const pages: { title: string; text: string }[] = [
-  { title: 'Chip in together.',
-    text: 'Three people put in 21 sats each for someone who builds the tools you use. Your sats wait at the mint, locked to your key. Nobody else holds your key.' },
-  { title: 'Everyone signs. One payout.',
-    text: `When all three sign, ${maintainer} gets 63 sats in one go, and only once the mint confirms.` },
-  { title: 'Not filled? You get yours back.',
-    text: 'Worst case, you take your own 21 sats back. Nobody else can move them.' },
+// One animated stack across the three pages, each playing its part of the story: it fills, it pays, or it goes back.
+const pages: { title: string; text: string; scene: Scene }[] = [
+  { title: 'Chip in together.', scene: 'fill',
+    text: 'Three people lock 21 sats each at the mint for someone who builds tools you use. Nobody else holds your key.' },
+  { title: 'Everyone signs. One payout.', scene: 'pay',
+    text: `When all three sign, ${maintainer} gets 63 sats in one payment, confirmed by the mint.` },
+  { title: 'Not filled? Take yours back.', scene: 'back',
+    text: 'Worst case, you get your 21 sats back. Nobody else can move them.' },
 ];
 
 export function Intro() {
@@ -55,11 +45,11 @@ export function Intro() {
         <div className="top-bar"><Brand /><TestMint /></div>
       </header>
       <main ref={main} className="intro-body">
-        <div className="intro-art" aria-hidden="true" key={`art-${page}`}><Stack goal={goals[page - 1]} landing /></div>
         <div className="lead rise" key={`words-${page}`}>
           <h1 className="display">{current.title}</h1>
           <p>{current.text}</p>
         </div>
+        <div className="intro-art" key={`art-${page}`}><StoryStack scene={current.scene} maintainer={maintainer} /></div>
       </main>
       <footer className="actions intro-actions">
         <p className="dots">
@@ -71,7 +61,7 @@ export function Intro() {
           {last ? 'Start a stack' : 'Next'}
         </button>
         {!last && <Quiet onClick={() => home()}>Skip the intro</Quiet>}
-        {last && <button type="button" className="button" data-variant="secondary" onClick={() => home(true)}>I have an invite link</button>}
+        {last && <button type="button" className="button" data-variant="secondary" onClick={() => home(true)}>Join with a link</button>}
       </footer>
     </div>
   );

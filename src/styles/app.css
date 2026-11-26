@@ -161,15 +161,18 @@ span.env { cursor: default; }
 
 .step-head { display: flex; flex-direction: column; gap: var(--space-2); }
 .step-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 28px; }
-.step-name { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; font-size: var(--text-body); font-weight: 600; line-height: 22px; }
+.step-name { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-size: var(--text-body); font-weight: 600; line-height: 22px; }
 .step-count { flex: none; font: var(--text-caption)/1 var(--font-mono); color: var(--color-muted); }
-/* 28px to the eye, a 44px hit area that doesn't push the name. */
+/* Back, plainly a button: a round control at the start of the step header. */
 .back {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: var(--target-size); height: var(--target-size); margin: -8px -6px -8px -14px;
-  border-radius: var(--radius-control); color: var(--color-muted);
+  width: var(--target-size); height: var(--target-size); margin: 0 var(--space-1) 0 0; border-radius: 50%;
+  border: 1px solid var(--color-control-line); background: var(--color-control-fill); color: var(--color-ink);
+  transition: border-color var(--dur-fast) ease, transform var(--dur-fast) ease;
 }
-.back:hover { color: var(--color-ink); }
+.back:hover { border-color: var(--color-muted); }
+.back:active { transform: scale(.94); }
+.back:focus-visible { border-radius: 50%; }
 .back .icon { width: 20px; height: 20px; }
 .step-next { font-size: var(--text-small); line-height: 20px; color: var(--color-muted); text-wrap: pretty; }
 .step-next strong { color: var(--color-ink); font-weight: 600; }
@@ -607,17 +610,58 @@ span.env { cursor: default; }
 /* ---------------------------------------------------------------- home: the stack you're in, and one next step */
 
 .home-body {
-  flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--space-6);
+  flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--space-5);
   padding-bottom: var(--space-5);
 }
-.home-hero { animation: settle 420ms var(--ease-settle) both; }
-/* Movement only, never opacity: the stack's labels are at full contrast from the first frame. */
-@keyframes settle { from { transform: translateY(10px); } to { transform: none; } }
-.home-words { display: flex; flex-direction: column; gap: var(--space-2); text-align: center; align-items: center; }
+.home-title { font-size: 34px; line-height: 1.08; font-weight: 700; letter-spacing: -.03em; text-wrap: balance; }
+.home-title-lead { font-size: 40px; }
+.home-sub { color: var(--color-muted); text-wrap: pretty; }
+.home-panel {
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5);
+  border: 1px solid var(--color-hairline); border-radius: var(--radius-card); background: var(--color-card);
+}
+.home-panel-top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
 .home-eyebrow { font-size: var(--text-small); color: var(--color-muted); }
-.home-title { font-size: 40px; line-height: 1.05; font-weight: 700; letter-spacing: -.035em; text-wrap: balance; }
-.home-sub { max-width: 34ch; color: var(--color-muted); text-wrap: pretty; }
+.home-eyebrow strong { color: var(--color-ink); font-weight: 600; }
+.home-hero { margin-top: var(--space-3); animation: settle 420ms var(--ease-settle) both; }
 .home-actions .button[data-variant="primary"] .icon { color: var(--color-on-ink); }
+
+/* A money state as a pill: its colour from the tokens, its word always beside it. */
+.state-pill {
+  --tone: var(--color-muted);
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 14%, transparent); color: var(--color-ink);
+  font-size: var(--text-caption); font-weight: 600; white-space: nowrap;
+}
+.state-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--tone); }
+.state-pill[data-state="setup"] { --tone: var(--color-state-paying-out); }
+.state-pill[data-state="collecting"] { --tone: var(--color-state-deposited); }
+.state-pill[data-state="ready"] { --tone: var(--color-state-ready); }
+.state-pill[data-state="approved"] { --tone: var(--color-state-approved); }
+.state-pill[data-state="paying-out"] { --tone: var(--color-state-paying-out); }
+.state-pill[data-paid] { --tone: var(--color-signal); }
+.state-pill[data-state="unmet"], .state-pill[data-state="reclaiming"], .state-pill[data-state="reclaimed"] { --tone: var(--color-state-reclaiming); }
+
+/* Setup, as a checklist: done ticked, the next one lit, the rest waiting. */
+.checklist { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: flex; flex-direction: column; }
+.checklist li {
+  position: relative; display: flex; align-items: center; gap: var(--space-3); min-height: 48px; color: var(--color-faint);
+  animation: settle 420ms var(--ease-settle) backwards;
+}
+.checklist li:nth-child(2) { animation-delay: 90ms; }
+.checklist li:nth-child(3) { animation-delay: 180ms; }
+.checklist li:nth-child(4) { animation-delay: 270ms; }
+.checklist li + li::before { content: ''; position: absolute; left: 13px; top: -14px; height: 14px; width: 1.5px; background: var(--color-rule); }
+.checklist li[data-state="done"] { color: var(--color-muted); }
+.checklist li[data-state="now"] { color: var(--color-ink); font-weight: 600; }
+.check-mark {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
+  border: 1.5px solid var(--color-dash); font: 600 var(--text-caption)/1 var(--font-mono); color: var(--color-muted);
+}
+.check-mark .icon { width: 15px; height: 15px; }
+.checklist li[data-state="done"] .check-mark { border-color: var(--color-state-ready); color: var(--color-state-ready); }
+.checklist li[data-state="now"] .check-mark { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-on-ink); animation: pulse-ring 2s ease-in-out infinite; }
+@keyframes pulse-ring { 0%, 100% { box-shadow: 0 0 0 0 rgba(244, 244, 241, .25); } 50% { box-shadow: 0 0 0 6px rgba(244, 244, 241, 0); } }
 
 .join-form { display: flex; flex-direction: column; gap: var(--space-4); }
 
@@ -630,6 +674,11 @@ span.env { cursor: default; }
 .hold-art { width: 168px; height: auto; overflow: visible; }
 .hold-line { fill: none; stroke: var(--color-dash); stroke-width: 2; stroke-dasharray: 6 5; }
 .hold-art[data-mode="stacking"] .hold-slab { animation: hold-stack 2.4s var(--ease-settle) infinite both; }
+/* Empty: the outlines keep searching, the dashes marching round each slab. */
+.hold-art[data-mode="empty"] polygon, .hold-art[data-mode="empty"] .hold-line { animation: march 1.4s linear infinite; }
+.hold-art[data-mode="empty"] .hold-slab:nth-of-type(2) polygon { animation-delay: -.45s; }
+.hold-art[data-mode="empty"] .hold-slab:nth-of-type(3) polygon { animation-delay: -.9s; }
+@keyframes march { to { stroke-dashoffset: -16; } }
 @keyframes hold-stack {
   0% { transform: translateY(-24px); opacity: 0; }
   18%, 80% { transform: none; opacity: 1; }
@@ -656,6 +705,84 @@ span.env { cursor: default; }
 :hover > .glyph[data-glyph="how"] [data-part="move"], :focus-visible > .glyph[data-glyph="how"] [data-part="move"] { transform: translateY(-4px); }
 @keyframes glyph-drop { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes glyph-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.8); } }
+
+/* ---------------------------------------------------------------- join: the invite, the facts, the worst case */
+
+.invite-eyebrow { font-size: var(--text-small); font-weight: 600; color: var(--color-state-ready); }
+.facts-strip { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.facts-strip li {
+  display: flex; flex-direction: column; gap: 2px; padding: var(--space-3); border-radius: 16px;
+  background: var(--color-card); border: 1px solid var(--color-hairline);
+}
+.fact-value { font-size: var(--text-name); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.fact-label { font-size: var(--text-caption); color: var(--color-muted); }
+.safety {
+  display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: 16px;
+  background: color-mix(in srgb, var(--color-state-reclaiming) 10%, transparent); font-size: var(--text-small); line-height: 1.45; color: var(--color-muted);
+}
+.safety .icon { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--color-state-reclaiming); }
+.safety strong { color: var(--color-ink); font-weight: 600; }
+
+/* ---------------------------------------------------------------- share: the invite as a card */
+
+.invite-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-5);
+  border-radius: var(--radius-card); background: linear-gradient(180deg, var(--color-surface), var(--color-card));
+  border: 1px solid var(--color-control-line); overflow: hidden; animation: settle 420ms var(--ease-settle) both;
+}
+.invite-head { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.invite-tag {
+  margin-bottom: var(--space-2); padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--color-state-ready) 16%, transparent);
+  color: var(--color-state-ready); font: 600 var(--text-micro)/1.4 var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+}
+.invite-title { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.invite-work { color: var(--color-muted); }
+.invite-terms { margin-top: var(--space-1); font-size: var(--text-caption); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.invite-qr { padding: 14px; border-radius: 20px; background: #f4f4f1; box-shadow: 0 12px 40px rgba(0, 0, 0, .45); }
+.invite-qr .qr { display: block; width: min(196px, 52vw); }
+.invite-scan { font-size: var(--text-caption); color: var(--color-muted); }
+.invite-link {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: 6px 6px 6px var(--space-4);
+  border-radius: 16px; background: var(--color-canvas); border: 1px solid var(--color-hairline);
+}
+.invite-link .link-text { flex: 1; min-width: 0; font-size: var(--text-caption); line-height: 1.4; color: var(--color-muted); overflow-wrap: anywhere; }
+.invite-link .button { width: auto; flex: none; min-height: var(--target-size); padding: 0 var(--space-4); }
+
+/* ---------------------------------------------------------------- the stack telling its story */
+
+.story { display: flex; flex-direction: column; gap: var(--space-4); margin: 0; }
+.story-drawing { width: 100%; height: auto; overflow: visible; }
+.story-label { font: 600 10px/1 var(--font-mono); letter-spacing: .1em; fill: var(--color-muted); }
+.story-line path { fill: none; stroke: var(--color-dash); stroke-width: 2; stroke-linecap: round; transition: stroke var(--dur-base) ease; }
+.story-line[data-solid] path { stroke: var(--color-ink); }
+.story-payee circle { fill: var(--color-surface); stroke: var(--color-control-line); stroke-width: 1.5; transition: stroke var(--dur-base) ease; }
+.story-payee[data-active] circle { stroke: var(--color-state-paying-out); stroke-width: 2.5; }
+.story-initial { font: 600 15px/1 var(--font-body); fill: var(--color-ink); }
+.story-name { font: 500 11px/1 var(--font-body); fill: var(--color-muted); }
+.story-who { font: 500 12px/1 var(--font-body); fill: var(--color-muted); }
+.story-flow {
+  fill: none; stroke: var(--color-state-paying-out); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 5 6;
+  animation: story-flow 900ms linear infinite;
+}
+@keyframes story-flow { to { stroke-dashoffset: -22; } }
+.story-slab { transition: transform 520ms var(--ease-settle), opacity 520ms ease; }
+.story-slab:not([data-state="none"]) { animation: story-drop 560ms var(--ease-settle) backwards; }
+.story-slab[data-state="sending"] { transform: translate(56px, -58px) scale(.55); transform-origin: var(--x) var(--y); opacity: .35; }
+.story-slab[data-state="back"] { transform: translateX(-34px); opacity: .8; }
+@keyframes story-drop { from { transform: translateY(-46px); opacity: 0; } to { transform: none; opacity: 1; } }
+.story-caption { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; }
+.story-text { min-height: 2.6em; max-width: 30ch; font-size: var(--text-name); font-weight: 600; line-height: 1.3; animation: settle 360ms var(--ease-settle) both; }
+.story-steps { display: flex; gap: 6px; }
+.story-steps i { width: 18px; height: 3px; border-radius: 2px; background: var(--color-rule); transition: background var(--dur-base) ease; }
+.story-steps i[data-on] { background: var(--color-ink); }
+.story-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1) var(--space-3); min-height: 18px; font-size: var(--text-caption); color: var(--color-muted); }
+.story-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.story-legend span::before { content: ''; width: 8px; height: 8px; border-radius: 2px; background: var(--tone); }
+.story-legend [data-state="in"] { --tone: var(--color-state-deposited); }
+.story-legend [data-state="ready"] { --tone: var(--color-state-ready); }
+.story-legend [data-state="signed"] { --tone: var(--color-state-approved); }
+.story-legend [data-state="sending"] { --tone: var(--color-state-paying-out); }
+.story-legend [data-state="back"] { --tone: var(--color-state-reclaiming); }
 
 /* ---------------------------------------------------------------- narrow phones: the bar stays on one line */
 

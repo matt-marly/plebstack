@@ -1,12 +1,16 @@
 import type { CSSProperties } from 'react';
 
-export type Tone = 'ink' | 'own' | 'signed' | 'lit' | 'open' | 'outline';
+export type Tone = 'ink' | 'own' | 'ready' | 'signed' | 'sending' | 'back' | 'lit' | 'open' | 'outline';
+type Solid = Exclude<Tone, 'open' | 'outline'>;
 
-// Top, front and side faces. Lime only for a slab the mint has paid out.
-const faces: Record<'ink' | 'own' | 'signed' | 'lit', [string, string, string]> = {
+// Top, front and side faces, one set per money state from the tokens. Lime only for a slab the mint has paid out.
+const faces: Record<Solid, [string, string, string]> = {
   ink: ['#f8f8f6', '#f4f4f1', '#979795'],
   own: ['#ceced3', 'var(--color-state-deposited)', '#707075'],
+  ready: ['#86e9db', 'var(--color-state-ready)', '#1b7f73'],
   signed: ['#b6c6ff', 'var(--color-state-approved)', '#59689e'],
+  sending: ['#ffcf7a', 'var(--color-state-paying-out)', '#94631a'],
+  back: ['#dcc7ff', 'var(--color-state-reclaiming)', '#765e9b'],
   lit: ['#dbf67c', 'var(--color-signal)', '#7c9521'],
 };
 

@@ -37,8 +37,9 @@ export function Stack({ goal, meta, landing, lighting }: { goal: Goal; meta?: st
           {goal.slabs.map((slab, index) => {
             const x = 88 + slabOffset(slab.key, index) * 0.75;
             const y = BASE - RISE * index;
+            // Colour is the state: locked at the mint, ready at the line, on its way, paid.
             const tone = slab.kind !== 'filled' ? (slab.kind === 'open' ? 'open' : 'outline')
-              : paid ? 'lit' : slab.own ? 'own' : 'ink';
+              : paid ? 'lit' : goal.phase === 'sending' ? 'sending' : goal.phase === 'at-line' ? 'ready' : slab.own ? 'own' : 'ink';
             return (
               <g key={index} className="stack-slab" style={{ '--i': index } as CSSProperties}>
                 <Slab x={x} y={y} width={170} tone={tone} outlined={slab.own && slab.kind === 'filled'}

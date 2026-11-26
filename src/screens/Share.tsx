@@ -7,6 +7,9 @@ import { Icon } from '../ui/Icon';
 import { organizerJourney } from '../ui/journey';
 import { CopyButton, ShareInvite } from '../ui/parts';
 import { Qr } from '../ui/Qr';
+import { sats } from '../demo/world';
+import { formatWhen } from '../ui/format';
+import { fixing } from '../ui/Who';
 
 // O4: get the invite out. The organizer can share and stop collecting, never move anyone's sats.
 export function Share({ record }: { record: CampaignRecord }) {
@@ -27,13 +30,22 @@ export function Share({ record }: { record: CampaignRecord }) {
       )}>
       <div className="lead rise">
         <h1>Your stack is open.</h1>
-        <p>You organize this stack. You can share it and stop collecting, but you can’t move anyone’s sats.</p>
+        <p>Send the invite to 3 people. You can stop collecting, but you can’t move anyone’s sats.</p>
       </div>
-      <div className="link-card share-card">
-        <Qr text={url} label={`QR code of the invite link for backing ${maintainer}`} />
-        <p className="mono link-text">{url.replace(/^https?:\/\//, '')}</p>
-        <CopyButton text={url} label="Copy link" />
-      </div>
+      <section className="invite-card" aria-label="The invite">
+        <div className="invite-head">
+          <span className="invite-tag">Invite</span>
+          <p className="invite-title">Back {maintainer}</p>
+          <p className="invite-work">{fixing(campaign.title)}</p>
+          <p className="invite-terms">{sats(campaign.contributionSat)} each · 3 people{record.closesAt ? ` · closes ${formatWhen(record.closesAt)}` : ''}</p>
+        </div>
+        <div className="invite-qr"><Qr text={url} label={`QR code of the invite link for backing ${maintainer}`} /></div>
+        <p className="invite-scan">Scan with a phone camera to join</p>
+        <div className="invite-link">
+          <p className="mono link-text">{url.replace(/^https?:\/\//, '')}</p>
+          <CopyButton text={url} label="Copy link" />
+        </div>
+      </section>
     </Frame>
   );
 }

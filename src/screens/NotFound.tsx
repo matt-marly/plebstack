@@ -24,9 +24,9 @@ export function NotOpenYet({ organizerId }: { organizerId: string }) {
   const organizer = people[organizerId]?.short ?? 'The organizer';
   return (
     <Hold mode="stacking" title={`${organizer} is still setting this up`}
-      text="Keep this page open. It moves on by itself the moment the stack opens."
+      text="Keep this page open. It updates the moment the stack opens."
       detail="Nothing to pay yet.">
-      <button type="button" className="button" data-variant="secondary" onClick={() => navigate(paths.home())}>Go home</button>
+      <button type="button" className="button" data-variant="secondary" onClick={() => navigate(paths.home())}>Back to home</button>
     </Hold>
   );
 }
@@ -35,8 +35,8 @@ export function NotOpenYet({ organizerId }: { organizerId: string }) {
 export function Full() {
   const navigate = useNavigate();
   return (
-    <Hold mode="empty" title="This stack is full" text="Three plebs already joined from their own devices. Start your own instead.">
-      <button type="button" className="button" data-variant="primary" onClick={() => navigate(paths.home())}>Go home</button>
+    <Hold mode="empty" title="This stack is full" text="All 3 places are taken. Start your own stack instead.">
+      <button type="button" className="button" data-variant="primary" onClick={() => navigate(paths.home())}>Back to home</button>
     </Hold>
   );
 }
@@ -46,7 +46,7 @@ export function NotFound() {
   const navigate = useNavigate();
   return (
     <Hold mode="empty" title="We couldn’t find this stack"
-      text="Check the link with whoever sent it. A stack only opens once its organizer’s device has shared it.">
+      text="This link doesn’t match a stack yet. Ask the organizer to check it, or start your own.">
       <button type="button" className="button" data-variant="primary" onClick={() => playAs(ORGANIZER, paths.start())}>
         Start a stack
       </button>

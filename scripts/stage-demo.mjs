@@ -214,7 +214,7 @@ async function hold(method, test) {
 
 async function chipIn(name, { holdAt } = {}) {
   await playAs(name);
-  await heading('Ada is getting 3 plebs to back Ngozi.').waitFor();
+  await heading('Back Ngozi with 21 sats').waitFor();
   await beat();
   const quoteCheck = holdAt && await hold('GET', path => path.startsWith('/v1/mint/quote/bolt11/'));
   await page.getByRole('button', { name: 'Chip in 21 sats' }).click();

@@ -359,7 +359,7 @@ async function openStack({ shots: still = false, close = '48 hours' } = {}) {
   await heading('Your stack is open.').waitFor();
   if (still) {
     check('O4: the organizer can share and stop, not move sats',
-      await page.getByText('You organize this stack. You can share it and stop collecting, but you can’t move anyone’s sats.').isVisible()
+      await page.getByText('Send the invite to 3 people. You can stop collecting, but you can’t move anyone’s sats.').isVisible()
       && await page.locator('svg.qr').isVisible());
     await noLime('O4 share');
     await shoot('o4-share');
@@ -376,7 +376,7 @@ async function chipIn(person, { shotPrefix } = {}) {
   await playAs(person);
   if (shotPrefix) {
     check('P1: organized by Ada, the close from the stack, nobody pre-labelled',
-      await heading('Ada is getting 3 plebs to back Ngozi.').isVisible()
+      await heading('Back Ngozi with 21 sats').isVisible()
       && (await page.locator('.who-card').innerText()).includes('Organized by Ada')
       && /closes \d{1,2} \w{3}, \d\d:00/.test(await page.locator('.stack-labels').innerText())
       && (await page.locator('.stack-name').count()) === 0);
@@ -510,7 +510,7 @@ try {
     (await page.locator('.dots .visually-hidden').innerText()) === 'Page 3 of 3'
     && !(await page.locator('.intro [data-paid]').count()));
   check('A1: Intro 3 offers both ways in: start a stack, or join with an invite link',
-    await page.getByRole('button', { name: 'Start a stack' }).isVisible() && await page.getByRole('button', { name: 'I have an invite link' }).isVisible());
+    await page.getByRole('button', { name: 'Start a stack' }).isVisible() && await page.getByRole('button', { name: 'Join with a link' }).isVisible());
   await page.getByRole('button', { name: 'Start a stack' }).click();
   const a = summary.campaigns.paid = await openStack({ shots: true });
 
@@ -795,7 +795,7 @@ try {
   await page.locator('.home-hero .stack').waitFor();
   check('E0: Skip the intro finishes it and lands on home: the empty stack, one headline, one main action and a way in by link',
     (await page.locator('.home-body h1').count()) === 1 && await page.getByRole('button', { name: 'Start a stack' }).isVisible()
-    && await page.getByRole('button', { name: 'Have an invite link?' }).isVisible() && !(await page.locator('.home .stack [data-paid]').count()));
+    && await page.getByRole('button', { name: 'Join with a link' }).isVisible() && !(await page.locator('.home .stack [data-paid]').count()));
   await noLime('E0 home');
   await page.getByRole('button', { name: /Start a stack/ }).click();
   await heading('Who are you backing?').waitFor();
@@ -836,7 +836,7 @@ try {
   await page.goto(`${base}/s/not-in-this-browser`);
   await heading('We couldn’t find this stack').waitFor();
   check('X1: an unknown stack says to check the link, and offers a way on and a way out',
-    (await page.locator('main').innerText()).includes('Check the link with whoever sent it.')
+    (await page.locator('main').innerText()).includes('This link doesn’t match a stack yet.')
     && await page.getByRole('button', { name: 'Start a stack' }).isVisible()
     && await page.getByRole('button', { name: 'See how it works' }).isVisible());
   await noLime('X unknown stack');
@@ -880,7 +880,7 @@ try {
   check('F: Escape closes the sheet and the focus is back on its button', (await focusName()).name === 'Details, what’s really happening');
   for (const name of ['Tobi', 'Maren', 'Ishaan']) {
     await keyPlayAs(name);
-    await heading('Ada is getting 3 plebs to back Ngozi.').waitFor();
+    await heading('Back Ngozi with 21 sats').waitFor();
     await press('Chip in 21 sats', { then: toHeading('Pay 21 sats to stack.') });
     await heading('Stacked.').waitFor({ timeout: 90_000 });
     await page.waitForTimeout(300);
