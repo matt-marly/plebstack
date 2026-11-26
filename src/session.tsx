@@ -66,9 +66,11 @@ export type Presence = 'here' | 'searching' | 'missing';
 
 // Is this stack on this device yet, or still on its way from the relays?
 export function presenceOf(id: string): Presence {
-  // Wait for the relays' first full answer, so the seats other devices already took are known.
-  if (sync?.status(id) === 'searching') return 'searching';
-  return liveActions.draft(id) ? 'here' : 'missing';
+  const here = Boolean(liveActions.draft(id));
+  const seated = !sync || sync.seats(id).some(seat => seat.device === sync!.device);
+  // A device new to this stack waits for the relays' first full answer, so it knows which seats are taken.
+  if (sync?.status(id) === 'searching' && !(here && seated)) return 'searching';
+  return here ? 'here' : 'missing';
 }
 
 // The person this device plays on a stack. A device that opens someone else's link takes its own seat:

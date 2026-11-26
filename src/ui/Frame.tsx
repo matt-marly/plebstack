@@ -93,7 +93,7 @@ export function StepHeader({ rail, here, back, lighting, really }: {
         </p>
         <Really context={really} />
       </div>
-      <GoalRail {...rail} lighting={lighting} />
+      <GoalRail {...rail} lighting={lighting} slim />
       <p className="step-next visually-hidden">
         You’re {article} {role}. {here.end ? here.next : <>Next: {here.next}</>}
       </p>
