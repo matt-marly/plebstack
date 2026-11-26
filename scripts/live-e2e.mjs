@@ -547,7 +547,7 @@ try {
     (await page.locator('.rows').innerText()).includes('Tobi Adewale') && /in · \d\d:\d\d/.test(await page.locator('.rows').innerText())
     && (await page.getByText('the last signature sends the payout to the mint').count()) === 1);
   check('O5: setup done, the next step from the board, back to the invite, the card under the stack',
-    (await page.locator('.step-name').innerText()).endsWith('Watching it fill · setup done')
+    (await page.locator('.step-name').innerText()).replace(/\s*\d\/4$/, '').endsWith('Watching it fill · setup done')
     && (await page.locator('.step-next').innerText()) === 'You’re the organizer. Next: 1 more pleb chips in. Nothing for you to do.'
     && (await page.locator('.rail [data-state="done"]').count()) === 4
     && await page.getByRole('link', { name: 'Back to Share' }).isVisible()
