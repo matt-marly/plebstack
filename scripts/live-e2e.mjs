@@ -831,10 +831,8 @@ try {
 
   await page.goto(`${base}/s/not-in-this-browser`);
   await heading('We couldn’t find this stack.').waitFor();
-  const cast = await page.locator('.cast').innerText();
-  check('X1: an unknown stack explains one browser plays everyone, who is who, and offers a way on and a way out',
-    (await page.locator('main').innerText()).includes('A link from another browser won’t open here.')
-    && ['Ada', 'organizer · never holds a key', 'Ngozi', 'Tobi, Maren, Ishaan', 'plebs · 21 sats each'].every(text => cast.includes(text))
+  check('X1: an unknown stack says to check the link, and offers a way on and a way out',
+    (await page.locator('main').innerText()).includes('Check the link with whoever sent it.')
     && await page.getByRole('button', { name: 'Start a stack' }).isVisible()
     && await page.getByRole('button', { name: 'See how it works' }).isVisible());
   await noLime('X unknown stack');
@@ -872,10 +870,10 @@ try {
   await press('Create stack', { then: toHeading('Your stack is open.') });
   await press('Watch it fill', { then: toHeading('Nobody’s in yet.') });
   // A sheet by keyboard: open it, Escape closes it, and the focus is back on its button.
-  await press('What’s really happening', { back: true, then: toSheet });
+  await press('Details: what’s really happening', { back: true, then: toSheet });
   await page.keyboard.press('Escape');
   await dialog().waitFor({ state: 'detached' });
-  check('F: Escape closes the sheet and the focus is back on its button', (await focusName()).name === 'What’s really happening');
+  check('F: Escape closes the sheet and the focus is back on its button', (await focusName()).name === 'Details: what’s really happening');
   for (const name of ['Tobi', 'Maren', 'Ishaan']) {
     await keyPlayAs(name);
     await heading('Ada is getting 3 plebs to back Ngozi.').waitFor();
