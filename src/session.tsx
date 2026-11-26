@@ -1,7 +1,9 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { people, type Person, type World } from './demo/world';
 import { liveActions } from './live/actions';
+import { sync } from './live/sync';
+import { PLEBS } from './ui/journey';
 import { paths } from './routes';
 
 const VIEWER_KEY = 'viewer';
@@ -49,10 +51,47 @@ function newestStack(): string | undefined {
 // Each person has one place to be on a stack: the organizer's, the maintainer's, or a pleb's.
 export function homePath(personId: string, stackId: string | undefined): string {
   const draft = stackId ? liveActions.draft(stackId) : undefined;
-  if (!draft) return personId === ORGANIZER ? paths.start() : paths.splash();
+  if (!draft) return personId === ORGANIZER ? paths.start() : paths.home();
   if (personId === draft.organizerId) return paths.organize(draft.id);
   if (personId === draft.maintainerId) return paths.maintain(draft.id);
   return paths.stack(draft.id);
+}
+
+// The stack id in an address like /s/:id, /o/:id, /m/:id or /claim/:id.
+export function stackIdIn(pathname: string): string | undefined {
+  return pathname.match(/^\/(?:s|o|m|claim)\/([^/]+)/)?.[1];
+}
+
+export type Presence = 'here' | 'searching' | 'missing';
+
+// Is this stack on this device yet, or still on its way from the relays?
+export function presenceOf(id: string): Presence {
+  const here = Boolean(liveActions.draft(id));
+  const seated = !sync || sync.seats(id).some(seat => seat.device === sync!.device);
+  // A device new to this stack waits for the relays' first full answer, so it knows which seats are taken.
+  if (sync?.status(id) === 'searching' && !(here && seated)) return 'searching';
+  return here ? 'here' : 'missing';
+}
+
+// The person this device plays on a stack. A device that opens someone else's link takes its own seat:
+// the maintainer's from a claim link, or the first free pleb's from an invite.
+// Returns a person only when this call took a new seat; a device that already sits at this stack keeps whoever
+// it is playing, so the one-device demo can still switch person freely.
+export function seatFor(id: string, wants: 'pleb' | 'maintainer'): string | undefined {
+  if (!sync) return undefined;
+  const seats = sync.seats(id);
+  if (seats.some(seat => seat.device === sync!.device)) return undefined;
+  const draft = liveActions.draft(id);
+  if (!draft) return undefined;
+  if (wants === 'maintainer') {
+    sync.claimSeat(id, draft.maintainerId);
+    return draft.maintainerId;
+  }
+  const record = liveActions.world(ORGANIZER).campaigns.find(item => item.campaign.id === id);
+  const taken = new Set([...seats.map(seat => seat.personId), ...(record?.slots.flatMap(slot => slot.backerId ?? []) ?? [])]);
+  const free = PLEBS.find(pleb => !taken.has(pleb));
+  if (free) sync.claimSeat(id, free);
+  return free;
 }
 
 interface Session {
@@ -101,6 +140,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     write(INTRO_KEY, '1');
   }, []);
 
+  // Another device on the same stack wrote to the board: show it.
+  useEffect(() => sync?.subscribe(() => refresh()), [refresh]);
+
+  // Whatever stack the address names, listen for it on the relays.
+  const { pathname } = useLocation();
+  useEffect(() => sync?.watch(stackIdIn(pathname)), [pathname]);
+
   useEffect(() => {
     // A request sent before a reload that never got an answer is marked, so Check again can find it.
     liveActions.abandonUnanswered();
@@ -141,4 +187,17 @@ export function usePlayAs() {
     viewAs(personId);
     navigate(path, { replace });
   }), [viewAs, navigate]);
+}
+
+// On a stack's own link: wait for it to arrive from the relays, then take this device's seat if it has none.
+export function useSeat(id: string, wants: 'pleb' | 'maintainer'): Presence | 'seating' {
+  const { world, viewAs } = useSession();
+  const presence = presenceOf(id);
+  const seated = !sync || sync.seats(id).some(seat => seat.device === sync!.device);
+  useEffect(() => {
+    if (presence !== 'here') return;
+    const person = seatFor(id, wants);
+    if (person && person !== world.viewerId) viewAs(person);
+  }, [id, wants, presence, world.viewerId, viewAs]);
+  return presence === 'here' && !seated ? 'seating' : presence;
 }

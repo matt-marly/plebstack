@@ -12,7 +12,8 @@ export function railStates({ at, paid, done, pending }: Rail): RailState[] {
 }
 
 // Four segments: behind solid, now ringed, ahead faint. Lime only once paid.
-export function GoalRail({ steps, branch, lighting, ...rail }: Rail & { lighting?: boolean }) {
+// Slim, in a screen's step header: the names are for screen readers only, since the step's own name sits above.
+export function GoalRail({ steps, branch, lighting, slim, ...rail }: Rail & { lighting?: boolean; slim?: boolean }) {
   const names = steps ?? (branch === 'back' ? backSteps : plebSteps);
   const states = railStates({ ...rail, branch });
   return (
@@ -23,7 +24,7 @@ export function GoalRail({ steps, branch, lighting, ...rail }: Rail & { lighting
           return (
             <li key={name} data-state={state} aria-current={state === 'now' ? 'step' : undefined}>
               <span className="rail-slab" aria-hidden="true" />
-              <span className="rail-name">{name}</span>
+              <span className={slim ? 'rail-name visually-hidden' : 'rail-name'}>{name}</span>
               {state !== 'now' && <span className="visually-hidden">{state === 'done' ? ', done' : ', to come'}</span>}
             </li>
           );

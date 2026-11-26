@@ -41,19 +41,23 @@ export function PlayingAs({ record }: { record?: CampaignRecord }) {
     playAs(ORGANIZER, paths.start());
   }
 
+  // Forget every stack, key and person in this browser and start from the intro.
+  function resetDemo() {
+    if (!confirm('Reset the demo? Every stack, key and sat in this browser is forgotten.')) return;
+    try {
+      for (const key of Object.keys(localStorage)) if (key.startsWith('plebstack') || key === 'viewer' || key === 'intro-seen') localStorage.removeItem(key);
+    } catch { /* nothing saved, nothing to forget */ }
+    location.assign(paths.splash());
+  }
+
   const playing = viewer.id === MAINTAINER ? maintainer.short : viewer.short;
   return (
     <>
       <button type="button" className="switcher" aria-label={`Playing as ${playing}`} onClick={() => setOpen(true)}>
-        <Avatar name={playing} />
-        <span className="switcher-text" aria-hidden="true">
-          <span className="switcher-label">Playing as</span>
-          <span className="switcher-name">{playing}</span>
-        </span>
-        <Icon name="swap" />
+        <Avatar name={playing} own />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Playing as">
-        <p className="sheet-text">One browser plays everyone for this demo. Each person’s key stays in their own part of this browser’s storage, and no one else’s screen reads it. Ada never has a key.</p>
+        <p className="sheet-text">Demo mode: play every person from this one device. Each person’s key stays in their own part of this browser, and Ada never has one.</p>
         <ul className="people" role="list">
           {cast.map(person => (
             <li key={person.id}>
@@ -65,6 +69,7 @@ export function PlayingAs({ record }: { record?: CampaignRecord }) {
           ))}
         </ul>
         <button type="button" className="button" data-variant="secondary" onClick={startOver}>Start a new stack as Ada</button>
+        <button type="button" className="button" data-variant="secondary" onClick={resetDemo}>Reset the demo</button>
         {/* The stage follows this window through storage, so the people can be played here while it shows. */}
         <a className="button" data-variant="quiet" href={paths.stage(id)} target="_blank" rel="noopener">
           Open the stage in a new window<Icon name="chevron" />

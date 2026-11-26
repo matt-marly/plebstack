@@ -1,11 +1,11 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { findCampaign, isHeld, slotOf, type CampaignRecord, type World } from '../demo/world';
 import { paths } from '../routes';
-import { homePath, useSession } from '../session';
+import { homePath, useSeat, useSession } from '../session';
 import { journeyOf, plebHere, type Journey, type Screen } from '../ui/journey';
 import { Back } from './Back';
 import { Join } from './Join';
-import { NotFound } from './NotFound';
+import { Arriving, NotFound } from './NotFound';
 import { Paid } from './Paid';
 import { Pay } from './Pay';
 import { Race } from './Race';
@@ -41,7 +41,9 @@ function allowed(screen: Screen, journey: Journey, record: CampaignRecord, viewe
 export function StackRoute() {
   const { campaignId = '', screen } = useParams();
   const { world } = useSession();
+  const presence = useSeat(campaignId, 'pleb');
   const record = findCampaign(world, campaignId);
+  if (presence === 'searching' || presence === 'seating') return <Arriving />;
   if (!record) return <NotFound />;
   // The organizer and the maintainer have their own screens of the same stack.
   if (world.viewerId === record.creatorId || world.viewerId === record.maintainerId) {

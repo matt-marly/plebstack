@@ -4,7 +4,7 @@ import { maintainerOf, people } from '../demo/world';
 import { TEST_MINT } from '../domain/models';
 import { failureCopy, liveActions } from '../live/actions';
 import { paths } from '../routes';
-import { homePath, storageWorks, useSession } from '../session';
+import { homePath, storageWorks, useSeat, useSession } from '../session';
 import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { maintainerJourney } from '../ui/journey';
@@ -12,7 +12,7 @@ import { Icon } from '../ui/Icon';
 import { Note } from '../ui/parts';
 import { Steps } from '../ui/Really';
 import { fixing } from '../ui/Who';
-import { NotFound } from './NotFound';
+import { Arriving, NotFound } from './NotFound';
 
 // M1: the maintainer makes her key on her own side and only its public half goes to the organizer.
 export function Claim() {
@@ -21,7 +21,9 @@ export function Claim() {
   const navigate = useNavigate();
   const [failure, setFailure] = useState<string>();
   const [canSave] = useState(storageWorks);
+  const presence = useSeat(campaignId, 'maintainer');
   const draft = liveActions.draft(campaignId);
+  if (presence === 'searching' || presence === 'seating') return <Arriving />;
   if (!draft) return <NotFound />;
   if (world.viewerId !== draft.maintainerId) return <Navigate to={homePath(world.viewerId, campaignId)} replace />;
   if (liveActions.claimOf(world.viewerId, campaignId)) return <Navigate to={paths.maintain(campaignId)} replace />;

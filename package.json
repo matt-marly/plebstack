@@ -7,11 +7,14 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "tsx --test tests/*.test.ts",
-    "test:live": "tsx --test tests/live/*.test.ts"
+    "test:live": "tsx --test tests/live/*.test.ts",
+    "relay": "node scripts/relay.mjs",
+    "test:devices": "node scripts/multi-device.mjs"
   },
   "dependencies": {
     "@cashu/cashu-ts": "4.13.1",
     "@noble/hashes": "2.4.0",
+    "nostr-tools": "2.26.0",
     "qrcode-generator": "2.0.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",

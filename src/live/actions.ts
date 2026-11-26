@@ -9,6 +9,7 @@ import { StorageError } from '../protocol/storage';
 import { formatWhen, isHttpUrl } from '../ui/format';
 import { createActors, type Actors } from './actors';
 import type { BoardCampaign, BoardDraft, BoardEvent, PayoutKey } from './board';
+import { sync } from './sync';
 import { boardWorld } from './view';
 
 export interface StackDraft {
@@ -63,6 +64,11 @@ function beforeSending<T>(write: () => T): T {
 }
 
 type EventOf<T extends BoardEvent['type']> = Extract<BoardEvent, { type: T }>;
+
+// Several devices can each build a package at the same moment; every device signs and sends the earliest one.
+function firstPackage(entry: BoardCampaign): BatchPlan | undefined {
+  return entry.events.find((event): event is EventOf<'package'> => event.type === 'package')?.plan;
+}
 
 function lastOf<T extends BoardEvent['type']>(entry: BoardCampaign, type: T, match: (event: EventOf<T>) => boolean = () => true) {
   return entry.events.filter((event): event is EventOf<T> => event.type === type).filter(match).pop();
@@ -143,7 +149,7 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
   }
 
   async function ensurePackage(current: BoardCampaign): Promise<BatchPlan> {
-    const published = lastOf(current, 'package')?.plan;
+    const published = firstPackage(current);
     if (published) return published;
     const plan = await coordinator.preparePayout(terms(current.campaign), paidQuotes(current));
     board.append(current.campaign.id, { type: 'package', at: at(), plan });
@@ -247,9 +253,11 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       if (!maintainerName || !title) throw new Error('Name the person and the work.');
       if (!isHttpUrl(publicWorkUrl)) throw new Error('Add a public link to the work, starting with https://.');
       if (organizerId === maintainerId) throw new Error('The organizer and the maintainer are different people here.');
+      // Readable, and unique across every device on the relays: two stacks for the same work never share an id.
       const base = slugify(`${maintainerName.split(/\s+/)[0]} ${title}`);
-      let id = base;
-      for (let n = 2; board.draft(id) || board.get(id); n += 1) id = `${base}-${n}`;
+      const suffix = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => (byte % 36).toString(36)).join('');
+      let id = `${base}-${suffix()}`;
+      while (board.draft(id) || board.get(id)) id = `${base}-${suffix()}`;
       beforeSending(() => board.createDraft({
         id, organizerId, maintainerId, maintainerName, title, publicWorkUrl, createdAt: at(),
       }));
@@ -362,7 +370,7 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
     // Everything before the first await runs at once, so the board reads Paying out while the mint is asked.
     async payout(personId: string, campaignId: string): Promise<string> {
       const current = entry(campaignId);
-      const plan = lastOf(current, 'package')?.plan;
+      const plan = firstPackage(current);
       const authorizations = plan?.quoteIds.map(id => lastOf(current, 'released', event => event.authorization.quoteId === id)?.authorization);
       if (!plan || !authorizations || authorizations.some(authorization => !authorization)) {
         throw new ProtocolError('authorization', 'Not every deposit is signed yet.');
@@ -489,7 +497,10 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
 
 export type LiveActions = ReturnType<typeof createLiveActions>;
 
-export const liveActions = createLiveActions(createActors({ storage: () => globalThis.localStorage }));
+// In a browser the board is shared with the other devices on the stack over Nostr.
+export const liveActions = createLiveActions(createActors({
+  storage: () => globalThis.localStorage, wrapBoard: board => sync?.wrap(board) ?? board,
+}));
 
 export function failureCopy(error: unknown): string {
   if (error instanceof StorageError) return 'Couldn’t save on this device.';

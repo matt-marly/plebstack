@@ -24,7 +24,9 @@ export const namespaces = {
 
 // One browser plays everyone, so each person gets their own namespace over the same storage
 // and one person's code path never reads another's key.
-export function createActors({ storage, fetch }: { storage: StorageLike | (() => StorageLike); fetch?: FetchLike }): Actors {
+export function createActors({ storage, fetch, wrapBoard = board => board }: {
+  storage: StorageLike | (() => StorageLike); fetch?: FetchLike; wrapBoard?: (board: Board) => Board;
+}): Actors {
   const clients = new Map<string, ProtocolClient>();
   const known = (personId: string) => {
     if (!people[personId]) throw new Error(`Unknown person ${personId}.`);
@@ -39,6 +41,6 @@ export function createActors({ storage, fetch }: { storage: StorageLike | (() =>
     },
     notes: personId => createRecordStore(storage, known(personId)),
     coordinator,
-    board: createBoard(createRecordStore(storage, namespaces.board)),
+    board: wrapBoard(createBoard(createRecordStore(storage, namespaces.board))),
   };
 }

@@ -2,6 +2,7 @@ import { Outlet, Route, Routes } from 'react-router-dom';
 import { routes } from './routes';
 import { Backing } from './screens/Backing';
 import { Claim } from './screens/Claim';
+import { Home } from './screens/Home';
 import { Intro } from './screens/Intro';
 import { Maintain } from './screens/Maintain';
 import { NotFound } from './screens/NotFound';
@@ -17,7 +18,7 @@ function Announcer() {
   return <p className="visually-hidden" role="status" aria-live="polite">{notice}</p>;
 }
 
-// Every screen but the stage sits in one phone column, framed as a phone on a desktop.
+// Every screen but the stage sits in one centred column.
 function Phone() {
   return (
     <Desk>
@@ -37,6 +38,7 @@ export function App() {
         <Route path={routes.newestStage} element={<Stage />} />
         <Route element={<Phone />}>
           <Route path={routes.splash} element={<Splash />} />
+          <Route path={routes.home} element={<Home />} />
           <Route path={routes.intro} element={<Intro />} />
           <Route path={routes.start} element={<Backing />} />
           <Route path={routes.organize} element={<Organize />} />

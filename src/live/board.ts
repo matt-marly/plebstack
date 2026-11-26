@@ -59,6 +59,8 @@ export interface Board {
   draft(id: string): BoardDraft | undefined;
   createDraft(draft: BoardDraft): void;
   setKey(id: string, key: PayoutKey): void;
+  // An event heard from another device: placed by its time, and ignored if this board already has it.
+  merge(campaignId: string, event: BoardEvent): boolean;
 }
 
 const PREFIX = 'campaign:';
@@ -80,6 +82,18 @@ export function createBoard(store: RecordStore): Board {
       const entry = get(campaignId);
       if (!entry) throw new Error(`No campaign ${campaignId}.`);
       store.write(PREFIX + campaignId, { ...entry, events: [...entry.events, event] });
+    },
+    merge(campaignId, event) {
+      const entry = get(campaignId);
+      if (!entry) return false;
+      const raw = JSON.stringify(event);
+      if (entry.events.some(known => JSON.stringify(known) === raw)) return false;
+      const events = [...entry.events];
+      let index = events.length;
+      while (index > 0 && events[index - 1].at > event.at) index -= 1;
+      events.splice(index, 0, event);
+      store.write(PREFIX + campaignId, { ...entry, events });
+      return true;
     },
     draft,
     drafts: () => newestLast(store.keys(DRAFT).flatMap(key => store.read<BoardDraft>(key) ?? [])),

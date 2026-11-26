@@ -4,7 +4,7 @@ Three plebs, 21 sats each, one maintainer paid all at once or not at all.
 
 Plebstack is a small crowdfunding app on Cashu ecash. I wanted to back the people who keep my tools running without trusting anyone in the middle to hold the money. So: each backer locks their own deposit to their own key at a mint. When all three have signed, one batch pays the maintainer 63 sats, locked to her key. If the stack never fills, everyone takes their own sats back. The organizer never holds a key or a sat.
 
-**Try it:** https://plebstack-matts-projects-7a791133.vercel.app (open `/stage` in a second window for the big-screen view).
+**Try it:** https://plebstack-matts-projects-7a791133.vercel.app. Start a stack on one phone and share the invite link: each person joins from their own phone. Open `/stage` on a big screen to watch it fill.
 
 It runs against the test mint `https://testnut.cashudevkit.org`, which pays its own invoices. The sats are fake; the protocol calls are real.
 
@@ -39,11 +39,21 @@ npm i
 npm run dev
 ```
 
-Open the address Vite prints (usually `http://localhost:5173`). On a phone or a small window it fills the screen; in a desktop window it sits in a phone frame, with a QR code beside it to open the same page on your phone. Three short screens show how it works (**Skip the intro** goes straight on). Tap **Start a stack** and you're Ada. "Playing as" at the top of each screen switches between Ada, Ngozi and the three plebs (Tobi, Maren, Ishaan), so one browser can play the whole thing. `?live=1` from older links still works; the app always talks to testnut now.
+Open the address Vite prints (usually `http://localhost:5173`). A first visit shows three short intro screens; after that the app opens on home: your stack, and **Start a stack**, **Join a stack** and **Watch live**.
+
+### Several devices
+
+Each person uses their own device, and their keys never leave it. Ada starts a stack and shares two links: a claim link for Ngozi, who confirms her key on her own phone, and an invite link for the plebs. Whoever opens the invite takes the next free pleb seat.
+
+The devices share one public board over Nostr. Every write (the stack's terms, each locked quote, each signature, the payout result) is published as an event tagged with the stack's id, and each device merges what it hears. Only public material goes out; keys stay where they were made. The relays default to `relay.damus.io`, `nos.lol` and `relay.primal.net`. Set others with `?relays=wss://a,wss://b` (remembered on that device) or `VITE_RELAYS` at build time. `npm run relay` starts a small local relay for trying it on your own network.
+
+### Demo mode
+
+For a demo on one device, tap your initial at the top right: you can switch to any person, start a new stack as Ada, reset the demo, or open the stage. Each person still keeps their own part of the browser's storage, and nobody's screen reads anyone else's key.
 
 ### The stage
 
-Open `/stage` in a second window (or **Open the stage in a new window** under Playing as). It's a 16:9 view for a meetup screen or a demo: the shared stack on the goal line, each pleb's phone, Ngozi's phone, and a caption that says what just happened at the mint. It follows the other window by itself, no clicks. A slab only travels into the stack when the mint confirms the deposit. On a tall screen it stacks into a portrait layout. With Reduce Motion on, nothing moves and the captions carry it.
+Tap **Watch live** on home, or open `/s/<stack id>/stage` on any screen. It's a 16:9 view for a meetup screen or a demo: the shared stack on the goal line, each pleb's phone, Ngozi's phone, and a caption that says what just happened at the mint. It follows the stack by itself over the relays, no clicks. A slab only travels into the stack when the mint confirms the deposit. On a tall screen it stacks into a portrait layout. With Reduce Motion on, nothing moves and the captions carry it.
 
 ## Tests
 
@@ -52,23 +62,24 @@ npm test                         # unit tests: states, close rule, roles, copy, 
 npm run build                    # type check and production build
 PLEB_LIVE=1 npm run test:live    # deposit, payout and reclaim against testnut
 node scripts/live-e2e.mjs        # every journey in headless Chromium, with accessibility checks
+npm run test:devices             # five devices, one stack, over a local Nostr relay, against testnut
 node scripts/stage-demo.mjs      # drives the stage; --shots retakes stills, --video records it
 ```
 
-The browser runs use Playwright and axe, and check names, contrast, focus, 320px reflow, a keyboard-only walk and the desktop phone frame. They write their output to `.evidence/`.
+The browser runs use Playwright and axe, and check names, contrast, focus, 320px reflow, a keyboard-only walk and the desktop layout. They write their output to `.evidence/`. The device run checks that each phone takes its own seat, the payout reaches Ngozi's phone, and no private key ever reaches the relay.
 
 ## Honest limits
 
 - **Test mint only.** testnut pays its own invoices. Nothing here has been near real sats.
-- **One browser plays everyone.** Each person has their own namespace in local storage, and no one's code reads another's key, but they all live in one browser.
-- **No relay.** A shared "public board" in local storage stands in for one (Nostr would be the obvious fit). Open the stage in the same browser.
+- **Seats, not accounts.** The cast is fixed for now: Ada organizes, Ngozi is paid, and the three plebs are Tobi, Maren and Ishaan, whichever device gets there first.
+- **Public relays.** The board travels over public Nostr relays. Anyone can read it, which is fine because it only ever holds public material, but a relay can drop events. A device that misses one hears it again on reload.
 - **No key backup.** Clear your storage and the keys are gone, along with any sats locked to them.
 - **A signature can't be taken back,** and a take-back can race the payout. The app shows whichever one the mint accepted.
 - **Paid means Ngozi received ecash,** not that the work got done.
 
 ## Screenshots
 
-Phone stills from a live run are in [`docs/screens-live/`](docs/screens-live/), with the desktop frame in `desktop-1440.png`.
+Phone stills from a live run are in [`docs/screens-live/`](docs/screens-live/), with the desktop layout in `desktop-1440.png`.
 
 | Join | Sign | Paid | Spent |
 | --- | --- | --- | --- |
@@ -77,9 +88,10 @@ Phone stills from a live run are in [`docs/screens-live/`](docs/screens-live/), 
 ## Where things are
 
 - `src/protocol/` — the mint calls, keys, per-person storage, batch signing and recovery.
-- `src/live/` — one client per person, the public board, and the view rebuilt from it.
+- `src/live/` — one client per person, the public board, its Nostr sync (`sync.ts`), and the view rebuilt from it.
 - `src/domain/` — the money states and the close rule.
-- `src/screens/`, `src/ui/`, `src/styles/` — the phone app and the stage. Plain CSS, night only.
+- `src/screens/`, `src/ui/`, `src/styles/` — the app and the stage. Plain CSS, night only.
+- `scripts/relay.mjs` — a small local Nostr relay; `scripts/multi-device.mjs` drives five devices through it.
 
 ## License
 

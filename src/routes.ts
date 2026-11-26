@@ -3,6 +3,7 @@ import type { Screen } from './ui/journey';
 
 export const routes = {
   splash: '/',
+  home: '/home',
   intro: '/intro/:page',
   start: '/new',
   organize: '/o/:campaignId',
@@ -21,6 +22,7 @@ export type MaintainStep = 'follow' | 'receive' | 'spend';
 
 export const paths = {
   splash: () => routes.splash,
+  home: () => routes.home,
   intro: (page: number) => generatePath(routes.intro, { page: String(page) }),
   start: () => routes.start,
   organize: (campaignId: string, step?: OrganizeStep) =>
