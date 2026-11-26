@@ -437,7 +437,7 @@ span.env { cursor: default; }
 /* Demo only: switch to the person you're waiting on. Same swap arrow as the person chip. */
 .swap-to {
   display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: var(--target-size); padding: 0 var(--space-3);
-  border-radius: 999px; border: 1px dashed var(--color-control-line); color: var(--color-ink); font-size: var(--text-small); font-weight: 600;
+  border-radius: 999px; border: 1px dashed var(--color-control-line); background: transparent; color: var(--color-ink); font-size: var(--text-small); font-weight: 600;
 }
 .swap-to:hover { border-color: var(--color-muted); }
 .swap-to .icon { width: 15px; height: 15px; color: var(--color-muted); }
