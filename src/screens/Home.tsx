@@ -6,12 +6,16 @@ import { paths } from '../routes';
 import { MAINTAINER, ORGANIZER, homePath, usePlayAs, useSession } from '../session';
 import { TopBar, useHeadingFocus, useTitle } from '../ui/Frame';
 import { Icon } from '../ui/Icon';
-import { PLEBS, campaignGoal, closeLine, type Goal } from '../ui/journey';
+import { PLEBS, campaignGoal, closeLine } from '../ui/journey';
+import { StoryStack } from '../ui/StoryStack';
 import { Stack } from '../ui/Stack';
 import { Sheet } from '../ui/Sheet';
 
-// No stack yet: the goal line with three open places, the picture of what you're about to start.
-const emptyGoal: Goal = { phase: 'collecting', label: 'goal · 0 of 63 sats', text: '', slabs: [{ kind: 'open' }, { kind: 'open' }, { kind: 'open' }] };
+// The money state, said in two words and coloured from the state tokens.
+const stateWord: Record<string, string> = {
+  collecting: 'Collecting', ready: 'Ready to sign', approved: 'Signed', 'paying-out': 'Sending', paid: 'Paid',
+  unmet: 'Didn’t fill', reclaiming: 'Taking back', reclaimed: 'Taken back',
+};
 
 // Pull a stack id out of whatever was pasted: a full invite link, a path, or the id itself.
 export function stackIdFrom(text: string): string | undefined {
@@ -60,11 +64,20 @@ export function Home() {
 
   const invite = (
     <button type="button" className="button" data-variant="quiet" onClick={() => { setProblem(''); setJoining(true); }}>
-      Have an invite link?
+      Join with a link
     </button>
   );
   const { heldSat = 0, targetSat = 63, held = 0 } = record ? tally(record) : {};
   const maintainer = record ? maintainerOf(record).short : draft?.maintainerName.split(' ')[0];
+  const state = record ? statusOf(record) : undefined;
+  // The organizer's setup, as a checklist: what's done, what's next, what's left.
+  const setup = draft ? [
+    { label: `Name who you’re backing`, done: true },
+    { label: `${maintainer} confirms a payout key`, done: Boolean(draft.key) },
+    { label: 'Set the amount and deadline', done: false },
+    { label: 'Share the invite', done: false },
+  ] : [];
+  const nextSetup = setup.findIndex(item => !item.done);
 
   return (
     <div className="screen home">
@@ -72,34 +85,50 @@ export function Home() {
         <TopBar record={record} />
       </header>
       <main ref={main} className="home-body" id="main">
-        <div className="home-hero" key={record?.campaign.id ?? draft?.id ?? 'empty'}>
-          <Stack goal={record ? campaignGoal(record, viewer.id) : emptyGoal} meta={record ? closeLine(record) : undefined} landing />
-        </div>
         {record ? (
-          <div className="home-words">
-            <p className="home-eyebrow">Backing {maintainer}</p>
-            <h1 className="home-title">{statusOf(record) === 'paid' ? `${maintainer} got ${sats(targetSat)}` : `${held} of ${record.campaign.backerCount} in`}</h1>
-            <p className="home-sub">{statusOf(record) === 'paid'
-              ? 'Confirmed by the mint.'
-              : `${heldSat} of ${sats(targetSat)} at the mint. ${maintainer} is paid only if everyone signs.`}</p>
-          </div>
+          <section className="home-panel" aria-labelledby="home-title">
+            <div className="home-panel-top">
+              <p className="home-eyebrow">Backing <strong>{maintainer}</strong></p>
+              <span className="state-pill" data-state={state} data-paid={state === 'paid' || undefined}>{stateWord[state!] ?? state}</span>
+            </div>
+            <h1 id="home-title" className="home-title">
+              {state === 'paid' ? `${maintainer} got ${sats(targetSat)}` : `${held} of ${record.campaign.backerCount} in`}
+            </h1>
+            <p className="home-sub">{state === 'paid' ? 'Confirmed by the mint.' : `${heldSat} of ${sats(targetSat)} locked at the mint`}</p>
+            <div className="home-hero"><Stack goal={campaignGoal(record, viewer.id)} meta={closeLine(record)} landing /></div>
+          </section>
         ) : draft ? (
-          <div className="home-words">
-            <p className="home-eyebrow">Backing {maintainer}</p>
-            <h1 className="home-title">Setting up</h1>
-            <p className="home-sub">{viewer.id === ORGANIZER || viewer.id === MAINTAINER ? 'A couple of steps before anyone can chip in.' : 'Not open yet.'}</p>
-          </div>
+          <section className="home-panel" aria-labelledby="home-title">
+            <div className="home-panel-top">
+              <p className="home-eyebrow">Backing <strong>{maintainer}</strong></p>
+              <span className="state-pill" data-state="setup">Setting up</span>
+            </div>
+            <h1 id="home-title" className="home-title">
+              {viewer.id === ORGANIZER || viewer.id === MAINTAINER ? `${setup.filter(item => item.done).length} of ${setup.length} steps done` : 'Not open yet'}
+            </h1>
+            {viewer.id === ORGANIZER || viewer.id === MAINTAINER ? (
+              <ol className="checklist">
+                {setup.map((item, index) => (
+                  <li key={item.label} data-state={item.done ? 'done' : index === nextSetup ? 'now' : 'ahead'}>
+                    <span className="check-mark" aria-hidden="true">{item.done ? <Icon name="check" /> : index + 1}</span>
+                    {item.label}
+                    <span className="visually-hidden">{item.done ? ', done' : index === nextSetup ? ', next' : ', to come'}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className="home-sub">It opens once the organizer shares it.</p>}
+          </section>
         ) : (
-          <div className="home-words">
-            <h1 className="home-title">Back a builder, together.</h1>
-            <p className="home-sub">Three people, 21 sats each. All in, or everyone takes theirs back.</p>
-          </div>
+          <>
+            <h1 className="home-title home-title-lead">Back a builder, together.</h1>
+            <StoryStack scene="all" />
+          </>
         )}
       </main>
       <footer className="actions home-actions">
         {record || draft ? (
           <button type="button" className="button" data-variant="primary" onClick={open}>
-            {draft ? 'Finish setting up' : 'Open the stack'}<Icon name="chevron" />
+            {draft ? 'Continue setup' : 'Open stack'}<Icon name="chevron" />
           </button>
         ) : (
           <button type="button" className="button" data-variant="primary" onClick={start}>Start a stack</button>
@@ -116,7 +145,7 @@ export function Home() {
               aria-invalid={problem ? true : undefined} aria-describedby={problem ? 'join-problem' : undefined} />
             {problem && <p id="join-problem" className="field-note" data-error role="alert">{problem}</p>}
           </div>
-          <button type="submit" className="button" data-variant="primary">Join</button>
+          <button type="submit" className="button" data-variant="primary">Open invite</button>
         </form>
       </Sheet>
     </div>

@@ -6,6 +6,7 @@ import { paths } from '../routes';
 import { homePath, storageWorks, usePlayAs, useSession } from '../session';
 import { formatWhen } from '../ui/format';
 import { Frame } from '../ui/Frame';
+import { Icon } from '../ui/Icon';
 import { campaignGoal, closeLine } from '../ui/journey';
 import { NewStack, Note, Quiet, useOnline } from '../ui/parts';
 import { Stack } from '../ui/Stack';
@@ -61,9 +62,10 @@ export function Join({ world, record, journey }: ScreenProps) {
     : !online ? 'You’re offline. Nothing was sent.' : undefined;
   const open = kind === 'join';
   const headline = unmet ? 'This stack didn’t fill.'
-    : !open ? 'This stack is full.' : `${organizer} is getting 3 plebs to back ${maintainer.short}.`;
+    : !open ? 'This stack is full.' : `Back ${maintainer.short} with ${each}`;
   const text = !open ? whyClosed(record, world.viewerId)
-    : `Chip in ${each}. If all three of you sign, ${maintainer.short} gets ${total}. If not, everyone takes their own back.`;
+    : `${organizer} invited 3 people. If all 3 sign, ${maintainer.short} gets ${total}.`;
+  const { held } = tally(record);
 
   return (
     <Frame record={record} rail={journey.rail} here={journey.here} title={open ? `Back ${maintainer.short}` : headline}
@@ -73,7 +75,7 @@ export function Join({ world, record, journey }: ScreenProps) {
             onClick={() => { if (!asking && !blocked) void chipIn(); }}>
             {asking ? 'Asking the mint…' : `Chip in ${each}`}
           </button>
-          <p className="fine">Nobody holds your keys but you. Not us, not the organizer.</p>
+          <p className="fine">Only you hold the key to your {each}.</p>
         </>
       ) : (
         <>
@@ -83,11 +85,22 @@ export function Join({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
+        {open && <p className="invite-eyebrow">{organizer} invited you</p>}
         <h1>{headline}</h1>
         <p>{text}</p>
       </div>
-      <Who name={maintainer.name} title={campaign.title} keyBy={record.keyBy} pubkey={campaign.beneficiaryPubkey} organizer={organizer} />
+      {open && (
+        <ul className="facts-strip" role="list">
+          <li><span className="fact-value">{each}</span><span className="fact-label">your part</span></li>
+          <li><span className="fact-value">{held} of {campaign.backerCount}</span><span className="fact-label">people in</span></li>
+          <li><span className="fact-value">{total}</span><span className="fact-label">to {maintainer.short}</span></li>
+        </ul>
+      )}
       <Stack goal={goal} meta={closeLine(record)} />
+      {open && (
+        <p className="safety"><Icon name="undo" /><span><strong>Worst case:</strong> it doesn’t fill and you take your {each} back.</span></p>
+      )}
+      <Who name={maintainer.name} title={campaign.title} keyBy={record.keyBy} pubkey={campaign.beneficiaryPubkey} organizer={organizer} />
       {kind === 'join' && (blocked || failure) && <Note><p>{blocked ?? failure}</p></Note>}
     </Frame>
   );

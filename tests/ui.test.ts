@@ -144,7 +144,7 @@ test('binding copy: intro key line, honest test mint, close time only from data,
   assert.doesNotMatch(source('src/screens/Follow.tsx'), /payout is locked to your key/);
   assert.match(source('src/screens/Watch.tsx'), /Signatures already released still count\./);
   assert.match(source('src/screens/Watch.tsx'), /the last signature sends the payout to the mint/);
-  assert.match(source('src/screens/Share.tsx'), /You organize this stack\. You can share it and stop collecting, but you can’t move anyone’s sats\./);
+  assert.match(source('src/screens/Share.tsx'), /Send the invite to 3 people\. You can stop collecting, but you can’t move anyone’s sats\./);
   assert.match(source('src/screens/Backing.tsx'), /received ecash, not that the work was done/);
   assert.match(source('src/screens/Spent.tsx'), /Swap fee at the mint, \{sats\(fee\)\}\. Received, \{sats\(spend\.receivedSat!\)\}\./);
 });
