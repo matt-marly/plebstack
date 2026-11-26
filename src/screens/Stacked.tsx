@@ -27,9 +27,9 @@ export function Stacked({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="deposited" />
+        <Status state="deposited" phrase="Locked at the mint" plain />
         <h1 className="display">Stacked.</h1>
-        <p>Your {each} are waiting at the mint, locked to your key. {maintainer} gets nothing unless all three sign.</p>
+        <p>Your {each} are at the mint, locked to your key. {maintainer} gets nothing unless all three sign.</p>
       </div>
       <Stack goal={campaignGoal(record, world.viewerId)} meta={closeLine(record)} landing={landed} />
       <Track stop="at-mint" from={landed ? 'to-mint' : undefined} maintainer={maintainer} amount={each} />

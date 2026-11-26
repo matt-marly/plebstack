@@ -36,7 +36,7 @@ export function Sending({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="paying out" />
+        <Status state="paying out" phrase="Sending · not paid yet" plain live />
         <h1>All three signed. Sending.</h1>
         <p>The payout is with the mint as one batch. Nothing is paid until the mint confirms.</p>
       </div>

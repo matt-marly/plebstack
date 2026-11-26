@@ -49,7 +49,7 @@ export function Back({ world, record, journey }: ScreenProps) {
           </>
         )}>
         <div className="lead rise">
-          <Status state="reclaiming" />
+          <Status state="reclaiming" phrase="Taking it back" plain live />
           <h1>Taking it back.</h1>
           <p>Asking the mint for your own {each}. If you signed, the payout may still get there first.</p>
         </div>
@@ -71,7 +71,7 @@ export function Back({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="reclaimed" />
+        <Status state="reclaimed" phrase="Back with you" plain />
         <h1 className={first ? undefined : 'display'}>{first ? 'Your take-back got there first.' : 'Back to you.'}</h1>
         <p>
           {first ? `The payout can’t go now. The others’ ${each} are still at the mint, theirs to take back. ` : ''}

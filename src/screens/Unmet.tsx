@@ -34,7 +34,7 @@ export function Unmet({ world, record, journey }: ScreenProps) {
         </>
       )}>
       <div className="lead rise">
-        <Status state="unmet" />
+        <Status state="unmet" phrase="Didn’t fill · yours to take back" plain />
         <h1>No payout this time.</h1>
         <p>{whyUnmet(record, world.viewerId)} That’s fine: your {each} are still at the mint, yours. Take them back. Nobody needs to approve it.</p>
       </div>
