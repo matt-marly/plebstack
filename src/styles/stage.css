@@ -154,7 +154,7 @@
 .stage[data-tall] .stage-mark { width: 26px; height: 26px; }
 .stage[data-tall] .stage-word { height: 21px; }
 .stage[data-tall] .stage-honest { display: contents; }
-.stage[data-tall] .stage-honest .env { min-height: 28px; padding: 0 var(--space-3); font-size: var(--text-micro); }
+.stage[data-tall] .stage-honest .env { min-height: var(--target-size); padding: 0 var(--space-3); font-size: var(--text-micro); }
 .stage[data-tall] .stage-honest p { flex-basis: 100%; font-size: 13px; }
 
 .stage[data-tall] .stage-floor { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }

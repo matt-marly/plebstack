@@ -41,7 +41,16 @@ export function Really({ context }: { context: ReallyContext }) {
       <button type="button" className="help" aria-label="Details, what’s really happening" onClick={() => setOpen(true)}>
         <Icon name="info" /><span className="help-text" aria-hidden="true">Details</span>
       </button>
-      <Sheet open={open} onClose={close} title="What’s really happening">
+      <Sheet open={open} onClose={close} title="What’s really happening" footer={(
+        <>
+          {at < tabs.length - 1 ? (
+            <button type="button" className="button" data-variant="primary" onClick={() => setTab(tabs[at + 1][0])}>
+              {tabs[at + 1][1]}<Icon name="chevron" />
+            </button>
+          ) : null}
+          <button type="button" className="button" data-variant={at < tabs.length - 1 ? 'quiet' : 'secondary'} onClick={close}>Close</button>
+        </>
+      )}>
         <div className="sheet-for">
           <Status {...status} />
           <span>{youre[context.role]}</span>
@@ -80,14 +89,6 @@ export function Really({ context }: { context: ReallyContext }) {
               </li>
             ))}
           </ul>
-        </div>
-        <div className="sheet-foot">
-          {at < tabs.length - 1 ? (
-            <button type="button" className="button" data-variant="primary" onClick={() => setTab(tabs[at + 1][0])}>
-              {tabs[at + 1][1]}<Icon name="chevron" />
-            </button>
-          ) : null}
-          <button type="button" className="button" data-variant={at < tabs.length - 1 ? 'quiet' : 'secondary'} onClick={close}>Close</button>
         </div>
       </Sheet>
     </>

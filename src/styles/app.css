@@ -13,7 +13,7 @@ body {
 }
 
 h1, h2, p, ol, ul, dl, figure { margin: 0; }
-button, a { font: inherit; color: inherit; }
+button, a { font: inherit; color: inherit; touch-action: manipulation; }
 :focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; border-radius: 6px; }
 
 .visually-hidden {
@@ -452,17 +452,22 @@ span.env { cursor: default; }
   animation: fade 260ms ease-out both;
 }
 .sheet {
-  position: relative; width: calc(100% - 16px); max-width: calc(var(--column) - 16px); max-height: 88dvh; overflow-y: auto;
+  position: relative; width: calc(100% - 16px); max-width: calc(var(--column) - 16px); max-height: 88dvh;
   margin-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
-  display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-3) var(--space-5) var(--space-5);
+  display: flex; flex-direction: column; padding-top: var(--space-3); overflow: hidden;
   background: var(--color-surface); border: 1px solid var(--color-hairline); border-radius: var(--radius-sheet);
   box-shadow: 0 -12px 40px rgba(0, 0, 0, .5);
   animation: rise-sheet 420ms var(--ease-sheet) both;
 }
+/* The part that scrolls. The grip above it and the footer below it stay put. */
+.sheet-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-3) var(--space-5) var(--space-5);
+}
 .sheet:focus { outline: none; }
 .sheet-layer[data-leaving] .sheet { animation: leave-sheet 220ms ease-in both; }
 .sheet-layer[data-leaving] .sheet-scrim { animation: fade 220ms ease-in reverse both; }
-.sheet-grip { align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #3e3e44; }
+.sheet-grip { flex: none; align-self: center; width: 36px; height: 4px; border-radius: 2px; background: #3e3e44; }
 .sheet-title { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
 .sheet-text { color: var(--color-muted); }
 .sheet-actions { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -478,7 +483,6 @@ span.env { cursor: default; }
 .facts .mono { display: block; margin-top: var(--space-1); font-size: var(--text-caption); color: var(--color-muted); }
 
 /* What's really happening: right now, what happens next, the whole story folded, Close pinned at the foot. */
-.sheet:has(> .sheet-foot) { padding-bottom: 0; }
 .sheet-for { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); font-size: var(--text-small); color: var(--color-muted); }
 .part { display: flex; flex-direction: column; gap: var(--space-3); }
 .part > h2, .part > h3 {
@@ -519,14 +523,13 @@ span.env { cursor: default; }
 .panel[hidden] { display: none; }
 .panel .now { font-size: var(--text-name); line-height: 1.5; }
 .panel .steps li { padding-bottom: var(--space-5); font-size: var(--text-body); }
-.sheet-foot { display: flex; flex-direction: column; gap: var(--space-1); }
 .story summary .mono { margin-left: var(--space-2); font-size: var(--text-caption); color: var(--color-muted); }
 .story .facts { padding: 0 var(--space-4) var(--space-1); }
 .story .facts li:first-child { padding-top: var(--space-3); border-top: 1px solid var(--color-rule); }
 .story .facts li:last-child { border-bottom: 0; }
 .sheet-foot {
-  position: sticky; bottom: 0; margin-top: calc(-1 * var(--space-2)); padding: var(--space-3) 0 var(--space-5);
-  background: linear-gradient(to bottom, rgba(22, 22, 24, 0), var(--color-surface) var(--space-3));
+  flex: none; display: flex; flex-direction: column; gap: var(--space-1);
+  padding: var(--space-3) var(--space-5) var(--space-5); border-top: 1px solid var(--color-rule); background: var(--color-surface);
 }
 
 /* Where the sats are: three stops, a slab per slot. Lime only on a confirmed payout that still waits, locked to her key. */
@@ -791,7 +794,7 @@ span.env { cursor: default; }
 /* ---------------------------------------------------------------- the stack telling its story */
 
 /* One beat at a time: the words settle, a slab drops and settles, its colour eases, then the caption follows it. */
-.story { position: relative; display: flex; flex-direction: column; gap: var(--space-4); margin: 0; }
+figure.story { position: relative; display: flex; flex-direction: column; gap: var(--space-4); margin: 0; }
 .story-drawing { width: 100%; height: auto; overflow: visible; }
 .story-label { font: 600 10px/1 var(--font-mono); letter-spacing: .1em; fill: var(--color-muted); }
 .story-line path { fill: none; stroke: var(--color-dash); stroke-width: 2; stroke-linecap: round; transition: stroke 600ms ease; }

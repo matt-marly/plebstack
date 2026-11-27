@@ -18,7 +18,10 @@ function inertAround(layer: HTMLElement): Element[] {
 }
 
 // A bottom sheet: modal while open, Escape or the scrim closes it, and focus goes back where it came from.
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+// Content scrolls in its own region; a footer, if there is one, sits outside it, so nothing ever passes under it.
+export function Sheet({ open, onClose, title, children, footer }: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
+}) {
   const [shown, setShown] = useState(open);
   const [leaving, setLeaving] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
@@ -78,8 +81,11 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       <div className="sheet-scrim" onClick={onClose} />
       <div ref={panel} className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <span className="sheet-grip" aria-hidden="true" />
-        <h2 id={titleId} className="sheet-title">{title}</h2>
-        {children}
+        <div className="sheet-body">
+          <h2 id={titleId} className="sheet-title">{title}</h2>
+          {children}
+        </div>
+        {footer && <div className="sheet-foot">{footer}</div>}
       </div>
     </div>,
     document.querySelector('[data-sheet-host]') ?? document.body,
