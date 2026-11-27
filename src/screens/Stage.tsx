@@ -14,6 +14,8 @@ import { Avatar, Status } from '../ui/parts';
 import { LoneSlab, Pile } from '../ui/Pile';
 import { captionOf, lookOf, pocketLabel, snapOf, stageEvents, storyOf, type Caption, type Look, type StageSnap } from '../ui/story';
 import { fixing } from '../ui/Who';
+import { Qr } from '../ui/Qr';
+import { StoryStack } from '../ui/StoryStack';
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
@@ -237,8 +239,10 @@ function StageView({ id }: { id: string | undefined }) {
   const organizer = people[record?.creatorId ?? draft?.organizerId ?? 'ada'];
   const each = record ? sats(record.campaign.contributionSat) : undefined;
   const current = captions.at(-1) ?? {
-    text: 'No stack yet. Start one as Ada in another window.', term: `${location.host}/new`, at: '', kind: 'drafted' as const,
+    text: 'No stack yet. Scan the code to start one.', term: `${location.host}/new`, at: '', kind: 'drafted' as const,
   };
+  // Nothing live yet: the stage plays the story as a replay, says so, and offers the way to start a real one.
+  const empty = !draft && !record;
   const look = lookOf(record, { travelling: away.size, paidTold });
   const her = maintainerView(draft, record, wallet, arrived);
   const close = record && closeLine(record);
@@ -293,7 +297,12 @@ function StageView({ id }: { id: string | undefined }) {
       <span className="mono">{draft ? fixing(draft.title).toLowerCase() : 'the maintainer'}</span>
     </h2>
   );
-  const centre = (
+  const centre = empty ? (
+    <div className="stage-centre stage-replay">
+      <div className="stage-state"><p className="status replay-chip"><Icon name="play" /><strong>Replay · not live</strong></p></div>
+      <StoryStack scene="all" maintainer={maintainer.short} />
+    </div>
+  ) : (
     <div className="stage-centre">
       <div className="stage-state">{stagePill(look, record)}</div>
       <Pile record={record} look={look} away={away} moment={moment} />
@@ -347,6 +356,12 @@ function StageView({ id }: { id: string | undefined }) {
             <p className="stage-line">{current.text}</p>
             <p className="stage-term mono">{current.term}</p>
           </div>
+          {empty ? (
+            <div className="stage-start">
+              <div className="invite-qr"><Qr text={`${location.origin}/new`} label="QR code to start a stack" /></div>
+              <p><strong>Start a real stack</strong><span>Scan with a phone camera. This screen goes live the moment it opens.</span></p>
+            </div>
+          ) : (
           <ol className="stage-history" aria-label="Last three">
             {[...captions].reverse().map((caption, index) => (
               <li key={`${caption.kind}/${caption.at}/${caption.who ?? ''}`} data-now={index === 0 || undefined}>
@@ -355,6 +370,7 @@ function StageView({ id }: { id: string | undefined }) {
               </li>
             ))}
           </ol>
+          )}
         </footer>
         <div className="stage-ghosts" aria-hidden="true">
           {flights.map(flight => <Ghost key={flight.id} flight={flight} />)}

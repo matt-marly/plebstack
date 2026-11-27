@@ -9,7 +9,8 @@ import { formatWhen } from '../ui/format';
 import { reallyContext } from '../ui/explain';
 import { Frame } from '../ui/Frame';
 import { organizerJourney } from '../ui/journey';
-import { Avatar, CopyButton, Note, Quiet, ShareButton } from '../ui/parts';
+import { Icon } from '../ui/Icon';
+import { Avatar, CopyButton, Note, ShareButton } from '../ui/parts';
 import { Qr } from '../ui/Qr';
 import { Sheet } from '../ui/Sheet';
 import { Who } from '../ui/Who';
@@ -91,14 +92,14 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
           <button type="button" className="button" data-variant="secondary" onClick={() => setQr(true)}>Show QR</button>
         </div>
       </div>
-      <div className="waiting-on" aria-live="polite">
+      <div className="waiting-on">
         <Avatar name={name} />
-        <p>Waiting for {name} to confirm on her phone.</p>
+        <p aria-live="polite">Waiting for {name} to confirm on her phone.</p>
+        {/* Demo only: the same swap as the person switcher, so it reads as switching who you play, not as a step. */}
+        <button type="button" className="swap-to" onClick={openAsMaintainer} aria-label={`Demo: play as ${name} to confirm`}>
+          <Icon name="swap" />Play as {name}
+        </button>
       </div>
-      <p className="demo-line">
-        One browser plays everyone for this demo, so {name}’s phone is her own part of this browser.
-      </p>
-      <Quiet onClick={openAsMaintainer}>Open the link as {name}</Quiet>
       <Sheet open={qr} onClose={() => setQr(false)} title="Claim link">
         <div className="invoice">
           <Qr text={link} label={`QR code of ${name}’s claim link`} />

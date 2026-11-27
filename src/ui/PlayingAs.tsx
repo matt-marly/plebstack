@@ -56,8 +56,9 @@ export function PlayingAs({ record }: { record?: CampaignRecord }) {
   return (
     <>
       <button type="button" className="switcher" aria-label={`Demo, playing as ${playing}`} onClick={() => setOpen(true)}>
-        <span className="switcher-label" aria-hidden="true">Demo</span>
         <Avatar name={playing} own />
+        <span className="switcher-label" aria-hidden="true">{playing}</span>
+        <Icon name="swap" />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Demo mode">
         <p className="sheet-text">Play every person from this one device. Each person’s key stays in their own part of this browser, and Ada never has one.</p>
