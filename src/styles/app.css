@@ -623,7 +623,7 @@ span.env { cursor: default; }
 /* ---------------------------------------------------------------- home: the stack you're in, and one next step */
 
 .home-body {
-  flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--space-5);
+  flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: var(--space-5); padding-top: var(--space-5);
   padding-bottom: var(--space-5);
 }
 .home-title { font-size: 34px; line-height: 1.08; font-weight: 700; letter-spacing: -.03em; text-wrap: balance; }
@@ -655,25 +655,52 @@ span.env { cursor: default; }
 .state-pill[data-paid] { --tone: var(--color-signal); }
 .state-pill[data-state="unmet"], .state-pill[data-state="reclaiming"], .state-pill[data-state="reclaimed"] { --tone: var(--color-state-reclaiming); }
 
-/* Setup, as a checklist: done ticked, the next one lit, the rest waiting. */
-.checklist { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: flex; flex-direction: column; }
-.checklist li {
-  position: relative; display: flex; align-items: center; gap: var(--space-3); min-height: 48px; color: var(--color-faint);
-  animation: settle 420ms var(--ease-settle) backwards;
+/* Setup, as a flow of steps: who you are, how far along, and each step with who does it. */
+.setup { gap: var(--space-4); }
+.setup .home-sub { margin-top: calc(var(--space-2) * -1); }
+.setup-role { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-small); color: var(--color-muted); }
+.setup-role strong { color: var(--color-ink); font-weight: 600; }
+.setup-role .avatar { --avatar: 24px; border-radius: 50%; font-size: var(--text-micro); }
+.setup-progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.setup-progress i { height: 4px; border-radius: 2px; background: var(--color-rule); }
+.setup-progress i[data-state="done"] { background: var(--color-state-ready); }
+.setup-progress i[data-state="now"] { background: linear-gradient(90deg, var(--color-ink) 35%, var(--color-rule) 35%); }
+
+/* One column of nodes joined by a line that runs node to node; done stretches of it are teal. */
+.flow { list-style: none; padding: 0; margin: var(--space-1) 0 0; display: flex; flex-direction: column; }
+.flow li {
+  --node: 32px;
+  position: relative; display: grid; grid-template-columns: var(--node) minmax(0, 1fr) auto; align-items: start; gap: 0 var(--space-3);
+  padding-bottom: var(--space-4); animation: settle 420ms var(--ease-settle) backwards;
 }
-.checklist li:nth-child(2) { animation-delay: 90ms; }
-.checklist li:nth-child(3) { animation-delay: 180ms; }
-.checklist li:nth-child(4) { animation-delay: 270ms; }
-.checklist li + li::before { content: ''; position: absolute; left: 13px; top: -14px; height: 14px; width: 1.5px; background: var(--color-rule); }
-.checklist li[data-state="done"] { color: var(--color-muted); }
-.checklist li[data-state="now"] { color: var(--color-ink); font-weight: 600; }
-.check-mark {
-  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
-  border: 1.5px solid var(--color-dash); font: 600 var(--text-caption)/1 var(--font-mono); color: var(--color-muted);
+.flow li:last-child { padding-bottom: 0; }
+.flow li:nth-child(2) { animation-delay: 80ms; }
+.flow li:nth-child(3) { animation-delay: 160ms; }
+.flow li:nth-child(4) { animation-delay: 240ms; }
+.flow li:not(:last-child)::after {
+  content: ''; position: absolute; left: calc(var(--node) / 2 - 1px); top: calc(var(--node) + 4px); bottom: 4px; width: 2px;
+  border-radius: 1px; background: var(--color-rule);
 }
-.check-mark .icon { width: 15px; height: 15px; }
-.checklist li[data-state="done"] .check-mark { border-color: var(--color-state-ready); color: var(--color-state-ready); }
-.checklist li[data-state="now"] .check-mark { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-on-ink); animation: pulse-ring 2s ease-in-out infinite; }
+.flow li[data-state="done"]:not(:last-child)::after { background: var(--color-state-ready); }
+.flow-node {
+  display: inline-flex; align-items: center; justify-content: center; width: var(--node); height: var(--node); border-radius: 50%;
+  border: 1.5px solid var(--color-dash); background: var(--color-card); font: 600 var(--text-caption)/1 var(--font-mono); color: var(--color-muted);
+}
+.flow-node .icon { width: 16px; height: 16px; }
+.flow-text { display: flex; flex-direction: column; gap: 2px; min-height: var(--node); justify-content: center; padding-top: 4px; }
+.flow-label { font-size: var(--text-body); font-weight: 500; line-height: 1.3; color: var(--color-muted); }
+.flow-note { font-size: var(--text-caption); line-height: 1.35; color: var(--color-faint); }
+.flow-by {
+  align-self: start; margin-top: 6px; padding: 2px var(--space-2); border-radius: 999px; border: 1px solid var(--color-control-line);
+  font-size: var(--text-micro); font-weight: 600; color: var(--color-muted); white-space: nowrap;
+}
+.flow-by[data-you] { border-color: transparent; background: var(--color-wash); }
+.flow li[data-state="done"] .flow-node { border-color: var(--color-state-ready); background: color-mix(in srgb, var(--color-state-ready) 14%, var(--color-card)); color: var(--color-state-ready); }
+.flow li[data-state="done"] .flow-label { color: var(--color-ink); }
+.flow li[data-state="now"] .flow-node { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-on-ink); animation: pulse-ring 2s ease-in-out infinite; }
+.flow li[data-state="now"] .flow-label { color: var(--color-ink); font-weight: 600; }
+.flow li[data-state="now"] .flow-note { color: var(--color-muted); }
+.flow li[data-state="now"] .flow-by { border-color: var(--color-state-paying-out); color: var(--color-ink); }
 @keyframes pulse-ring { 0%, 100% { box-shadow: 0 0 0 0 rgba(244, 244, 241, .25); } 50% { box-shadow: 0 0 0 6px rgba(244, 244, 241, 0); } }
 
 .join-form { display: flex; flex-direction: column; gap: var(--space-4); }

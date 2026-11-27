@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { findCampaign, maintainerOf, sats, slotOf, statusOf, tally } from '../demo/world';
+import { findCampaign, maintainerOf, people, sats, slotOf, statusOf, tally } from '../demo/world';
 import { liveActions } from '../live/actions';
 import { paths } from '../routes';
 import { MAINTAINER, ORGANIZER, homePath, usePlayAs, useSession } from '../session';
@@ -10,6 +10,8 @@ import { PLEBS, campaignGoal, closeLine } from '../ui/journey';
 import { StoryStack } from '../ui/StoryStack';
 import { Stack } from '../ui/Stack';
 import { Sheet } from '../ui/Sheet';
+import { Avatar } from '../ui/parts';
+import { fixing } from '../ui/Who';
 
 // The money state, said in two words and coloured from the state tokens.
 const stateWord: Record<string, string> = {
@@ -70,14 +72,22 @@ export function Home() {
   const { heldSat = 0, targetSat = 63, held = 0 } = record ? tally(record) : {};
   const maintainer = record ? maintainerOf(record).short : draft?.maintainerName.split(' ')[0];
   const state = record ? statusOf(record) : undefined;
-  // The organizer's setup, as a checklist: what's done, what's next, what's left.
+  // The organizer's setup as a flow: each step says who does it and what it means, done ones ticked, the next one lit.
+  const who = maintainer ?? 'them';
+  // The same four steps from either side: the organizer's "You" is the maintainer's "Ada", and the other way round.
+  const herself = viewer.id === MAINTAINER;
+  const organizerName = draft ? people[draft.organizerId]?.short ?? 'The organizer' : '';
+  const me = (isOrganizerStep: boolean) => (isOrganizerStep === !herself ? 'You' : isOrganizerStep ? organizerName : who);
   const setup = draft ? [
-    { label: `Name who you’re backing`, done: true },
-    { label: `${maintainer} confirms a payout key`, done: Boolean(draft.key) },
-    { label: 'Set the amount and deadline', done: false },
-    { label: 'Share the invite', done: false },
+    { label: herself ? `${organizerName} names you and the work` : `Name who you’re backing`, by: me(true), note: `${draft.maintainerName} · ${fixing(draft.title)}`, done: true },
+    { label: herself ? 'Confirm your payout key' : `${who} confirms her payout key`, by: me(false),
+      note: draft.key ? 'Confirmed on her own phone' : 'Only she can spend what lands', done: Boolean(draft.key) },
+    { label: 'Set the amount and deadline', by: me(true), note: '3 people chip in the same amount', done: false },
+    { label: 'Share the invite', by: me(true), note: 'A link and a QR code to send', done: false },
   ] : [];
   const nextSetup = setup.findIndex(item => !item.done);
+  const doneCount = setup.filter(item => item.done).length;
+  const organizing = viewer.id === ORGANIZER || viewer.id === MAINTAINER;
 
   return (
     <div className="screen home">
@@ -98,25 +108,43 @@ export function Home() {
             <div className="home-hero"><Stack goal={campaignGoal(record, viewer.id)} meta={closeLine(record)} landing /></div>
           </section>
         ) : draft ? (
-          <section className="home-panel" aria-labelledby="home-title">
+          <section className="home-panel setup" aria-labelledby="home-title">
             <div className="home-panel-top">
-              <p className="home-eyebrow">Backing <strong>{maintainer}</strong></p>
+              <p className="setup-role">
+                <Avatar name={herself ? who : viewer.short} own />
+                <span>You’re <strong>{herself ? who : viewer.short}</strong>{viewer.id === ORGANIZER ? ', the organizer' : herself ? ', the one being backed' : ''}</span>
+              </p>
               <span className="state-pill" data-state="setup">Setting up</span>
             </div>
-            <h1 id="home-title" className="home-title">
-              {viewer.id === ORGANIZER || viewer.id === MAINTAINER ? `${setup.filter(item => item.done).length} of ${setup.length} steps done` : 'Not open yet'}
-            </h1>
-            {viewer.id === ORGANIZER || viewer.id === MAINTAINER ? (
-              <ol className="checklist">
-                {setup.map((item, index) => (
-                  <li key={item.label} data-state={item.done ? 'done' : index === nextSetup ? 'now' : 'ahead'}>
-                    <span className="check-mark" aria-hidden="true">{item.done ? <Icon name="check" /> : index + 1}</span>
-                    {item.label}
-                    <span className="visually-hidden">{item.done ? ', done' : index === nextSetup ? ', next' : ', to come'}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : <p className="home-sub">It opens once the organizer shares it.</p>}
+            <h1 id="home-title" className="home-title">{herself ? 'A stack for you' : organizing ? `A stack for ${who}` : 'Not open yet'}</h1>
+            <p className="home-sub">{herself
+              ? `${organizerName} is gathering 3 people to back you. The payout can only go to your key.`
+              : organizing ? `You gather 3 people to back ${who}. You never hold a key or a sat.`
+                : 'It opens once the organizer shares it.'}</p>
+            {organizing && (
+              <>
+                <div className="setup-progress" aria-hidden="true">
+                  {setup.map((item, index) => <i key={item.label} data-state={item.done ? 'done' : index === nextSetup ? 'now' : 'ahead'} />)}
+                </div>
+                <p className="visually-hidden">{doneCount} of {setup.length} steps done</p>
+                <ol className="flow">
+                  {setup.map((item, index) => {
+                    const state = item.done ? 'done' : index === nextSetup ? 'now' : 'ahead';
+                    return (
+                      <li key={item.label} data-state={state}>
+                        <span className="flow-node" aria-hidden="true">{item.done ? <Icon name="check" /> : index + 1}</span>
+                        <span className="flow-text">
+                          <span className="flow-label">{item.label}</span>
+                          <span className="flow-note">{item.note}</span>
+                        </span>
+                        <span className="flow-by" data-you={item.by === 'You' || undefined}>{item.by}</span>
+                        <span className="visually-hidden">{state === 'done' ? ', done' : state === 'now' ? ', next' : ', to come'}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </>
+            )}
           </section>
         ) : (
           <>
@@ -128,7 +156,7 @@ export function Home() {
       <footer className="actions home-actions">
         {record || draft ? (
           <button type="button" className="button" data-variant="primary" onClick={open}>
-            {draft ? 'Continue setup' : 'Open stack'}<Icon name="chevron" />
+            {draft ? (herself ? (draft.key ? 'Open stack' : 'Confirm my key') : organizing ? (draft.key ? 'Next: set the terms' : `Next: get ${who}’s key`) : 'Open stack') : 'Open stack'}<Icon name="chevron" />
           </button>
         ) : (
           <button type="button" className="button" data-variant="primary" onClick={start}>Start a stack</button>
