@@ -1,4 +1,5 @@
-import { Navigate, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { findCampaign, isHeld, slotOf, type CampaignRecord, type World } from '../demo/world';
 import { paths } from '../routes';
 import { homePath, useSeat, useSession } from '../session';
@@ -17,10 +18,18 @@ import { Stacked } from './Stacked';
 import { Unmet } from './Unmet';
 import { Waiting } from './Waiting';
 
+export interface Arrival {
+  // The mint just reported the deposit paid: the slab lands.
+  landed?: boolean;
+  // The mint's confirmation just arrived with the screen open: the paid moment plays.
+  lit?: boolean;
+}
+
 export interface ScreenProps {
   world: World;
   record: CampaignRecord;
   journey: Journey;
+  arrival?: Arrival;
 }
 
 const screens: Record<Screen, (props: ScreenProps) => React.ReactNode> = {
@@ -42,29 +51,37 @@ function allowed(screen: Screen, journey: Journey, record: CampaignRecord, viewe
 export function StackRoute() {
   const { campaignId = '', screen } = useParams();
   const { world } = useSession();
+  const navigate = useNavigate();
+  const arrived = useLocation().state as Arrival | null;
   const presence = useSeat(campaignId, 'pleb');
   const record = findCampaign(world, campaignId);
+  const journey = record && journeyOf(world, record);
+  const wanted = screen as Screen | undefined;
+  // When the step moves on, the next screen shows at once and the address follows it, so there is never a frame
+  // with no screen (and no headline to hold focus) in between.
+  const own = record && journey && world.viewerId !== record.creatorId && world.viewerId !== record.maintainerId;
+  const moved = own && (!wanted || !(wanted in screens) || !allowed(wanted, journey, record, world.viewerId));
+  // Leaving Pay means the mint reported the deposit paid: that is the moment the slab lands.
+  const landed = Boolean(moved && wanted === 'pay' && allowed('stacked', journey!, record!, world.viewerId));
+  // Leaving Sending or Signed for Paid means the mint's confirmation just arrived with the screen open.
+  const lit = Boolean(moved && journey!.screen === 'paid' && (wanted === 'sending' || wanted === 'signed'));
+  const target: Screen | undefined = moved ? (landed ? 'stacked' : journey!.screen) : wanted;
+  useEffect(() => {
+    if (moved && target) navigate(paths.screen(campaignId, target), { replace: true, state: { landed, lit } });
+  }, [moved, target, campaignId, landed, lit, navigate]);
+
   if (presence === 'searching' || presence === 'seating') return <Arriving seating={presence === 'seating'} />;
   if (presence === 'full') return <Full />;
-  if (!record) {
+  if (!record || !journey) {
     const draft = liveActions.draft(campaignId);
     return draft ? <NotOpenYet organizerId={draft.organizerId} /> : <NotFound />;
   }
   // The organizer and the maintainer have their own screens of the same stack.
-  if (world.viewerId === record.creatorId || world.viewerId === record.maintainerId) {
-    return <Navigate to={homePath(world.viewerId, campaignId)} replace />;
-  }
-  const journey = journeyOf(world, record);
-  const wanted = screen as Screen | undefined;
-  if (!wanted || !(wanted in screens) || !allowed(wanted, journey, record, world.viewerId)) {
-    // Leaving Pay means the mint reported the deposit paid: that is the moment the slab lands.
-    const landed = wanted === 'pay' && allowed('stacked', journey, record, world.viewerId);
-    // Leaving Sending or Signed for Paid means the mint's confirmation just arrived with the screen open.
-    const lit = journey.screen === 'paid' && (wanted === 'sending' || wanted === 'signed');
-    return <Navigate to={paths.screen(campaignId, landed ? 'stacked' : journey.screen)} state={{ landed, lit }} replace />;
-  }
-  const Component = screens[wanted];
+  if (!own) return <Navigate to={homePath(world.viewerId, campaignId)} replace />;
+  const shownScreen = target!;
+  const Component = screens[shownScreen];
   // Stacked can stay open after the step moved on; its header still names the screen that shows.
-  const shown = wanted === journey.screen ? journey : { ...journey, here: plebHere(wanted, journey.step, record) };
-  return <Component key={`${world.viewerId}/${wanted}`} world={world} record={record} journey={shown} />;
+  const shown = shownScreen === journey.screen ? journey : { ...journey, here: plebHere(shownScreen, journey.step, record) };
+  const arrival = moved ? { landed, lit } : arrived ?? undefined;
+  return <Component key={`${world.viewerId}/${shownScreen}`} world={world} record={record} journey={shown} arrival={arrival} />;
 }

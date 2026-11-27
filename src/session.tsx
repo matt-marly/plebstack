@@ -200,6 +200,8 @@ export function usePlayAs() {
   }), [viewAs, navigate]);
 }
 
+const SETTLE_MS = 1500;
+
 // On a stack's own link: wait for it to arrive from the relays, then take this device's seat if it has none.
 export function useSeat(id: string, wants: 'pleb' | 'maintainer'): Presence | 'seating' | 'full' {
   const { world, viewAs, refresh } = useSession();
@@ -208,14 +210,26 @@ export function useSeat(id: string, wants: 'pleb' | 'maintainer'): Presence | 's
   useEffect(() => setFull(false), [id]);
   const presence = presenceOf(id);
   const seated = ownsSeat(id);
+  // A new claim waits a moment before the stack shows, so a claim another device made in the same instant is heard
+  // and settled first, and nobody chips in as a person who turns out to be someone else's.
+  const [settling, setSettling] = useState(false);
   useEffect(() => {
     if (presence !== 'here' || seated) return;
     const person = seatFor(id, wants);
-    if (!person) setFull(true);
-    else if (person !== world.viewerId) viewAs(person);
+    if (!person) {
+      setFull(true);
+      return;
+    }
+    setSettling(true);
+    if (person !== world.viewerId) viewAs(person);
     // Already showing that person: still draw again, now that the seat is taken.
     else refresh();
   }, [id, wants, presence, seated, world.viewerId, viewAs, refresh]);
+  useEffect(() => {
+    if (!settling) return;
+    const timer = setTimeout(() => setSettling(false), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [settling]);
   if (full) return 'full';
-  return presence === 'here' && !seated ? 'seating' : presence;
+  return (presence === 'here' && !seated) || settling ? 'seating' : presence;
 }
