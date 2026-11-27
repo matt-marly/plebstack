@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { maintainerOf } from '../demo/world';
 import { failureCopy, liveActions } from '../live/actions';
 import type { BoardDraft } from '../live/board';
+import { sync } from '../live/sync';
 import { paths } from '../routes';
 import { MAINTAINER, usePlayAs, useSession } from '../session';
 import { formatWhen } from '../ui/format';
@@ -68,6 +69,8 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
     );
   }
 
+  // One device playing everyone, or other devices already on this stack?
+  const solo = !sync || sync.seats(draft.id).every(seat => seat.device === sync!.device);
   return (
     <Frame {...organizerJourney('key', name)} title={`Get ${name}’s key`}
       really={reallyContext({ role: 'organizer', at: 'key', maintainer: name })}
@@ -95,10 +98,11 @@ export function PayoutKey({ draft }: { draft: BoardDraft }) {
       <div className="waiting-on">
         <Avatar name={name} />
         <p aria-live="polite">Waiting for {name} to confirm on her phone.</p>
-        {/* Demo only: the same swap as the person switcher, so it reads as switching who you play, not as a step. */}
-        <button type="button" className="swap-to" onClick={openAsMaintainer} aria-label={`Demo: play as ${name} to confirm`}>
+        {/* Demo only: the same swap as the person switcher, so it reads as switching who you play, not as a step.
+            Once any other device has joined this stack it is a real run, and only Ngozi's own phone confirms her key. */}
+        {solo && <button type="button" className="swap-to" onClick={openAsMaintainer} aria-label={`Demo: play as ${name} to confirm`}>
           <Icon name="swap" />Play as {name}
-        </button>
+        </button>}
       </div>
       <Sheet open={qr} onClose={() => setQr(false)} title="Claim link">
         <div className="invoice">

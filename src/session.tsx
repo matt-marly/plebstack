@@ -64,10 +64,17 @@ export function stackIdIn(pathname: string): string | undefined {
 
 export type Presence = 'here' | 'searching' | 'missing';
 
+// This device holds a seat on the stack: the earliest claim for that person is its own.
+// A device that claimed a person a moment after another one did has no seat, and takes the next free one.
+export function ownsSeat(id: string): boolean {
+  if (!sync) return true;
+  return sync.seats(id).some(seat => seat.device === sync!.device && sync!.owner(id, seat.personId) === sync!.device);
+}
+
 // Is this stack on this device yet, or still on its way from the relays?
 export function presenceOf(id: string): Presence {
   const here = Boolean(liveActions.draft(id));
-  const seated = !sync || sync.seats(id).some(seat => seat.device === sync!.device);
+  const seated = ownsSeat(id);
   // A device new to this stack waits for the relays' first full answer, so it knows which seats are taken.
   if (sync?.status(id) === 'searching' && !(here && seated)) return 'searching';
   return here ? 'here' : 'missing';
@@ -80,7 +87,7 @@ export function presenceOf(id: string): Presence {
 export function seatFor(id: string, wants: 'pleb' | 'maintainer'): string | undefined {
   if (!sync) return undefined;
   const seats = sync.seats(id);
-  if (seats.some(seat => seat.device === sync!.device)) return undefined;
+  if (ownsSeat(id)) return undefined;
   const draft = liveActions.draft(id);
   if (!draft) return undefined;
   if (wants === 'maintainer') {
@@ -88,7 +95,11 @@ export function seatFor(id: string, wants: 'pleb' | 'maintainer'): string | unde
     return draft.maintainerId;
   }
   const record = liveActions.world(ORGANIZER).campaigns.find(item => item.campaign.id === id);
-  const taken = new Set([...seats.map(seat => seat.personId), ...(record?.slots.flatMap(slot => slot.backerId ?? []) ?? [])]);
+  // Taken: held by another device's earlier claim, or already chipped in.
+  const taken = new Set([
+    ...seats.filter(seat => sync!.owner(id, seat.personId) !== sync!.device).map(seat => seat.personId),
+    ...(record?.slots.flatMap(slot => slot.backerId ?? []) ?? []),
+  ]);
   const free = PLEBS.find(pleb => !taken.has(pleb));
   if (free) sync.claimSeat(id, free);
   return free;
@@ -193,8 +204,10 @@ export function usePlayAs() {
 export function useSeat(id: string, wants: 'pleb' | 'maintainer'): Presence | 'seating' | 'full' {
   const { world, viewAs, refresh } = useSession();
   const [full, setFull] = useState(false);
+  // A different stack starts with no verdict.
+  useEffect(() => setFull(false), [id]);
   const presence = presenceOf(id);
-  const seated = !sync || sync.seats(id).some(seat => seat.device === sync!.device);
+  const seated = ownsSeat(id);
   useEffect(() => {
     if (presence !== 'here' || seated) return;
     const person = seatFor(id, wants);

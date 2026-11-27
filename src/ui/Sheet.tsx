@@ -46,7 +46,9 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     panel.current?.focus({ preventScroll: true });
     return () => {
       behind.forEach(element => element.removeAttribute('inert'));
-      opener.current?.focus();
+      // The control that opened it may be gone, say the screen moved on: then the new screen's headline takes focus.
+      if (opener.current?.isConnected) opener.current.focus();
+      else document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
     };
   }, [shown]);
 

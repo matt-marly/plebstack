@@ -81,7 +81,9 @@ export function createSync() {
   const seen = new Set(read<string[]>(SEEN_KEY, []));
   const status = new Map<string, StackStatus>();
   const listeners = new Set<() => void>();
-  const pending: { op: SyncOp; createdAt: number; author: string }[] = [];
+  const pending: { id: string; op: SyncOp; createdAt: number; author: string }[] = [];
+  // Stacks the relays have answered for, and whether any event came back for them.
+  const heard = new Set<string>();
   let inner: Board | undefined;
 
   const changed = () => listeners.forEach(listener => listener());
@@ -97,7 +99,8 @@ export function createSync() {
   function addSeat(id: string, seat: Seat) {
     const current = seats(id);
     if (current.some(known => known.device === seat.device && known.personId === seat.personId)) return;
-    write(SEATS + id, [...current, seat].sort((a, b) => a.at - b.at));
+    // Every device reads the same order: earliest first, ties broken by device key.
+    write(SEATS + id, [...current, seat].sort((a, b) => a.at - b.at || a.device.localeCompare(b.device)));
   }
 
   // One op, applied once. Returns false when it has to wait for something it builds on.
@@ -133,22 +136,26 @@ export function createSync() {
     } catch {
       return;
     }
-    remember(event.id);
+    // Remembered only once applied: an op still waiting for what it builds on is heard again after a reload.
+    if (pending.some(waiting => waiting.id === event.id)) return;
     try {
-      if (!apply(op, event.created_at, event.pubkey)) pending.push({ op, createdAt: event.created_at, author: event.pubkey });
+      if (apply(op, event.created_at, event.pubkey)) remember(event.id);
+      else pending.push({ id: event.id, op, createdAt: event.created_at, author: event.pubkey });
       // Something new may unblock what was waiting.
       for (let progress = true; progress;) {
         progress = false;
         for (const [index, waiting] of pending.entries()) {
           if (apply(waiting.op, waiting.createdAt, waiting.author)) {
             pending.splice(index, 1);
+            remember(waiting.id);
             progress = true;
             break;
           }
         }
       }
     } catch {
-      // A malformed or conflicting op from someone else never breaks this device's board.
+      // A malformed or conflicting op from someone else never breaks this device's board; it is not tried again.
+      remember(event.id);
     }
     changed();
   }
@@ -159,16 +166,41 @@ export function createSync() {
     }, unhex(secret));
     remember(event.id);
     watch(id);
-    for (const sent of pool.publish(relays, event)) sent.catch(() => undefined);
+    send(event);
+  }
+
+  // No relay took it: try the same event again with a growing wait, so a dropped connection doesn't lose a write.
+  function send(event: Event, attempt = 0) {
+    void Promise.allSettled(pool.publish(relays, event)).then(results => {
+      if (results.some(result => result.status === 'fulfilled') || attempt >= 5) return;
+      setTimeout(() => send(event, attempt + 1), 2000 * 2 ** attempt);
+    });
+  }
+
+  // The relays came back empty for a stack this device holds, say it was made offline: share it again.
+  function reshare(id: string) {
+    const board = inner;
+    if (!board || heard.has(id)) return;
+    const draft = board.draft(id);
+    if (!draft) return;
+    publish(id, { op: 'draft', draft });
+    if (draft.key) publish(id, { op: 'key', id, key: draft.key });
+    const entry = board.get(id);
+    if (entry) publish(id, { op: 'open', entry });
+    for (const seat of seats(id).filter(seat => seat.device === device)) publish(id, { op: 'seat', id, personId: seat.personId });
   }
 
   function watch(id: string | undefined) {
     if (!id || status.has(id)) return;
     status.set(id, 'searching');
     pool.subscribeMany(relays, { kinds: [SYNC_KIND], '#s': [id] }, {
-      onevent: receive,
+      onevent: event => {
+        heard.add(id);
+        receive(event);
+      },
       oneose: () => {
         status.set(id, 'ready');
+        reshare(id);
         changed();
       },
     });
@@ -187,6 +219,10 @@ export function createSync() {
     watch,
     status: (id: string) => status.get(id),
     seats,
+    // Who holds a person on a stack: the earliest claim, the same on every device.
+    owner(id: string, personId: string): string | undefined {
+      return seats(id).find(seat => seat.personId === personId)?.device;
+    },
     claimSeat(id: string, personId: string) {
       addSeat(id, { personId, device, at: Math.floor(Date.now() / 1000) });
       publish(id, { op: 'seat', id, personId });

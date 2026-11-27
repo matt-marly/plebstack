@@ -23,9 +23,20 @@ export function useTitle(title: string) {
 export function useHeadingFocus(main: RefObject<HTMLElement | null>, step: unknown) {
   useEffect(() => {
     const heading = main.current?.querySelector<HTMLElement>('h1');
-    if (!heading || document.querySelector('[role="dialog"]')) return;
+    if (!heading) return;
     heading.tabIndex = -1;
-    heading.focus({ preventScroll: true });
+    // A sheet still open keeps focus for now; once it's gone, the headline takes it unless focus is already on this screen.
+    if (!document.querySelector('[role="dialog"]')) {
+      heading.focus({ preventScroll: true });
+      return;
+    }
+    const timer = setInterval(() => {
+      if (document.querySelector('[role="dialog"]')) return;
+      clearInterval(timer);
+      const active = document.activeElement;
+      if (!active || active === document.body || !active.isConnected || !main.current?.contains(active)) heading.focus({ preventScroll: true });
+    }, 100);
+    return () => clearInterval(timer);
   }, [step]);
 }
 
