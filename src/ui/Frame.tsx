@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import type { CampaignRecord, World } from '../demo/world';
 import { MAINTAINER, ORGANIZER, useSession } from '../session';
@@ -21,11 +21,23 @@ export function useTitle(title: string) {
 
 // A new step moves focus to its headline, so a screen reader hears the change whether a tap or the mint caused it.
 export function useHeadingFocus(main: RefObject<HTMLElement | null>, step: unknown) {
-  useEffect(() => {
+  // Before paint, in the same commit that swaps the screen, so focus never rests on the page in between.
+  useLayoutEffect(() => {
     const heading = main.current?.querySelector<HTMLElement>('h1');
-    if (!heading || document.querySelector('[role="dialog"]')) return;
+    if (!heading) return;
     heading.tabIndex = -1;
-    heading.focus({ preventScroll: true });
+    // A sheet still open keeps focus for now; once it's gone, the headline takes it unless focus is already on this screen.
+    if (!document.querySelector('[role="dialog"]')) {
+      heading.focus({ preventScroll: true });
+      return;
+    }
+    const timer = setInterval(() => {
+      if (document.querySelector('[role="dialog"]')) return;
+      clearInterval(timer);
+      const active = document.activeElement;
+      if (!active || active === document.body || !active.isConnected || !main.current?.contains(active)) heading.focus({ preventScroll: true });
+    }, 100);
+    return () => clearInterval(timer);
   }, [step]);
 }
 
@@ -46,7 +58,7 @@ export function TestMint() {
       <button type="button" className="env" aria-label="Test mint: fake sats, about this mint" onClick={() => setOpen(true)}>
         <Icon name="flask" />Test mint
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Testnet">
+      <Sheet open={open} onClose={() => setOpen(false)} title="Test mint">
         <p className="sheet-text">Every deposit, payout and take-back is a real Cashu request to a public test mint. The test mint pays its own invoices, so the sats are fake and nothing here is real money.</p>
         <dl className="facts-list">
           <div><dt>Mint</dt><dd className="mono">{TEST_MINT.replace('https://', '')}</dd></div>

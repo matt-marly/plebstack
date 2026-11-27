@@ -148,8 +148,14 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
     return saved;
   }
 
-  async function ensurePackage(current: BoardCampaign): Promise<BatchPlan> {
-    const published = firstPackage(current);
+  // The device whose deposit fills the stack builds the package at once. Any other device first waits to hear it
+  // from the relays, so every pleb signs the same package instead of each building their own.
+  async function ensurePackage(current: BoardCampaign, { first = false } = {}): Promise<BatchPlan> {
+    let published = firstPackage(current);
+    for (let tries = 0; !published && !first && sync && tries < 16; tries += 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      published = firstPackage(board.get(current.campaign.id) ?? current);
+    }
     if (published) return published;
     const plan = await coordinator.preparePayout(terms(current.campaign), paidQuotes(current));
     board.append(current.campaign.id, { type: 'package', at: at(), plan });
@@ -331,7 +337,7 @@ export function createLiveActions(actors: Actors, now = () => new Date()) {
       }
       const current = entry(campaignId);
       // The coordinator publishes the package as soon as all three are in; a backer's review asks again if this fails.
-      if (paidQuotes(current).length === current.campaign.backerCount) await ensurePackage(current).catch(() => {});
+      if (paidQuotes(current).length === current.campaign.backerCount) await ensurePackage(current, { first: true }).catch(() => {});
       return `Stacked. ${sats(paid.amountSat)} at the mint, locked to your key.`;
     },
 

@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { groupComplete, maintainerOf, sats } from '../demo/world';
 import { paths } from '../routes';
 import { Frame } from '../ui/Frame';
@@ -9,9 +9,9 @@ import { Track } from '../ui/Track';
 import type { ScreenProps } from './StackRoute';
 
 // P3: the first win. The slab drops in only when arriving from the mint's answer, never on a reload.
-export function Stacked({ world, record, journey }: ScreenProps) {
+export function Stacked({ world, record, journey, arrival }: ScreenProps) {
   const navigate = useNavigate();
-  const landed = (useLocation().state as { landed?: boolean } | null)?.landed === true;
+  const landed = arrival?.landed === true;
   const { campaign } = record;
   const maintainer = maintainerOf(record).short;
   const each = sats(campaign.contributionSat);

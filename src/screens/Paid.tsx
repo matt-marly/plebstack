@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { maintainerOf, people, sats, type CampaignRecord } from '../demo/world';
 import { stateCopy } from '../domain/states';
 import { formatWhen, listNames, shortKey } from '../ui/format';
@@ -20,8 +19,8 @@ function seen(id: string): boolean {
 }
 
 // The moment plays only when the mint's confirmation arrives with this screen open, once per payout per session.
-function usePaidMoment(payoutId: string | undefined): boolean {
-  const arrived = (useLocation().state as { lit?: boolean } | null)?.lit === true;
+function usePaidMoment(payoutId: string | undefined, lit: boolean): boolean {
+  const arrived = lit;
   const [play] = useState(() => arrived && payoutId !== undefined && !seen(payoutId));
   useEffect(() => {
     if (!payoutId) return;
@@ -37,9 +36,9 @@ export function confirmedPayout(record: CampaignRecord) {
 }
 
 // P8: the screen people screenshot. Only reachable once the mint confirmed the batch.
-export function Paid({ world, record, journey }: ScreenProps) {
+export function Paid({ world, record, journey, arrival }: ScreenProps) {
   const payout = confirmedPayout(record);
-  const playing = usePaidMoment(payout?.id);
+  const playing = usePaidMoment(payout?.id, arrival?.lit === true);
   const { campaign } = record;
   const maintainer = maintainerOf(record);
   const total = sats(campaign.contributionSat * campaign.backerCount);
